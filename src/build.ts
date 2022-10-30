@@ -1,13 +1,16 @@
 import * as cp from "child_process";
-import esbuild, { Plugin } from "esbuild";
-import path from "path";
-import fs from "fs-extra";
-import { sassPlugin } from "esbuild-sass-plugin";
-import { IDependencyMap, IPackageJson } from "package-json-type";
 import * as commander from "commander";
+import esbuild, { Plugin } from "esbuild";
+import { sassPlugin } from "esbuild-sass-plugin";
+import fs from "fs-extra";
+import { IDependencyMap, IPackageJson } from "package-json-type";
+import path from "path";
+import blessed from "blessed";
+import * as pty from "node-pty";
 
-import { binPath, findJsFile, getManifest } from "./common";
 import { Command } from "./command";
+import { binPath, findJsFile, getManifest, modulesPath } from "./common";
+import _ from "lodash";
 
 interface BuildFlags {
   watch?: boolean;
@@ -23,7 +26,73 @@ const ANSI_REGEX = new RegExp(
   "g"
 );
 
+class ProcessManager {
+  screen = blessed.screen({
+    fastCSR: true,
+    terminal: "xterm-256color",
+    fullUnicode: true,
+  });
+  boxes: blessed.Widgets.Log[];
+  curBox: number = 0;
+
+  constructor() {
+    this.screen.title = "my window title";
+    this.boxes = _.range(0, 2)
+      .map((x) =>
+        _.range(0, 2).map((y) =>
+          blessed.log({
+            top: x == 0 ? "0" : "50%",
+            left: y == 0 ? "0" : "50%",
+            width: "50%",
+            height: "50%",
+            content: "",
+            border: {
+              type: "line",
+            },
+            style: {
+              border: {
+                fg: "#f0f0f0",
+              },
+            },
+          })
+        )
+      )
+      .flat();
+
+    this.boxes.forEach((box) => this.screen.append(box));
+
+    // Quit on Escape, q, or Control-C.
+    this.screen.key(["escape", "q", "C-c"], function (ch, key) {
+      return process.exit(0);
+    });
+  }
+
+  start() {
+    this.screen.render();
+  }
+
+  async spawn(script: string, opts: string[]): Promise<boolean> {
+    let box = this.boxes[this.curBox];
+    box.setLabel(path.basename(script));
+    this.curBox += 1;
+
+    let p = pty.spawn(script, opts, {
+      env: {
+        ...process.env,
+        NODE_PATH: modulesPath,
+      },
+    });
+    p.onData((data) => box.log(data));
+    let exitCode: number = await new Promise((resolve) => {
+      p.onExit(({ exitCode }) => resolve(exitCode));
+    });
+    return exitCode == 0;
+  }
+}
+
 export class BuildCommand extends Command {
+  processManager = new ProcessManager();
+
   constructor(readonly flags: BuildFlags, readonly manifest: IPackageJson) {
     super();
   }
@@ -38,15 +107,16 @@ export class BuildCommand extends Command {
       opts.push("-w");
     }
 
-    let tsc = cp.spawn(tscPath, opts);
-    tsc.stdout!.on("data", (data) => {
-      // Get rid of ANSI codes so the terminal isn't randomly cleared by tsc's output.
-      console.log(data.toString().replace(ANSI_REGEX, "").trim());
-    });
-    let exitCode: number = await new Promise((resolve) => {
-      tsc.on("exit", resolve);
-    });
-    return exitCode == 0;
+    return this.processManager.spawn(tscPath, opts);
+  }
+
+  async lint(): Promise<boolean> {
+    this.configManager.ensureConfig(".eslintrc.js");
+
+    let eslintPath = path.join(binPath, "eslint");
+    let opts = ["--ext", "js,ts,tsx", "src"];
+
+    return this.processManager.spawn(eslintPath, opts);
   }
 
   async compileLibrary(entry: string): Promise<boolean> {
@@ -147,7 +217,12 @@ export class BuildCommand extends Command {
   async run(): Promise<boolean> {
     await fs.rm("dist", { recursive: true, force: true });
 
-    let results = await Promise.all([this.check(), this.compile()]);
+    this.processManager.start();
+    let results = await Promise.all([
+      this.check(),
+      this.lint(),
+      this.compile(),
+    ]);
 
     let buildPath = "build.mjs";
     if (fs.existsSync(buildPath))

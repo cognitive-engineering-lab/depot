@@ -9,8 +9,6 @@ export abstract class Command {
     let exitCode;
     try {
       exitCode = (await this.run()) ? 0 : 1;
-    } catch (e) {
-      exitCode = 1;
     } finally {
       this.configManager.cleanup();
     }

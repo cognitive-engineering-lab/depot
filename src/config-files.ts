@@ -1,7 +1,12 @@
 import fs from "fs-extra";
 import path from "path";
 
-type ConfigFile = "tsconfig.json" | "vite.config.ts" | ".eslintrc.js";
+type ConfigFile =
+  | "tsconfig.json"
+  | "vite.config.ts"
+  | ".eslintrc.js"
+  | "prettier.config.js";
+
 export class ConfigManager {
   linked: Set<string>;
   constructor() {
@@ -16,7 +21,7 @@ export class ConfigManager {
   }
 
   cleanup() {
-    this.linked.forEach((file) => {
+    this.linked.forEach(file => {
       fs.rmSync(file);
     });
   }
