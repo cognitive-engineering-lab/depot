@@ -1,8 +1,10 @@
 import "@cspotcode/source-map-support/register.js";
 import { program } from "commander";
 
-import * as build from "./build";
+import { BuildCommand } from "./build";
+import { FmtCommand } from "./fmt";
 
-build.register();
+BuildCommand.register(program);
+FmtCommand.register(program);
 
 program.parseAsync(process.argv);

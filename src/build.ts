@@ -1,12 +1,13 @@
-import { program } from "commander";
 import * as cp from "child_process";
-import esbuild, { Loader, Plugin } from "esbuild";
+import esbuild, { Plugin } from "esbuild";
 import path from "path";
 import fs from "fs-extra";
 import { sassPlugin } from "esbuild-sass-plugin";
 import { IDependencyMap, IPackageJson } from "package-json-type";
+import * as commander from "commander";
 
 import { binPath, findJsFile, getManifest } from "./common";
+import { Command } from "./command";
 
 interface BuildFlags {
   watch?: boolean;
@@ -22,36 +23,10 @@ const ANSI_REGEX = new RegExp(
   "g"
 );
 
-type ConfigFile = "tsconfig.json" | "vite.config.ts";
-class ConfigManager {
-  static CONFIGS: { [file in ConfigFile]: string } = {
-    "tsconfig.json": path.join(__dirname, "./assets/tsconfig.default.json"),
-    "vite.config.ts": path.join(__dirname, "./assets/vite.config.default.ts"),
-  };
-
-  linked: Set<string>;
-  constructor() {
-    this.linked = new Set();
+export class BuildCommand extends Command {
+  constructor(readonly flags: BuildFlags, readonly manifest: IPackageJson) {
+    super();
   }
-
-  ensureConfig(file: ConfigFile) {
-    if (!fs.existsSync(file)) {
-      this.linked.add(file);
-      fs.symlinkSync(ConfigManager.CONFIGS[file], file);
-    }
-  }
-
-  cleanup() {
-    this.linked.forEach((file) => {
-      fs.rmSync(file);
-    });
-  }
-}
-
-class BuildProcess {
-  configManager: ConfigManager = new ConfigManager();
-
-  constructor(readonly flags: BuildFlags, readonly manifest: IPackageJson) {}
 
   async check(): Promise<boolean> {
     this.configManager.ensureConfig("tsconfig.json");
@@ -169,7 +144,7 @@ class BuildProcess {
     throw new Error("No valid entry point");
   }
 
-  async main() {
+  async run(): Promise<boolean> {
     await fs.rm("dist", { recursive: true, force: true });
 
     let results = await Promise.all([this.check(), this.compile()]);
@@ -178,13 +153,14 @@ class BuildProcess {
     if (fs.existsSync(buildPath))
       await import(path.join(process.cwd(), buildPath));
 
-    if (!results.every((x) => x)) process.exit(1);
+    return results.every((x) => x);
+  }
+
+  static register(program: commander.Command) {
+    program
+      .command("build")
+      .option("-w, --watch", "Watch for changes and rebuild")
+      .option("-r, --release", "Build for production")
+      .action((flags) => new BuildCommand(flags, getManifest()).main());
   }
 }
-
-export let register = () =>
-  program
-    .command("build")
-    .option("-w, --watch", "Watch for changes and rebuild")
-    .option("-r, --release", "Build for production")
-    .action((flags) => new BuildProcess(flags, getManifest()).main());
