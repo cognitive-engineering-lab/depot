@@ -107,8 +107,6 @@ export class BuildCommand extends Command {
   }
 
   async check(): Promise<boolean> {
-    this.configManager.ensureConfig("tsconfig.json");
-
     let tscPath = path.join(binPath, "tsc");
 
     let opts = ["-emitDeclarationOnly"];
@@ -120,9 +118,7 @@ export class BuildCommand extends Command {
     return spawn(tscPath, opts, data => this.logger.log("tsc", data));
   }
 
-  async lint(): Promise<boolean> {
-    this.configManager.ensureConfig(".eslintrc.js");
-
+  async lint(): Promise<boolean> {    
     let eslintPath = path.join(binPath, "eslint");
     let eslintOpts = ["--ext", "js,ts,tsx", "src"];
 
@@ -233,9 +229,6 @@ export class BuildCommand extends Command {
   }
 
   async compileWebsite(_entry: string): Promise<boolean> {
-    this.configManager.ensureConfig("vite.config.ts");
-    this.configManager.ensureConfig("index.html");
-
     let vitePath = path.join(binPath, "vite");
 
     let opts = ["build", "--minify=false"];

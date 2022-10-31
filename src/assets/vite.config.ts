@@ -5,4 +5,5 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  resolve: { preserveSymlinks: true },
 });

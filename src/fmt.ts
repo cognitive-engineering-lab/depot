@@ -12,13 +12,12 @@ export class FmtCommand extends Command {
   }
 
   async run(): Promise<boolean> {
-    this.configManager.ensureConfig("prettier.config.js");
     let prettierBin = path.join(binPath, "prettier");
     let opts = ["-w", "src/**/*.{ts,tsx}"];
     return spawn(prettierBin, opts);
   }
 
   static register(program: commander.Command) {
-    program.command("fmt").action(flags => new FmtCommand(flags).main());
+    program.command("fmt").action((flags) => new FmtCommand(flags).main());
   }
 }

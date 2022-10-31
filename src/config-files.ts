@@ -1,29 +1,55 @@
-import fs from "fs-extra";
 import path from "path";
+import fs from "fs-extra";
 
-type ConfigFile =
-  | "tsconfig.json"
-  | "vite.config.ts"
-  | ".eslintrc.js"
-  | "prettier.config.js"
-  | "index.html";
+import { findJsFile } from "./common";
+
+const ASSETS_DIR = path.join(__dirname, "assets");
 
 export class ConfigManager {
-  linked: Set<string>;
-  constructor() {
-    this.linked = new Set();
-  }
+  configs: string[];
 
-  ensureConfig(file: ConfigFile) {
-    if (!fs.existsSync(file)) {
-      this.linked.add(file);
-      fs.linkSync(path.join(__dirname, "assets", file), file);
+  constructor() {
+    this.configs = ["tsconfig.json", ".eslintrc.js", ".prettierrc.js"];
+
+    let index = findJsFile("src/index");
+    if (index) {
+      this.configs.push("vite.config.ts");
+      this.configs.push("index.html");
     }
   }
 
-  cleanup() {
-    this.linked.forEach(file => {
-      fs.rmSync(file);
+  async modifyGitignore() {
+    if (!fs.existsSync(".gitignore")) fs.createFileSync(".gitignore");
+
+    const HEADER = "# Managed by Greco";
+    let contents = await fs.readFile(".gitignore", "utf-8");
+    let entries = contents.split("\n");
+    let i = entries.indexOf(HEADER);
+    if (i == -1) i = entries.length;
+
+    let toIgnore = await this.findDefaultConfigs();
+    toIgnore.sort();
+    let newEntries = entries.slice(0, i).concat([HEADER, ...toIgnore]);
+    await fs.writeFile(".gitignore", newEntries.join("\n"));
+  }
+
+  async findDefaultConfigs() {
+    let isDefault = await Promise.all(
+      this.configs.map(async (config) => {
+        let p = await fs.realpath(config);
+        return path.dirname(p) == ASSETS_DIR;
+      })
+    );
+    return this.configs.filter((_f, i) => isDefault[i]);
+  }
+
+  async ensureAllConfigsExist() {
+    let promises = this.configs.map(async (config) => {
+      if (fs.existsSync(config)) return;
+      await fs.symlink(path.join(ASSETS_DIR, config), config);
     });
+    await Promise.all(promises);
+
+    await this.modifyGitignore();
   }
 }

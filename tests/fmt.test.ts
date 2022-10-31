@@ -5,8 +5,8 @@ test("fmt works", () => {
 export let foo = 
   "bar";  
 `;
-  return Graco.with({ src }, async graco => {
-    await graco.run("fmt");
+  return Graco.with({ src, debug: true }, async (graco) => {
+    expect(await graco.run("fmt")).toBe(0);
     expect(graco.read("src/lib.ts")).toBe(`export let foo = "bar";\n`);
   });
 });

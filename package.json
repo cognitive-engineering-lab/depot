@@ -7,7 +7,8 @@
     "scripts": {
         "build": "node build.mjs",
         "test": "jest",
-        "commit-check": "pnpm build && pnpm test"
+        "clean": "rm -rf node_modules dist",        
+        "commit-check": "pnpm clean && pnpm install && pnpm build && pnpm test"
     },
     "dependencies": {
         "@cspotcode/source-map-support": "^0.8.1",

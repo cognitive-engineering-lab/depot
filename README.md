@@ -1,4 +1,4 @@
-# Graco: build tool orchestrator for JS
+# Graco: a JS devtool orchestrator
 
 _(It's Cargo for Javascript)_
 

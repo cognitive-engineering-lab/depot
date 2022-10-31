@@ -42,7 +42,10 @@ export class Graco {
 
     await Promise.all([p1, p2]);
 
-    return new Graco(dir, debug || false);
+    let graco = new Graco(dir, debug || false);
+    await graco.run("init");
+
+    return graco;
   }
 
   run(cmd: string): Promise<number> {
