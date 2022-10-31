@@ -1,4 +1,5 @@
 import fs from "fs-extra";
+import * as pty from "node-pty";
 import type { IPackageJson } from "package-json-type";
 import path from "path";
 
@@ -21,4 +22,23 @@ export let getManifest = (): IPackageJson => {
   return fs.existsSync(pkgPath)
     ? JSON.parse(fs.readFileSync("./package.json", "utf-8"))
     : {};
+};
+
+export let spawn = async (
+  script: string,
+  opts: string[],
+  onData?: (data: string) => void
+): Promise<boolean> => {
+  let p = pty.spawn(script, opts, {
+    env: {
+      ...process.env,
+      NODE_PATH: modulesPath,
+    },
+  });
+  onData = onData || (data => process.stdout.write(data));
+  p.onData(onData);
+  let exitCode: number = await new Promise(resolve => {
+    p.onExit(({ exitCode }) => resolve(exitCode));
+  });
+  return exitCode == 0;
 };

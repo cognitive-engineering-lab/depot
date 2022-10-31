@@ -5,35 +5,17 @@ import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
 import _ from "lodash";
-import * as pty from "node-pty";
 import { IDependencyMap, IPackageJson } from "package-json-type";
 import path from "path";
+import watch from "watch";
 
 import { Command } from "./command";
-import { binPath, findJsFile, getManifest, modulesPath } from "./common";
+import { binPath, findJsFile, getManifest, spawn } from "./common";
 
 interface BuildFlags {
   watch?: boolean;
   release?: boolean;
 }
-
-let spawn = async (
-  script: string,
-  opts: string[],
-  onData: (data: string) => void
-): Promise<boolean> => {
-  let p = pty.spawn(script, opts, {
-    env: {
-      ...process.env,
-      NODE_PATH: modulesPath,
-    },
-  });
-  p.onData(onData);
-  let exitCode: number = await new Promise(resolve => {
-    p.onExit(({ exitCode }) => resolve(exitCode));
-  });
-  return exitCode == 0;
-};
 
 abstract class Logger {
   start() {}
@@ -53,7 +35,9 @@ class OnceLogger extends Logger {
   }
 
   log(name: string, data: string) {
-    this.logs.find(r => r.name == name)!.logs.push(data);
+    let entry = this.logs.find(r => r.name == name);
+    if (!entry) throw new Error(`No logger named: ${name}`);
+    entry.logs.push(data);
   }
 
   end() {
@@ -149,10 +133,21 @@ export class BuildCommand extends Command {
     this.configManager.ensureConfig(".eslintrc.js");
 
     let eslintPath = path.join(binPath, "eslint");
-    let opts = ["--ext", "js,ts,tsx", "src"];
+    let eslintOpts = ["--ext", "js,ts,tsx", "src"];
+
+    let script, opts;
+    if (this.flags.watch) {
+      let watchPath = path.join(binPath, "watch");
+      script = watchPath;
+      opts = [`${eslintPath} ${eslintOpts.join(" ")}`, `src`];
+    } else {
+      script = eslintPath;
+      opts = eslintOpts;
+    }
 
     this.logger.register("eslint");
-    return spawn(eslintPath, opts, data => this.logger.log("eslint", data));
+
+    return spawn(script, opts, data => this.logger.log("eslint", data));
   }
 
   async compileLibrary(entry: string): Promise<boolean> {

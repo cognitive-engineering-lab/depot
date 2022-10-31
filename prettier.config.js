@@ -1,0 +1,1 @@
+/Users/will/Code/graco/dist/assets/prettier.config.js
