@@ -1,6 +1,5 @@
 import blessed from "blessed";
 import chalk from "chalk";
-import * as commander from "commander";
 import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
@@ -8,8 +7,14 @@ import _ from "lodash";
 import { IDependencyMap, IPackageJson } from "package-json-type";
 import path from "path";
 
-import { Command } from "./command";
-import { binPath, findJsFile, getManifest, spawn } from "./common";
+import {
+  Command,
+  Registration,
+  binPath,
+  findJsFile,
+  getManifest,
+  spawn,
+} from "./common";
 
 interface BuildFlags {
   watch?: boolean;
@@ -98,12 +103,13 @@ class WatchLogger extends Logger {
   }
 }
 
-export class BuildCommand extends Command {
+export class BuildCommand implements Command {
   logger: Logger;
+  manifest: IPackageJson;
 
-  constructor(readonly flags: BuildFlags, readonly manifest: IPackageJson) {
-    super();
+  constructor(readonly flags: BuildFlags) {
     this.logger = flags.watch ? new WatchLogger() : new OnceLogger();
+    this.manifest = getManifest();
   }
 
   async check(): Promise<boolean> {
@@ -268,11 +274,9 @@ export class BuildCommand extends Command {
     return results.every(x => x);
   }
 
-  static register(program: commander.Command) {
+  static register: Registration = program =>
     program
       .command("build")
       .option("-w, --watch", "Watch for changes and rebuild")
-      .option("-r, --release", "Build for production")
-      .action(flags => new BuildCommand(flags, getManifest()).main());
-  }
+      .option("-r, --release", "Build for production");
 }

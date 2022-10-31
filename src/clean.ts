@@ -1,14 +1,11 @@
-import * as commander from "commander";
 import fs from "fs-extra";
 
-import { Command } from "./command";
+import { Command, Registration } from "./common";
 
 interface CleanFlags {}
 
-export class CleanCommand extends Command {
-  constructor(readonly flags: CleanFlags) {
-    super();
-  }
+export class CleanCommand implements Command {
+  constructor(readonly flags: CleanFlags) {}
 
   async run(): Promise<boolean> {
     let dirs = ["dist", "node_modules"];
@@ -18,7 +15,6 @@ export class CleanCommand extends Command {
     return true;
   }
 
-  static register(program: commander.Command) {
-    program.command("clean").action(flags => new CleanCommand(flags).main());
-  }
+  // todo: -a flag that also cleans up configs
+  static register: Registration = program => program.command("clean");
 }

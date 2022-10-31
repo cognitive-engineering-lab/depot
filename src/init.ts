@@ -1,17 +1,10 @@
-import * as commander from "commander";
-import fs from "fs-extra";
-import path from "path";
-
-import { Command } from "./command";
-import { binPath, findJsFile, spawn } from "./common";
+import { Command, Registration, spawn } from "./common";
 import { ConfigManager } from "./config-files";
 
 interface InitFlags {}
 
-export class InitCommand extends Command {
-  constructor(readonly flags: InitFlags) {
-    super();
-  }
+export class InitCommand implements Command {
+  constructor(readonly flags: InitFlags) {}
 
   async run(): Promise<boolean> {
     let configManager = new ConfigManager();
@@ -20,7 +13,5 @@ export class InitCommand extends Command {
     return spawn("pnpm", ["install"]);
   }
 
-  static register(program: commander.Command) {
-    program.command("init").action(flags => new InitCommand(flags).main());
-  }
+  static register: Registration = program => program.command("init");
 }

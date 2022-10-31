@@ -1,15 +1,11 @@
-import * as commander from "commander";
 import path from "path";
 
-import { Command } from "./command";
-import { binPath, spawn } from "./common";
+import { Command, Registration, binPath, spawn } from "./common";
 
 interface FmtFlags {}
 
-export class FmtCommand extends Command {
-  constructor(readonly flags: FmtFlags) {
-    super();
-  }
+export class FmtCommand implements Command {
+  constructor(readonly flags: FmtFlags) {}
 
   async run(): Promise<boolean> {
     let prettierBin = path.join(binPath, "prettier");
@@ -17,7 +13,5 @@ export class FmtCommand extends Command {
     return spawn(prettierBin, opts);
   }
 
-  static register(program: commander.Command) {
-    program.command("fmt").action(flags => new FmtCommand(flags).main());
-  }
+  static register: Registration = program => program.command("fmt");
 }

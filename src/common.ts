@@ -1,3 +1,4 @@
+import * as commander from "commander";
 import fs from "fs-extra";
 import * as pty from "node-pty";
 import type { IPackageJson } from "package-json-type";
@@ -42,3 +43,9 @@ export let spawn = async (
   });
   return exitCode == 0;
 };
+
+export interface Command {
+  run(): Promise<boolean>;
+}
+
+export type Registration = (program: commander.Command) => commander.Command;

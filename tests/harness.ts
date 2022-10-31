@@ -16,7 +16,7 @@ export class Graco {
   constructor(readonly root: string, readonly debug: boolean) {}
 
   static async setup({ manifest, src, debug }: GracoProps): Promise<Graco> {
-    let dir = await fs.mkdtemp(os.tmpdir());
+    let dir = await fs.mkdtemp(path.join(os.tmpdir(), "graco-test-"));
     if (debug) console.log(dir);
 
     let fullManifest: IPackageJson = {
@@ -28,17 +28,15 @@ export class Graco {
       JSON.stringify(fullManifest)
     );
 
-    let srcDir = path.join(dir, "src");
-    await fs.mkdir(srcDir);
+    let files = typeof src === "string" ? { "src/lib.ts": src } : src;
 
-    let p2;
-    if (typeof src == "string") {
-      p2 = fs.writeFile(path.join(srcDir, "lib.ts"), src);
-    } else {
-      p2 = Promise.all(
-        Object.keys(src).map((f) => fs.writeFile(path.join(srcDir, f), src[f]))
-      );
-    }
+    let p2 = Promise.all(
+      Object.keys(files).map(async f => {
+        let fullPath = path.join(dir, f);
+        await fs.mkdirp(path.dirname(fullPath));
+        await fs.writeFile(fullPath, files[f]);
+      })
+    );
 
     await Promise.all([p1, p2]);
 
@@ -50,8 +48,8 @@ export class Graco {
 
   run(cmd: string): Promise<number> {
     let p = pty.spawn(`node`, [BINPATH, cmd], { cwd: this.root });
-    if (this.debug) p.onData((data) => console.log(data));
-    return new Promise((resolve) =>
+    if (this.debug) p.onData(data => console.log(data));
+    return new Promise(resolve =>
       p.onExit(({ exitCode }) => resolve(exitCode))
     );
   }

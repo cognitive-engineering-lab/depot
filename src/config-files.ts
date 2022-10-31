@@ -16,6 +16,10 @@ export class ConfigManager {
       this.configs.push("vite.config.ts");
       this.configs.push("index.html");
     }
+
+    // if (fs.existsSync("packages")) {
+    //   this.configs.push("pnpm-workspace.yaml");
+    // }
   }
 
   async modifyGitignore() {

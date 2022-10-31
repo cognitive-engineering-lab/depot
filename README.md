@@ -7,4 +7,3 @@ TODOs:
 * test / jest
 * publish / lerna
 * doc / typedoc
-* clean / fs.rm
