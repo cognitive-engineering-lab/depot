@@ -1,6 +1,6 @@
 import * as commander from "commander";
-import path from "path";
 import fs from "fs-extra";
+import path from "path";
 
 import { Command } from "./command";
 import { binPath, findJsFile, spawn } from "./common";
@@ -21,6 +21,6 @@ export class InitCommand extends Command {
   }
 
   static register(program: commander.Command) {
-    program.command("init").action((flags) => new InitCommand(flags).main());
+    program.command("init").action(flags => new InitCommand(flags).main());
   }
 }

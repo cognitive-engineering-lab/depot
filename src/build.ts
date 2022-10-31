@@ -118,7 +118,7 @@ export class BuildCommand extends Command {
     return spawn(tscPath, opts, data => this.logger.log("tsc", data));
   }
 
-  async lint(): Promise<boolean> {    
+  async lint(): Promise<boolean> {
     let eslintPath = path.join(binPath, "eslint");
     let eslintOpts = ["--ext", "js,ts,tsx", "src"];
 

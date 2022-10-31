@@ -18,6 +18,6 @@ export class FmtCommand extends Command {
   }
 
   static register(program: commander.Command) {
-    program.command("fmt").action((flags) => new FmtCommand(flags).main());
+    program.command("fmt").action(flags => new FmtCommand(flags).main());
   }
 }

@@ -13,12 +13,12 @@ export class CleanCommand extends Command {
   async run(): Promise<boolean> {
     let dirs = ["dist", "node_modules"];
     await Promise.all(
-      dirs.map((d) => fs.rm(d, { recursive: true, force: true }))
+      dirs.map(d => fs.rm(d, { recursive: true, force: true }))
     );
     return true;
   }
 
   static register(program: commander.Command) {
-    program.command("clean").action((flags) => new CleanCommand(flags).main());
+    program.command("clean").action(flags => new CleanCommand(flags).main());
   }
 }

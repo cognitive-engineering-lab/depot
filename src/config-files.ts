@@ -1,5 +1,5 @@
-import path from "path";
 import fs from "fs-extra";
+import path from "path";
 
 import { findJsFile } from "./common";
 
@@ -35,7 +35,7 @@ export class ConfigManager {
 
   async findDefaultConfigs() {
     let isDefault = await Promise.all(
-      this.configs.map(async (config) => {
+      this.configs.map(async config => {
         let p = await fs.realpath(config);
         return path.dirname(p) == ASSETS_DIR;
       })
@@ -44,7 +44,7 @@ export class ConfigManager {
   }
 
   async ensureAllConfigsExist() {
-    let promises = this.configs.map(async (config) => {
+    let promises = this.configs.map(async config => {
       if (fs.existsSync(config)) return;
       await fs.symlink(path.join(ASSETS_DIR, config), config);
     });
