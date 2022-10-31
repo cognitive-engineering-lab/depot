@@ -5,7 +5,8 @@ type ConfigFile =
   | "tsconfig.json"
   | "vite.config.ts"
   | ".eslintrc.js"
-  | "prettier.config.js";
+  | "prettier.config.js"
+  | "index.html";
 
 export class ConfigManager {
   linked: Set<string>;
@@ -16,7 +17,7 @@ export class ConfigManager {
   ensureConfig(file: ConfigFile) {
     if (!fs.existsSync(file)) {
       this.linked.add(file);
-      fs.symlinkSync(path.join(__dirname, "assets", file), file);
+      fs.linkSync(path.join(__dirname, "assets", file), file);
     }
   }
 

@@ -1,21 +1,19 @@
 import fs from "fs-extra";
-import path from "path";
-import type { IPackageJson } from "package-json-type";
-import * as cp from "child_process";
+import * as pty from "node-pty";
 import os from "os";
-import util from "util";
+import type { IPackageJson } from "package-json-type";
+import path from "path";
 
-let exec = util.promisify(cp.exec);
 let BINPATH = path.join(__dirname, "..", "dist", "main.js");
 
 export interface GracoProps {
-  src: string;
+  src: string | { [file: string]: string };
   manifest?: Partial<IPackageJson>;
   debug?: boolean;
 }
 
 export class Graco {
-  constructor(readonly root: string) {}
+  constructor(readonly root: string, readonly debug: boolean) {}
 
   static async setup({ manifest, src, debug }: GracoProps): Promise<Graco> {
     let dir = await fs.mkdtemp(os.tmpdir());
@@ -32,21 +30,37 @@ export class Graco {
 
     let srcDir = path.join(dir, "src");
     await fs.mkdir(srcDir);
-    let p2 = fs.writeFile(path.join(srcDir, "lib.ts"), src);
+
+    let p2;
+    if (typeof src == "string") {
+      p2 = fs.writeFile(path.join(srcDir, "lib.ts"), src);
+    } else {
+      p2 = Promise.all(
+        Object.keys(src).map((f) => fs.writeFile(path.join(srcDir, f), src[f]))
+      );
+    }
 
     await Promise.all([p1, p2]);
 
-    return new Graco(dir);
+    return new Graco(dir, debug || false);
   }
 
-  run(cmd: string): Promise<{ stderr: string; stdout: string }> {
-    return exec(`node ${BINPATH} ${cmd}`, {
-      cwd: this.root,
-    });
+  run(cmd: string): Promise<number> {
+    let p = pty.spawn(`node`, [BINPATH, cmd], { cwd: this.root });
+    if (this.debug) p.onData((data) => console.log(data));
+    return new Promise((resolve) =>
+      p.onExit(({ exitCode }) => resolve(exitCode))
+    );
   }
 
   read(file: string): string {
     return fs.readFileSync(path.join(this.root, file), "utf-8");
+  }
+
+  test(file: string) {
+    if (!fs.existsSync(path.join(this.root, file))) {
+      throw new Error(`File does not exist: ${file}`);
+    }
   }
 
   async cleanup() {

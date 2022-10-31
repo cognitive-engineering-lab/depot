@@ -7,7 +7,6 @@ import fs from "fs-extra";
 import _ from "lodash";
 import { IDependencyMap, IPackageJson } from "package-json-type";
 import path from "path";
-import watch from "watch";
 
 import { Command } from "./command";
 import { binPath, findJsFile, getManifest, spawn } from "./common";
@@ -69,16 +68,8 @@ class WatchLogger extends Logger {
             left: y == 0 ? "0" : "50%",
             width: "50%",
             height: "50%",
-            content: "",
-            tags: true,
-            border: {
-              type: "line",
-            },
-            style: {
-              border: {
-                fg: "#eeeeee",
-              },
-            },
+            border: { type: "line" },
+            style: { border: { fg: "#eeeeee" } },
           })
         )
       )
@@ -243,6 +234,7 @@ export class BuildCommand extends Command {
 
   async compileWebsite(_entry: string): Promise<boolean> {
     this.configManager.ensureConfig("vite.config.ts");
+    this.configManager.ensureConfig("index.html");
 
     let vitePath = path.join(binPath, "vite");
 

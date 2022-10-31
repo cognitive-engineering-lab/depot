@@ -13,7 +13,6 @@ specifiers:
   '@types/jest': ^29.2.0
   '@types/lodash': ^4.14.186
   '@types/node': ^18.11.7
-  '@types/watch': ^1.0.3
   '@typescript-eslint/eslint-plugin': ^5.41.0
   '@typescript-eslint/parser': ^5.41.0
   '@vitejs/plugin-react': ^2.2.0
@@ -73,7 +72,6 @@ devDependencies:
   '@types/jest': 29.2.0
   '@types/lodash': 4.14.186
   '@types/node': 18.11.7
-  '@types/watch': 1.0.3
   chalk: 5.1.2
   jest: 29.2.2_@types+node@18.11.7
   package-json-type: 1.0.3
@@ -1024,12 +1022,6 @@ packages:
 
   /@types/stack-utils/2.0.1:
     resolution: {integrity: sha512-Hl219/BT5fLAaz6NDkSuhzasy49dwQS/DSdu4MdggFB8zcXv7vflBI3xp7FEmkmdDkBUI2bPUNeMttp2knYdxw==}
-    dev: true
-
-  /@types/watch/1.0.3:
-    resolution: {integrity: sha512-4YlW05EAjLp6FRATvsWUQK+7kFGKYYz506z68Krfi2oENCOE5DYvF3rYQoCigMwXOdkLGJXf5lWTbY45JPbhoQ==}
-    dependencies:
-      '@types/node': 18.11.7
     dev: true
 
   /@types/yargs-parser/21.0.0:
