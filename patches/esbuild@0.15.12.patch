@@ -1,0 +1,13 @@
+diff --git a/lib/main.js b/lib/main.js
+index 770ffb1ac263ceb5ab476eb4a77bbe5aacf832fb..6a0e193c23e2169401b4ee37646969a160027992 100644
+--- a/lib/main.js
++++ b/lib/main.js
+@@ -1020,7 +1020,7 @@ function buildOrServeImpl(callName, buildKey, sendRequest, sendResponse, refs, s
+       };
+       copyResponseToResult(response, result);
+       runOnEndCallbacks(result, logPluginError, () => {
+-        if (result.errors.length > 0) {
++        if (result.errors.length > 0 && !watch) {
+           return callback2(failureErrorWithLog("Build failed", result.errors, result.warnings), null);
+         }
+         if (response.rebuild) {

@@ -1,57 +1,98 @@
-import * as cp from "child_process";
+import blessed from "blessed";
+import chalk from "chalk";
 import * as commander from "commander";
 import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
+import _ from "lodash";
+import * as pty from "node-pty";
 import { IDependencyMap, IPackageJson } from "package-json-type";
 import path from "path";
-import blessed from "blessed";
-import * as pty from "node-pty";
 
 import { Command } from "./command";
 import { binPath, findJsFile, getManifest, modulesPath } from "./common";
-import _ from "lodash";
 
 interface BuildFlags {
   watch?: boolean;
   release?: boolean;
 }
 
-// Detects ANSI codes in a string. Taken from https://github.com/chalk/ansi-regex
-const ANSI_REGEX = new RegExp(
-  [
-    "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
-    "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))",
-  ].join("|"),
-  "g"
-);
+let spawn = async (
+  script: string,
+  opts: string[],
+  onData: (data: string) => void
+): Promise<boolean> => {
+  let p = pty.spawn(script, opts, {
+    env: {
+      ...process.env,
+      NODE_PATH: modulesPath,
+    },
+  });
+  p.onData(onData);
+  let exitCode: number = await new Promise(resolve => {
+    p.onExit(({ exitCode }) => resolve(exitCode));
+  });
+  return exitCode == 0;
+};
 
-class ProcessManager {
+abstract class Logger {
+  start() {}
+  abstract register(name: string): void;
+  abstract log(name: string, data: string): void;
+  end() {}
+}
+
+class OnceLogger extends Logger {
+  logs: {
+    name: string;
+    logs: string[];
+  }[] = [];
+
+  register(name: string) {
+    this.logs.push({ name, logs: [] });
+  }
+
+  log(name: string, data: string) {
+    this.logs.find(r => r.name == name)!.logs.push(data);
+  }
+
+  end() {
+    this.logs.forEach(({ name, logs }) => {
+      console.log(chalk.bold(name) + "\n");
+      logs.forEach(log => console.log(log));
+      console.log(chalk.bold(".".repeat(80)) + "\n");
+    });
+  }
+}
+
+class WatchLogger extends Logger {
   screen = blessed.screen({
     fastCSR: true,
     terminal: "xterm-256color",
     fullUnicode: true,
   });
   boxes: blessed.Widgets.Log[];
-  curBox: number = 0;
+  boxMap: { [name: string]: number } = {};
 
   constructor() {
+    super();
     this.screen.title = "my window title";
     this.boxes = _.range(0, 2)
-      .map((x) =>
-        _.range(0, 2).map((y) =>
+      .map(x =>
+        _.range(0, 2).map(y =>
           blessed.log({
             top: x == 0 ? "0" : "50%",
             left: y == 0 ? "0" : "50%",
             width: "50%",
             height: "50%",
             content: "",
+            tags: true,
             border: {
               type: "line",
             },
             style: {
               border: {
-                fg: "#f0f0f0",
+                fg: "#eeeeee",
               },
             },
           })
@@ -59,7 +100,7 @@ class ProcessManager {
       )
       .flat();
 
-    this.boxes.forEach((box) => this.screen.append(box));
+    this.boxes.forEach(box => this.screen.append(box));
 
     // Quit on Escape, q, or Control-C.
     this.screen.key(["escape", "q", "C-c"], function (ch, key) {
@@ -67,34 +108,27 @@ class ProcessManager {
     });
   }
 
-  start() {
-    this.screen.render();
+  register(name: string) {
+    let i = Object.keys(this.boxMap).length;
+    this.boxMap[name] = i;
+    this.boxes[i].setLabel(name);
   }
 
-  async spawn(script: string, opts: string[]): Promise<boolean> {
-    let box = this.boxes[this.curBox];
-    box.setLabel(path.basename(script));
-    this.curBox += 1;
+  log(name: string, data: string) {
+    this.boxes[this.boxMap[name]].log(data);
+  }
 
-    let p = pty.spawn(script, opts, {
-      env: {
-        ...process.env,
-        NODE_PATH: modulesPath,
-      },
-    });
-    p.onData((data) => box.log(data));
-    let exitCode: number = await new Promise((resolve) => {
-      p.onExit(({ exitCode }) => resolve(exitCode));
-    });
-    return exitCode == 0;
+  start() {
+    this.screen.render();
   }
 }
 
 export class BuildCommand extends Command {
-  processManager = new ProcessManager();
+  logger: Logger;
 
   constructor(readonly flags: BuildFlags, readonly manifest: IPackageJson) {
     super();
+    this.logger = flags.watch ? new WatchLogger() : new OnceLogger();
   }
 
   async check(): Promise<boolean> {
@@ -107,7 +141,8 @@ export class BuildCommand extends Command {
       opts.push("-w");
     }
 
-    return this.processManager.spawn(tscPath, opts);
+    this.logger.register("tsc");
+    return spawn(tscPath, opts, data => this.logger.log("tsc", data));
   }
 
   async lint(): Promise<boolean> {
@@ -116,7 +151,8 @@ export class BuildCommand extends Command {
     let eslintPath = path.join(binPath, "eslint");
     let opts = ["--ext", "js,ts,tsx", "src"];
 
-    return this.processManager.spawn(eslintPath, opts);
+    this.logger.register("eslint");
+    return spawn(eslintPath, opts, data => this.logger.log("eslint", data));
   }
 
   async compileLibrary(entry: string): Promise<boolean> {
@@ -125,15 +161,18 @@ export class BuildCommand extends Command {
       keys(this.manifest.dependencies)
     );
 
+    let logger = this.logger;
+    logger.register("esbuild");
+
     let plugins: Plugin[] = [
       sassPlugin(),
       {
         name: "files",
         setup(build) {
           let loaders = ["url", "raw"];
-          loaders.forEach((loader) => {
+          loaders.forEach(loader => {
             let filter = new RegExp(`\\?${loader}$`);
-            build.onResolve({ filter }, (args) => {
+            build.onResolve({ filter }, args => {
               let p = args.path.slice(0, -(loader.length + 1));
               p = path.resolve(path.join(args.resolveDir, p));
               return { path: p, namespace: loader };
@@ -141,14 +180,14 @@ export class BuildCommand extends Command {
           });
 
           let toCopy = new Set<string>();
-          build.onLoad({ filter: /.*/, namespace: "url" }, (args) => {
+          build.onLoad({ filter: /.*/, namespace: "url" }, args => {
             toCopy.add(args.path);
             let url = JSON.stringify("./" + path.basename(args.path));
             let contents = `export default new URL(${url}, import.meta.url);`;
             return { contents, loader: "js" };
           });
           build.onEnd(() => {
-            toCopy.forEach((p) => {
+            toCopy.forEach(p => {
               fs.copyFileSync(
                 p,
                 path.join(build.initialOptions.outdir!, path.basename(p))
@@ -156,30 +195,58 @@ export class BuildCommand extends Command {
             });
           });
 
-          build.onLoad({ filter: /.*/, namespace: "raw" }, (args) => {
+          build.onLoad({ filter: /.*/, namespace: "raw" }, args => {
             let contents = fs.readFileSync(args.path, "utf-8");
             return { contents, loader: "text" };
           });
         },
       },
+      {
+        name: "logging",
+        setup(build) {
+          build.onEnd(result => {
+            if (!result.errors.length) logger.log("esbuild", "Build complete!");
+            result.errors.forEach(error => {
+              logger.log(
+                "esbuild",
+                chalk.red("✘ ") +
+                  chalk.whiteBright.bgRed(" ERROR ") +
+                  " " +
+                  chalk.bold(error.text)
+              );
+              if (error.location) {
+                logger.log(
+                  "esbuild",
+                  `\t${error.location.file}:${error.location.line}:${error.location.column}`
+                );
+              }
+            });
+            logger.log("esbuild", "\n");
+          });
+        },
+      },
     ];
 
-    let result = await esbuild.build({
-      entryPoints: [entry],
-      format: "esm",
-      outdir: "dist",
-      bundle: true,
-      watch: this.flags.watch,
-      minify: this.flags.release,
-      sourcemap: !this.flags.release,
-      external,
-      plugins,
-    });
-
-    return result.errors.length == 0;
+    try {
+      let result = await esbuild.build({
+        entryPoints: [entry],
+        format: "esm",
+        outdir: "dist",
+        bundle: true,
+        watch: this.flags.watch,
+        minify: this.flags.release,
+        sourcemap: !this.flags.release,
+        external,
+        plugins,
+        logLevel: "silent",
+      });
+      return result.errors.length == 0;
+    } catch (e) {
+      return false;
+    }
   }
 
-  async compileWebsite(entry: string): Promise<boolean> {
+  async compileWebsite(_entry: string): Promise<boolean> {
     this.configManager.ensureConfig("vite.config.ts");
 
     let vitePath = path.join(binPath, "vite");
@@ -189,18 +256,8 @@ export class BuildCommand extends Command {
       opts.push("-w");
     }
 
-    let vite = cp.spawn(vitePath, opts);
-    vite.stdout!.on("data", (data) => {
-      // Get rid of ANSI codes so the terminal isn't randomly cleared by tsc's output.
-      console.log(data.toString() /*.replace(ANSI_REGEX, "").trim()*/);
-    });
-    vite.stderr!.on("data", (data) => {
-      console.error(data.toString());
-    });
-    let exitCode: number = await new Promise((resolve) => {
-      vite.on("exit", resolve);
-    });
-    return exitCode == 0;
+    this.logger.register("vite");
+    return spawn(vitePath, opts, data => this.logger.log("vite", data));
   }
 
   compile(): Promise<boolean> {
@@ -208,7 +265,6 @@ export class BuildCommand extends Command {
     if (lib) return this.compileLibrary(lib);
 
     let index = findJsFile("src/index");
-
     if (index) return this.compileWebsite(index);
 
     throw new Error("No valid entry point");
@@ -217,7 +273,7 @@ export class BuildCommand extends Command {
   async run(): Promise<boolean> {
     await fs.rm("dist", { recursive: true, force: true });
 
-    this.processManager.start();
+    this.logger.start();
     let results = await Promise.all([
       this.check(),
       this.lint(),
@@ -228,7 +284,8 @@ export class BuildCommand extends Command {
     if (fs.existsSync(buildPath))
       await import(path.join(process.cwd(), buildPath));
 
-    return results.every((x) => x);
+    this.logger.end();
+    return results.every(x => x);
   }
 
   static register(program: commander.Command) {
@@ -236,6 +293,6 @@ export class BuildCommand extends Command {
       .command("build")
       .option("-w, --watch", "Watch for changes and rebuild")
       .option("-r, --release", "Build for production")
-      .action((flags) => new BuildCommand(flags, getManifest()).main());
+      .action(flags => new BuildCommand(flags, getManifest()).main());
   }
 }
