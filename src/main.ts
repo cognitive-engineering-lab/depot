@@ -1,12 +1,12 @@
 import "@cspotcode/source-map-support/register.js";
 import { program } from "commander";
-import fs from "fs-extra";
 
 import { BuildCommand } from "./build";
 import { CleanCommand } from "./clean";
 import type { Command, Registration } from "./common";
 import { FmtCommand } from "./fmt";
 import { InitCommand } from "./init";
+import { TestCommand } from "./test";
 import { Workspace } from "./workspace";
 
 type Class<T> = { new (...args: any[]): T };
@@ -22,5 +22,6 @@ register(BuildCommand, BuildCommand.register);
 register(FmtCommand, FmtCommand.register);
 register(CleanCommand, CleanCommand.register);
 register(InitCommand, InitCommand.register);
+register(TestCommand, TestCommand.register);
 
 program.parseAsync(process.argv);

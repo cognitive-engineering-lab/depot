@@ -14,7 +14,7 @@ describe("clean", () => {
 
   it("removes config files with -a", () => {
     let src = `export let foo = "bar";\n`;
-    return Graco.with({ src, debug: true }, async graco => {
+    return Graco.with({ src }, async graco => {
       graco.test(".eslintrc.js");
       expect(await graco.run("clean -a")).toBe(0);
       expect(() => graco.test(".eslintrc.js")).toThrow();

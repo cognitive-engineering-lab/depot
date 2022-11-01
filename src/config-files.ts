@@ -27,6 +27,10 @@ export let CONFIG_FILES: ConfigFile[] = [
     granularity: "workspace",
   },
   {
+    name: "jest.config.js",
+    granularity: "workspace",
+  },
+  {
     name: "vite.config.ts",
     granularity: "package",
     platform: "browser",

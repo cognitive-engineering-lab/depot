@@ -1,7 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 
-import { Command, Registration } from "./common";
+import { Command, Registration, modulesPath } from "./common";
 import {
   CONFIG_FILE_DIR,
   ConfigFile,
@@ -38,7 +38,17 @@ export class InitCommand implements Command {
   async runWorkspace(ws: Workspace): Promise<boolean> {
     await this.ensureConfigs(configsFor(ws), ws.root);
 
-    return ws.spawn({ script: "pnpm", opts: ["install"] });
+    let success = await ws.spawn({ script: "pnpm", opts: ["install"] });
+    if (!success) return false;
+
+    let typesDir = ws.path(path.join("node_modules", "@types"));
+    await fs.mkdirp(typesDir);
+    await fs.symlink(
+      path.join(modulesPath, "@types", "jest"),
+      path.join(typesDir, "jest")
+    );
+
+    return true;
   }
 
   static register: Registration = program => program.command("init");
