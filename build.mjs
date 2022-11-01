@@ -2,16 +2,17 @@ import esbuild from "esbuild";
 import fs from "fs-extra";
 
 let manifest = JSON.parse(fs.readFileSync("package.json"));
-
+let debug = process.argv.includes("-g");
+let watch = process.argv.includes("-w");
 esbuild.build({
   entryPoints: ["src/main.ts"],
   outdir: "dist",
   bundle: true,
-  minify: false,
+  minify: !debug,
   platform: "node",
   external: Object.keys(manifest.dependencies),
-  sourcemap: true,
-  watch: process.argv.includes("-w"),
+  sourcemap: debug,
+  watch,
   plugins: [
     {
       name: "esm-externals",
