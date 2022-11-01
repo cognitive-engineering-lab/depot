@@ -12,3 +12,11 @@ I'm so goddamn tired of dealing with the Javascript devtool ecosystem. But nonet
 (In the future: `graco doc` will document via [typedoc](https://typedoc.org/), and `graco publish` will publish via [lerna](https://lerna.js.org/).)
 
 All of these commands work on individual packages or monorepos with multiple packages. Graco provides a default configuration for every tool, which you can eject and customize if necessary.
+
+## Usage
+
+Don't use this right now. I'm working on it. But if you *really* want to try...
+
+```
+npm install -g graco
+```
