@@ -1,4 +1,5 @@
 import * as commander from "commander";
+import fs from "fs-extra";
 import * as pty from "node-pty";
 import path from "path";
 
@@ -16,6 +17,15 @@ export interface SpawnProps {
   cwd: string;
   onData?: (data: string) => void;
 }
+
+export let symlinkExists = async (file: string): Promise<boolean> => {
+  try {
+    let lstat = await fs.lstat(file);
+    return lstat.isFile() || lstat.isSymbolicLink();
+  } catch (e) {
+    return false;
+  }
+};
 
 export let spawn = async ({
   script,

@@ -255,6 +255,22 @@ export class BuildCommand implements Command {
     });
   }
 
+  async buildScript(pkg: Package): Promise<boolean> {
+    let buildPath = pkg.path("build.mjs");
+    if (fs.existsSync(buildPath)) {
+      let opts = [buildPath];
+      if (this.flags.watch) opts.push("-w");
+      this.logger.register("build.mjs");
+      return await pkg.spawn({
+        script: "node",
+        opts,
+        onData: data => this.logger.log("build.mjs", data),
+      });
+    } else {
+      return true;
+    }
+  }
+
   compile(pkg: Package): Promise<boolean> {
     if (pkg.platform == "node") return this.compileLibrary(pkg);
     /* pkg.platform == "browser" */ else return this.compileWebsite(pkg);
@@ -265,17 +281,15 @@ export class BuildCommand implements Command {
   }
 
   async run(pkg: Package): Promise<boolean> {
+    await fs.mkdirp(pkg.path("dist"));
+
     this.logger.start();
     let results = await Promise.all([
       this.check(pkg),
       this.lint(pkg),
       this.compile(pkg),
+      this.buildScript(pkg),
     ]);
-
-    let buildPath = pkg.path("build.mjs");
-    if (fs.existsSync(buildPath)) {
-      results.push(await pkg.spawn({ script: "node", opts: [buildPath] }));
-    }
 
     this.logger.end();
     return results.every(x => x);

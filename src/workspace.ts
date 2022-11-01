@@ -5,8 +5,10 @@ import path from "path";
 
 import { Command, SpawnProps, spawn } from "./common";
 
-export type Platform = "browser" | "node";
-export type Target = "bin" | "lib";
+export const PLATFORMS = ["browser", "node"] as const;
+export type Platform = typeof PLATFORMS[number];
+export const TARGETS = ["bin", "lib"] as const;
+export type Target = typeof TARGETS[number];
 
 export class Package {
   readonly platform: Platform;

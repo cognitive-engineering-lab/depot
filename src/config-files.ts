@@ -36,11 +36,6 @@ export let CONFIG_FILES: ConfigFile[] = [
     platform: "browser",
   },
   {
-    name: "index.html",
-    granularity: "package",
-    platform: "browser",
-  },
-  {
     name: "tsconfig.json",
     granularity: "package",
   },
@@ -70,8 +65,14 @@ export async function findManagedConfigs(
 ): Promise<ConfigFile[]> {
   let isDefault = await Promise.all(
     cfgs.map(async config => {
-      let p = await fs.realpath(path.join(dir, config.name));
-      return path.dirname(p) == CONFIG_FILE_DIR;
+      let fullPath = path.join(dir, config.name);
+      try {
+        let p = await fs.realpath(fullPath);
+        return path.dirname(p) == CONFIG_FILE_DIR;
+      } catch (e) {
+        console.warn(`Could not get realpath of path: ${fullPath}`);
+        return false;
+      }
     })
   );
   return cfgs.filter((_f, i) => isDefault[i]);

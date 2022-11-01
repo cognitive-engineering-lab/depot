@@ -1,7 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 
-import { Command, Registration, modulesPath } from "./common";
+import { Command, Registration, modulesPath, symlinkExists } from "./common";
 import {
   CONFIG_FILE_DIR,
   ConfigFile,
@@ -19,8 +19,9 @@ export class InitCommand implements Command {
     let promises = cfgs.map(async config => {
       let srcPath = path.join(CONFIG_FILE_DIR, config.name);
       let dstPath = path.join(dir, config.name);
-      if (fs.existsSync(dstPath)) return;
+      if (await symlinkExists(dstPath)) return;
       await fs.symlink(srcPath, dstPath);
+      console.log(`Linked: ${dstPath}`);
     });
     await Promise.all(promises);
     await modifyGitignore(cfgs, dir);
@@ -42,11 +43,11 @@ export class InitCommand implements Command {
     if (!success) return false;
 
     let typesDir = ws.path(path.join("node_modules", "@types"));
-    await fs.mkdirp(typesDir);
-    await fs.symlink(
-      path.join(modulesPath, "@types", "jest"),
-      path.join(typesDir, "jest")
-    );
+    let jestTypesDir = path.join(typesDir, "jest");
+    if (!(await symlinkExists(jestTypesDir))) {
+      await fs.mkdirp(typesDir);
+      await fs.symlink(path.join(modulesPath, "@types", "jest"), jestTypesDir);
+    }
 
     return true;
   }

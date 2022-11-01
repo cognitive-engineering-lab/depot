@@ -6,6 +6,7 @@ import { CleanCommand } from "./clean";
 import type { Command, Registration } from "./common";
 import { FmtCommand } from "./fmt";
 import { InitCommand } from "./init";
+import { NewCommand } from "./new";
 import { TestCommand } from "./test";
 import { Workspace } from "./workspace";
 
@@ -18,6 +19,7 @@ function register<T extends Command>(Cmd: Class<T>, reg: Registration) {
   });
 }
 
+NewCommand.register(program);
 register(BuildCommand, BuildCommand.register);
 register(FmtCommand, FmtCommand.register);
 register(CleanCommand, CleanCommand.register);
