@@ -3,7 +3,5 @@
 _(It's Cargo for Javascript)_
 
 TODOs:
-* Monorepo support
-* test / jest
-* publish / lerna
-* doc / typedoc
+- [ ] publish / lerna
+- [ ] doc / typedoc
