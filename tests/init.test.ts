@@ -11,7 +11,6 @@ describe("init", () => {
   it("configures vite for browser packages", () => {
     let src = { "src/index.ts": "" };
     return Graco.with({ src }, async graco => {
-      graco.test("index.html");
       graco.test("vite.config.ts");
     });
   });

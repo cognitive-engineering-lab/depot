@@ -24,7 +24,10 @@ describe("build", () => {
   });
 
   it("runs vite to build a website", () => {
-    let src = { "src/index.tsx": `export let foo = "bar";\n` };
+    let src = {
+      "src/index.tsx": `export let foo = "bar";\n`,
+      "index.html": `<html><script type="module" src="/src/index.tsx"></script></html>`,
+    };
     return Graco.with({ src }, async graco => {
       expect(await graco.run("build")).toBe(0);
       graco.test("dist/index.html");
