@@ -7,14 +7,14 @@ import { CleanCommand } from "./clean";
 import type { Command, Registration } from "./common";
 import { FmtCommand } from "./fmt";
 import { InitCommand } from "./init";
+import { Workspace } from "./workspace";
 
 type Class<T> = { new (...args: any[]): T };
-
 function register<T extends Command>(Cmd: Class<T>, reg: Registration) {
   reg(program).action(async flags => {
-    let cmd = new Cmd(flags);
-    let exitCode = (await cmd.run()) ? 0 : 1;
-    process.exit(exitCode);
+    let ws = await Workspace.load();
+    let success = await ws.run(new Cmd(flags));
+    process.exit(success ? 0 : 1);
   });
 }
 

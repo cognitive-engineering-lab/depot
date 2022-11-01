@@ -4,17 +4,11 @@ import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
 import _ from "lodash";
-import { IDependencyMap, IPackageJson } from "package-json-type";
+import { IDependencyMap } from "package-json-type";
 import path from "path";
 
-import {
-  Command,
-  Registration,
-  binPath,
-  findJsFile,
-  getManifest,
-  spawn,
-} from "./common";
+import { Command, Registration, binPath } from "./common";
+import { Package } from "./workspace";
 
 interface BuildFlags {
   watch?: boolean;
@@ -105,14 +99,12 @@ class WatchLogger extends Logger {
 
 export class BuildCommand implements Command {
   logger: Logger;
-  manifest: IPackageJson;
 
   constructor(readonly flags: BuildFlags) {
     this.logger = flags.watch ? new WatchLogger() : new OnceLogger();
-    this.manifest = getManifest();
   }
 
-  async check(): Promise<boolean> {
+  async check(pkg: Package): Promise<boolean> {
     let tscPath = path.join(binPath, "tsc");
 
     let opts = ["-emitDeclarationOnly"];
@@ -121,10 +113,14 @@ export class BuildCommand implements Command {
     }
 
     this.logger.register("tsc");
-    return spawn(tscPath, opts, data => this.logger.log("tsc", data));
+    return pkg.spawn({
+      script: tscPath,
+      opts,
+      onData: data => this.logger.log("tsc", data),
+    });
   }
 
-  async lint(): Promise<boolean> {
+  async lint(pkg: Package): Promise<boolean> {
     let eslintPath = path.join(binPath, "eslint");
     let eslintOpts = ["--ext", "js,ts,tsx", "src"];
 
@@ -140,13 +136,17 @@ export class BuildCommand implements Command {
 
     this.logger.register("eslint");
 
-    return spawn(script, opts, data => this.logger.log("eslint", data));
+    return pkg.spawn({
+      script,
+      opts,
+      onData: data => this.logger.log("eslint", data),
+    });
   }
 
-  async compileLibrary(entry: string): Promise<boolean> {
+  async compileLibrary(pkg: Package): Promise<boolean> {
     let keys = (map?: IDependencyMap) => Object.keys(map || {});
-    let external = keys(this.manifest.peerDependencies).concat(
-      keys(this.manifest.dependencies)
+    let external = keys(pkg.manifest.peerDependencies).concat(
+      keys(pkg.manifest.dependencies)
     );
 
     let logger = this.logger;
@@ -178,7 +178,11 @@ export class BuildCommand implements Command {
             toCopy.forEach(p => {
               fs.copyFileSync(
                 p,
-                path.join(build.initialOptions.outdir!, path.basename(p))
+                path.join(
+                  pkg.dir,
+                  build.initialOptions.outdir!,
+                  path.basename(p)
+                )
               );
             });
           });
@@ -217,7 +221,7 @@ export class BuildCommand implements Command {
 
     try {
       let result = await esbuild.build({
-        entryPoints: [entry],
+        entryPoints: [pkg.entryPoint],
         format: "esm",
         outdir: "dist",
         bundle: true,
@@ -227,6 +231,7 @@ export class BuildCommand implements Command {
         external,
         plugins,
         logLevel: "silent",
+        absWorkingDir: pkg.dir,
       });
       return result.errors.length == 0;
     } catch (e) {
@@ -234,7 +239,7 @@ export class BuildCommand implements Command {
     }
   }
 
-  async compileWebsite(_entry: string): Promise<boolean> {
+  async compileWebsite(pkg: Package): Promise<boolean> {
     let vitePath = path.join(binPath, "vite");
 
     let opts = ["build", "--minify=false"];
@@ -243,32 +248,34 @@ export class BuildCommand implements Command {
     }
 
     this.logger.register("vite");
-    return spawn(vitePath, opts, data => this.logger.log("vite", data));
+    return pkg.spawn({
+      script: vitePath,
+      opts,
+      onData: data => this.logger.log("vite", data),
+    });
   }
 
-  compile(): Promise<boolean> {
-    let lib = findJsFile("src/lib");
-    if (lib) return this.compileLibrary(lib);
-
-    let index = findJsFile("src/index");
-    if (index) return this.compileWebsite(index);
-
-    throw new Error("No valid entry point");
+  compile(pkg: Package): Promise<boolean> {
+    if (pkg.platform == "node") return this.compileLibrary(pkg);
+    /* pkg.platform == "browser" */ else return this.compileWebsite(pkg);
   }
 
-  async run(): Promise<boolean> {
-    await fs.rm("dist", { recursive: true, force: true });
+  parallel(): boolean {
+    return this.flags.watch || false;
+  }
 
+  async run(pkg: Package): Promise<boolean> {
     this.logger.start();
     let results = await Promise.all([
-      this.check(),
-      this.lint(),
-      this.compile(),
+      this.check(pkg),
+      this.lint(pkg),
+      this.compile(pkg),
     ]);
 
-    let buildPath = "build.mjs";
-    if (fs.existsSync(buildPath))
-      await import(path.join(process.cwd(), buildPath));
+    let buildPath = pkg.path("build.mjs");
+    if (fs.existsSync(buildPath)) {
+      results.push(await pkg.spawn({ script: "node", opts: [buildPath] }));
+    }
 
     this.logger.end();
     return results.every(x => x);

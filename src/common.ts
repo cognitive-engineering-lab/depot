@@ -1,8 +1,8 @@
 import * as commander from "commander";
-import fs from "fs-extra";
 import * as pty from "node-pty";
-import type { IPackageJson } from "package-json-type";
 import path from "path";
+
+import { Package, Workspace } from "./workspace";
 
 export let modulesPath = path.resolve(
   path.join(__dirname, "..", "node_modules")
@@ -10,31 +10,25 @@ export let modulesPath = path.resolve(
 
 export let binPath = path.join(modulesPath, ".bin");
 
-export let findJsFile = (basename: string): string | undefined => {
-  let exts = ["tsx", "ts", "js"];
-  return exts.map(e => `${basename}.${e}`).find(fs.existsSync);
-};
+export interface SpawnProps {
+  script: string;
+  opts: string[];
+  cwd: string;
+  onData?: (data: string) => void;
+}
 
-/** Synchronously loads the current package's manifest (package.json) as a JS object.
- * Returns an empty object if package.json does not exist.
- */
-export let getManifest = (): IPackageJson => {
-  let pkgPath = "./package.json";
-  return fs.existsSync(pkgPath)
-    ? JSON.parse(fs.readFileSync("./package.json", "utf-8"))
-    : {};
-};
-
-export let spawn = async (
-  script: string,
-  opts: string[],
-  onData?: (data: string) => void
-): Promise<boolean> => {
+export let spawn = async ({
+  script,
+  opts,
+  cwd,
+  onData,
+}: SpawnProps): Promise<boolean> => {
   let p = pty.spawn(script, opts, {
     env: {
       ...process.env,
       NODE_PATH: modulesPath,
     },
+    cwd,
   });
   onData = onData || (data => process.stdout.write(data));
   p.onData(onData);
@@ -44,8 +38,14 @@ export let spawn = async (
   return exitCode == 0;
 };
 
+export interface CommonOpts {
+  workspace: boolean;
+}
+
 export interface Command {
-  run(): Promise<boolean>;
+  parallel?(): boolean;
+  run?(pkg: Package): Promise<boolean>;
+  runWorkspace?(ws: Workspace): Promise<boolean>;
 }
 
 export type Registration = (program: commander.Command) => commander.Command;

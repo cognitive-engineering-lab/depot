@@ -41,13 +41,13 @@ export class Graco {
     await Promise.all([p1, p2]);
 
     let graco = new Graco(dir, debug || false);
-    await graco.run("init");
+    expect(await graco.run("init")).toBe(0);
 
     return graco;
   }
 
   run(cmd: string): Promise<number> {
-    let p = pty.spawn(`node`, [BINPATH, cmd], { cwd: this.root });
+    let p = pty.spawn(`node`, [BINPATH, ...cmd.split(" ")], { cwd: this.root });
     if (this.debug) p.onData(data => console.log(data));
     return new Promise(resolve =>
       p.onExit(({ exitCode }) => resolve(exitCode))

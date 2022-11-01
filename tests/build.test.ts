@@ -16,7 +16,7 @@ describe("build", () => {
     });
   });
 
-  it("finds lint errors with ´slint", () => {
+  it("finds lint errors with eslint", () => {
     let src = `export let foo    = "bar";`;
     return Graco.with({ src }, async graco => {
       expect(await graco.run("build")).not.toBe(0);
@@ -33,14 +33,15 @@ describe("build", () => {
 
   it("supports monorepos", () => {
     let src = {
-      "packages/foo/src/index.ts": `export let foo = "bar";\n`,
+      "packages/foo/src/lib.ts": `export let foo = "bar";\n`,
       "packages/foo/package.json": `{"name": "foo", "version": "0.0.1", "main": "dist/lib.js"}`,
-      "packages/bar/src/index.ts": `import {foo} from "foo";`,
-      "packages/bar/package.json": `{"dependencies": {"foo": "0.0.1"}}`,
+      "packages/bar/src/lib.ts": `import { foo } from "foo";\n\nconsole.log(foo);\n`,
+      "packages/bar/package.json": `{"name": "bar", "dependencies": {"foo": "0.0.1"}}`,
     };
-    // return Graco.with({ src, debug: true }, async graco => {
-    //   expect(await graco.run("build")).toBe(0);
-    //   graco.test("dist/index.html");
-    // });
+    return Graco.with({ src }, async graco => {
+      expect(await graco.run("build")).toBe(0);
+      graco.test("packages/foo/dist/lib.js");
+      graco.test("packages/bar/dist/lib.js");
+    });
   });
 });

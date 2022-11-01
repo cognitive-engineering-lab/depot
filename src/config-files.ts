@@ -1,59 +1,87 @@
 import fs from "fs-extra";
 import path from "path";
 
-import { findJsFile } from "./common";
+import { Package, Platform, Workspace } from "./workspace";
 
-const ASSETS_DIR = path.join(__dirname, "assets");
+export const CONFIG_FILE_DIR = path.join(__dirname, "assets");
 
-export class ConfigManager {
-  configs: string[];
+export interface ConfigFile {
+  name: string;
+  granularity: "workspace" | "package";
+  platform?: Platform;
+  monorepo?: boolean;
+}
 
-  constructor() {
-    this.configs = ["tsconfig.json", ".eslintrc.js", ".prettierrc.js"];
+export let CONFIG_FILES: ConfigFile[] = [
+  {
+    name: "pnpm-workspace.yaml",
+    granularity: "workspace",
+    monorepo: true,
+  },
+  {
+    name: ".eslintrc.js",
+    granularity: "workspace",
+  },
+  {
+    name: ".prettierrc.js",
+    granularity: "workspace",
+  },
+  {
+    name: "vite.config.ts",
+    granularity: "package",
+    platform: "browser",
+  },
+  {
+    name: "index.html",
+    granularity: "package",
+    platform: "browser",
+  },
+  {
+    name: "tsconfig.json",
+    granularity: "package",
+  },
+];
 
-    let index = findJsFile("src/index");
-    if (index) {
-      this.configs.push("vite.config.ts");
-      this.configs.push("index.html");
-    }
+export async function modifyGitignore(cfgs: ConfigFile[], dir: string) {
+  let gitignorePath = path.join(dir, ".gitignore");
+  if (!fs.existsSync(gitignorePath)) fs.createFileSync(gitignorePath);
 
-    // if (fs.existsSync("packages")) {
-    //   this.configs.push("pnpm-workspace.yaml");
-    // }
-  }
+  const HEADER = "# Managed by Greco";
+  let contents = await fs.readFile(gitignorePath, "utf-8");
+  let entries = contents.split("\n");
+  let i = entries.indexOf(HEADER);
+  if (i == -1) i = entries.length;
 
-  async modifyGitignore() {
-    if (!fs.existsSync(".gitignore")) fs.createFileSync(".gitignore");
+  let toIgnore = await findManagedConfigs(cfgs, dir);
+  toIgnore.sort();
+  let newEntries = entries
+    .slice(0, i)
+    .concat([HEADER, ...toIgnore.map(cfg => cfg.name)]);
+  await fs.writeFile(gitignorePath, newEntries.join("\n"));
+}
 
-    const HEADER = "# Managed by Greco";
-    let contents = await fs.readFile(".gitignore", "utf-8");
-    let entries = contents.split("\n");
-    let i = entries.indexOf(HEADER);
-    if (i == -1) i = entries.length;
+export async function findManagedConfigs(
+  cfgs: ConfigFile[],
+  dir: string
+): Promise<ConfigFile[]> {
+  let isDefault = await Promise.all(
+    cfgs.map(async config => {
+      let p = await fs.realpath(path.join(dir, config.name));
+      return path.dirname(p) == CONFIG_FILE_DIR;
+    })
+  );
+  return cfgs.filter((_f, i) => isDefault[i]);
+}
 
-    let toIgnore = await this.findDefaultConfigs();
-    toIgnore.sort();
-    let newEntries = entries.slice(0, i).concat([HEADER, ...toIgnore]);
-    await fs.writeFile(".gitignore", newEntries.join("\n"));
-  }
-
-  async findDefaultConfigs() {
-    let isDefault = await Promise.all(
-      this.configs.map(async config => {
-        let p = await fs.realpath(config);
-        return path.dirname(p) == ASSETS_DIR;
-      })
+export function configsFor(obj: Package | Workspace): ConfigFile[] {
+  if (obj instanceof Package)
+    return CONFIG_FILES.filter(
+      cfg =>
+        cfg.granularity == "package" &&
+        (!cfg.platform || cfg.platform == obj.platform)
     );
-    return this.configs.filter((_f, i) => isDefault[i]);
-  }
-
-  async ensureAllConfigsExist() {
-    let promises = this.configs.map(async config => {
-      if (fs.existsSync(config)) return;
-      await fs.symlink(path.join(ASSETS_DIR, config), config);
-    });
-    await Promise.all(promises);
-
-    await this.modifyGitignore();
-  }
+  else
+    return CONFIG_FILES.filter(
+      cfg => cfg.granularity == "workspace" && (obj.monorepo || !cfg.monorepo)
+    );
 }
