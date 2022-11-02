@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import _ from "lodash";
-import { IPackageJson } from "package-json-type";
+import type { IPackageJson } from "package-json-type";
 import path from "path";
 
 import { Command, SpawnProps, spawn } from "./common";

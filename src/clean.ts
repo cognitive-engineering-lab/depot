@@ -1,7 +1,7 @@
 import fs from "fs-extra";
 
 import { Command, Registration } from "./common";
-import { configsFor } from "./config-files";
+import { configsFor, findManagedConfigs } from "./config-files";
 import { Package, Workspace } from "./workspace";
 
 interface CleanFlags {
@@ -24,7 +24,8 @@ export class CleanCommand implements Command {
   async run(pkg: Package): Promise<boolean> {
     let dirs = ["dist", "node_modules"];
     if (this.flags.all) {
-      dirs = dirs.concat(configsFor(pkg).map(cfg => pkg.path(cfg.name)));
+      let cfgs = await findManagedConfigs(configsFor(pkg), pkg.dir);
+      dirs = dirs.concat(cfgs.map(cfg => pkg.path(cfg.name)));
     }
     await this.rmDirs(dirs);
     return true;
@@ -33,7 +34,8 @@ export class CleanCommand implements Command {
   async runWorkspace(ws: Workspace): Promise<boolean> {
     let dirs = ["node_modules"];
     if (this.flags.all) {
-      dirs = dirs.concat(configsFor(ws).map(cfg => ws.path(cfg.name)));
+      let cfgs = await findManagedConfigs(configsFor(ws), ws.root);
+      dirs = dirs.concat(cfgs.map(cfg => ws.path(cfg.name)));
     }
     await this.rmDirs(dirs);
     return true;

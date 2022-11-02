@@ -70,7 +70,6 @@ export async function findManagedConfigs(
         let p = await fs.realpath(fullPath);
         return path.dirname(p) == CONFIG_FILE_DIR;
       } catch (e) {
-        console.warn(`Could not get realpath of path: ${fullPath}`);
         return false;
       }
     })
