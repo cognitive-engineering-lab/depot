@@ -3,6 +3,7 @@ import chalk from "chalk";
 import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
+import { createServer } from "http-server";
 import _ from "lodash";
 import { IDependencyMap } from "package-json-type";
 import path from "path";
@@ -17,7 +18,6 @@ interface BuildFlags {
 
 abstract class Logger {
   start() {}
-  abstract register(name: string): void;
   abstract log(name: string, data: string): void;
   end() {}
 }
@@ -26,10 +26,11 @@ class OnceLogger extends Logger {
   logs: {
     name: string;
     logs: string[];
-  }[] = [];
+  }[];
 
-  register(name: string) {
-    this.logs.push({ name, logs: [] });
+  constructor(boxes: [string, number][]) {
+    super();
+    this.logs = boxes.map(([name]) => ({ name, logs: [] }));
   }
 
   log(name: string, data: string) {
@@ -53,28 +54,38 @@ class WatchLogger extends Logger {
     terminal: "xterm-256color",
     fullUnicode: true,
   });
-  boxes: blessed.Widgets.Log[];
-  boxMap: { [name: string]: number } = {};
+  boxes: { [name: string]: blessed.Widgets.Log } = {};
 
-  constructor() {
+  constructor(boxes: [string, number][]) {
     super();
     this.screen.title = "my window title";
-    this.boxes = _.range(0, 2)
-      .map(x =>
-        _.range(0, 2).map(y =>
-          blessed.log({
-            top: x == 0 ? "0" : "50%",
-            left: y == 0 ? "0" : "50%",
-            width: "50%",
-            height: "50%",
-            border: { type: "line" },
-            style: { border: { fg: "#eeeeee" } },
-          })
-        )
-      )
-      .flat();
 
-    this.boxes.forEach(box => this.screen.append(box));
+    this.boxes = {};
+    let left = 0;
+    let top = 0;
+    let width = this.screen.width as number;
+    let hh = Math.floor(((this.screen.height as number) * 2) / 3);
+    boxes.forEach(([name, frac]) => {
+      let boxWidth = Math.floor(frac * width);
+      let box = blessed.log({
+        top,
+        left,
+        width: boxWidth,
+        height: hh,
+        border: { type: "line" },
+        style: { border: { fg: "#eeeeee" } },
+        label: name,
+      });
+
+      left += boxWidth;
+      if (left >= width) {
+        left = 0;
+        top = hh;
+      }
+
+      this.boxes[name] = box;
+      this.screen.append(box);
+    });
 
     // Quit on Escape, q, or Control-C.
     this.screen.key(["escape", "q", "C-c"], function (ch, key) {
@@ -82,14 +93,15 @@ class WatchLogger extends Logger {
     });
   }
 
-  register(name: string) {
-    let i = Object.keys(this.boxMap).length;
-    this.boxMap[name] = i;
-    this.boxes[i].setLabel(name);
-  }
-
   log(name: string, data: string) {
-    this.boxes[this.boxMap[name]].log(data);
+    let box = this.boxes[name];
+
+    // Hacky support for ANSI codes that Vite uses.
+    // Note: blessed-xterm solves this issue, but is build in a way
+    // that conflicts with other plugins (it pollutes global namespace
+    // which breaks sass). Need to find a more durable solution.
+    if (data.includes("[2K")) box.deleteBottom();
+    else box.log(data.replace("[1G", ""));
   }
 
   start() {
@@ -101,7 +113,14 @@ export class BuildCommand implements Command {
   logger: Logger;
 
   constructor(readonly flags: BuildFlags) {
-    this.logger = flags.watch ? new WatchLogger() : new OnceLogger();
+    let boxes: [string, number][] = [
+      ["build", 0.5],
+      ["check", 0.5],
+      ["lint", 0.5],
+      ["script", 0.5],
+      // ["graco", 0.33],
+    ];
+    this.logger = flags.watch ? new WatchLogger(boxes) : new OnceLogger(boxes);
   }
 
   async check(pkg: Package): Promise<boolean> {
@@ -112,11 +131,10 @@ export class BuildCommand implements Command {
       opts.push("-w");
     }
 
-    this.logger.register("tsc");
     return pkg.spawn({
       script: tscPath,
       opts,
-      onData: data => this.logger.log("tsc", data),
+      onData: data => this.logger.log("check", data),
     });
   }
 
@@ -134,13 +152,13 @@ export class BuildCommand implements Command {
       opts = eslintOpts;
     }
 
-    this.logger.register("eslint");
-
-    return pkg.spawn({
+    // TODO: flag like -Werror to make lints a failure
+    await pkg.spawn({
       script,
       opts,
-      onData: data => this.logger.log("eslint", data),
+      onData: data => this.logger.log("lint", data),
     });
+    return true;
   }
 
   async compileLibrary(pkg: Package): Promise<boolean> {
@@ -150,8 +168,6 @@ export class BuildCommand implements Command {
     );
 
     let logger = this.logger;
-    logger.register("esbuild");
-
     let plugins: Plugin[] = [
       sassPlugin(),
       {
@@ -197,10 +213,10 @@ export class BuildCommand implements Command {
         name: "logging",
         setup(build) {
           build.onEnd(result => {
-            if (!result.errors.length) logger.log("esbuild", "Build complete!");
+            if (!result.errors.length) logger.log("build", "Build complete!");
             result.errors.forEach(error => {
               logger.log(
-                "esbuild",
+                "build",
                 chalk.red("✘ ") +
                   chalk.whiteBright.bgRed(" ERROR ") +
                   " " +
@@ -208,12 +224,12 @@ export class BuildCommand implements Command {
               );
               if (error.location) {
                 logger.log(
-                  "esbuild",
+                  "build",
                   `\t${error.location.file}:${error.location.line}:${error.location.column}`
                 );
               }
             });
-            logger.log("esbuild", "\n");
+            logger.log("build", "\n");
           });
         },
       },
@@ -247,11 +263,10 @@ export class BuildCommand implements Command {
       opts.push("-w");
     }
 
-    this.logger.register("vite");
     return pkg.spawn({
       script: vitePath,
       opts,
-      onData: data => this.logger.log("vite", data),
+      onData: data => this.logger.log("build", data),
     });
   }
 
@@ -260,11 +275,10 @@ export class BuildCommand implements Command {
     if (fs.existsSync(buildPath)) {
       let opts = [buildPath];
       if (this.flags.watch) opts.push("-w");
-      this.logger.register("build.mjs");
       return await pkg.spawn({
         script: "node",
         opts,
-        onData: data => this.logger.log("build.mjs", data),
+        onData: data => this.logger.log("script", data),
       });
     } else {
       return true;
@@ -276,6 +290,17 @@ export class BuildCommand implements Command {
     /* pkg.platform == "browser" */ else return this.compileWebsite(pkg);
   }
 
+  async serve(pkg: Package): Promise<boolean> {
+    if (pkg.platform == "browser" && pkg.target == "bin" && this.flags.watch) {
+      let server = createServer({
+        root: pkg.path("dist"),
+      });
+      server.listen(8000);
+    }
+
+    return true;
+  }
+
   parallel(): boolean {
     return this.flags.watch || false;
   }
@@ -284,11 +309,25 @@ export class BuildCommand implements Command {
     await fs.mkdirp(pkg.path("dist"));
 
     this.logger.start();
+
+    // http-server causes an unavoidable node warning,
+    // see: https://github.com/http-party/http-server/issues/537
+    // therefore we silence the warning,
+    // see: https://stackoverflow.com/a/73525885
+    let emit = process.emit;
+    process.emit = function (name: any, data: any) {
+      if (name === `warning` && typeof data === `object`) {
+        return false;
+      }
+      return emit.apply(process, arguments as any);
+    } as any;
+
     let results = await Promise.all([
       this.check(pkg),
-      this.lint(pkg),
       this.compile(pkg),
+      this.lint(pkg),
       this.buildScript(pkg),
+      this.serve(pkg),
     ]);
 
     this.logger.end();

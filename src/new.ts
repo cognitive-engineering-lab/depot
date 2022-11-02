@@ -75,6 +75,8 @@ export class NewCommand {
       manifest.type = "module";
     }
 
+    let gitignore = ["node_modules", "dist"].join("\n");
+
     // This is a horrible hack, can we do anything better?
     let { default: sortPackageJson } = await spj;
 
@@ -82,6 +84,7 @@ export class NewCommand {
     await Promise.all([
       fs.writeFile(path.join(name, "package.json"), manifestPretty),
       fs.writeFile(path.join(name, "src", srcPath), srcContents),
+      fs.writeFile(path.join(name, ".gitignore"), gitignore),
     ]);
 
     if (devDependencies.length > 0) {
