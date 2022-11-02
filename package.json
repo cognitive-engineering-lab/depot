@@ -8,7 +8,8 @@
         "build": "node build.mjs",
         "test": "jest",
         "clean": "rm -rf node_modules dist",
-        "commit-check": "pnpm clean && pnpm install && pnpm build && pnpm test"
+        "commit-check": "pnpm clean && pnpm install && pnpm build && pnpm test",
+        "prepare": "pnpm build"
     },
     "files": [
         "dist"
