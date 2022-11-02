@@ -14,6 +14,7 @@
     "files": [
         "dist"
     ],
+    "packageManager": "pnpm@7.6.0",
     "dependencies": {
         "@babel/core": "^7.19.6",
         "@cspotcode/source-map-support": "^0.8.1",
