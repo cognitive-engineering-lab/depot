@@ -15,9 +15,9 @@ describe("clean", () => {
   it("removes config files with -a", () => {
     let src = `export let foo = "bar";\n`;
     return Graco.with({ src }, async graco => {
-      graco.test(".eslintrc.js");
+      graco.test(".eslintrc.cjs");
       expect(await graco.run("clean -a")).toBe(0);
-      expect(() => graco.test(".eslintrc.js")).toThrow();
+      expect(() => graco.test(".eslintrc.cjs")).toThrow();
     });
   });
 });

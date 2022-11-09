@@ -3,7 +3,7 @@ import path from "path";
 
 import { Package, Platform, Workspace } from "./workspace";
 
-export const CONFIG_FILE_DIR = path.join(__dirname, "assets");
+export const CONFIG_FILE_DIR = path.join(REPO_ROOT, "src", "assets");
 
 export interface ConfigFile {
   name: string;
@@ -19,15 +19,15 @@ export let CONFIG_FILES: ConfigFile[] = [
     monorepo: true,
   },
   {
-    name: ".eslintrc.js",
+    name: ".eslintrc.cjs",
     granularity: "workspace",
   },
   {
-    name: ".prettierrc.js",
+    name: ".prettierrc.cjs",
     granularity: "workspace",
   },
   {
-    name: "jest.config.js",
+    name: "jest.config.cjs",
     granularity: "workspace",
   },
   {

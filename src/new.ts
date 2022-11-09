@@ -1,7 +1,7 @@
 import { Option } from "commander";
 import fs from "fs-extra";
 import path from "path";
-import { default as spj } from "sort-package-json";
+import sortPackageJson from "sort-package-json";
 
 import { Registration, spawn } from "./common";
 import { PLATFORMS, Platform, TARGETS, Target } from "./workspace";
@@ -76,9 +76,6 @@ export class NewCommand {
     }
 
     let gitignore = ["node_modules", "dist"].join("\n");
-
-    // This is a horrible hack, can we do anything better?
-    let { default: sortPackageJson } = await spj;
 
     let manifestPretty = sortPackageJson(JSON.stringify(manifest));
     await Promise.all([

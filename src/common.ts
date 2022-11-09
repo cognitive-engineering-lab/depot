@@ -5,9 +5,11 @@ import path from "path";
 
 import { Package, Workspace } from "./workspace";
 
-export let modulesPath = path.resolve(
-  path.join(__dirname, "..", "node_modules")
-);
+declare global {
+  var REPO_ROOT: string;
+}
+
+export let modulesPath = path.resolve(path.join(REPO_ROOT, "node_modules"));
 
 export let binPath = path.join(modulesPath, ".bin");
 
@@ -56,6 +58,10 @@ export interface Command {
   parallel?(): boolean;
   run?(pkg: Package): Promise<boolean>;
   runWorkspace?(ws: Workspace): Promise<boolean>;
+}
+
+export interface CommonFlags {
+  packages?: string[];
 }
 
 export type Registration = (program: commander.Command) => commander.Command;

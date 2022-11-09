@@ -4,7 +4,7 @@ import os from "os";
 import type { IPackageJson } from "package-json-type";
 import path from "path";
 
-let BINPATH = path.join(__dirname, "..", "dist", "main.js");
+let BINPATH = path.join(__dirname, "..", "dist", "main.mjs");
 
 export interface GracoProps {
   src: string | { [file: string]: string };

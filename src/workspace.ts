@@ -1,9 +1,11 @@
 import fs from "fs-extra";
+import indentString from "indent-string";
 import _ from "lodash";
 import type { IPackageJson } from "package-json-type";
 import path from "path";
 
 import { Command, SpawnProps, spawn } from "./common";
+import { log } from "./log";
 
 export const PLATFORMS = ["browser", "node"] as const;
 export type Platform = typeof PLATFORMS[number];
@@ -40,9 +42,17 @@ export class Package {
 
   static async load(dir: string): Promise<Package> {
     dir = path.resolve(dir);
-    let manifest = JSON.parse(
-      await fs.readFile(path.join(dir, "package.json"), "utf-8")
-    );
+    let manifest;
+    try {
+      manifest = JSON.parse(
+        await fs.readFile(path.join(dir, "package.json"), "utf-8")
+      );
+    } catch (e: any) {
+      let err = indentString(e.toString(), 4);
+      throw new Error(
+        `Failed to read package.json for package \`${dir}\`\n${err}`
+      );
+    }
 
     return new Package(dir, manifest);
   }
@@ -65,6 +75,17 @@ export class Package {
 
 type DepGraph = { [name: string]: string[] };
 
+let getGitRoot = async (): Promise<string | undefined> => {
+  let gitRoot: string[] = [];
+  let success = await spawn({
+    script: "git",
+    opts: ["rev-parse", "--show-toplevel"],
+    cwd: process.cwd(),
+    onData: data => gitRoot.push(data),
+  });
+  return success ? gitRoot.join("").trim() : undefined;
+};
+
 export class Workspace {
   pkgMap: { [name: string]: Package };
   depGraph: DepGraph;
@@ -79,14 +100,21 @@ export class Workspace {
   }
 
   static async load() {
-    let root = path.resolve("."); // TODO: search for root?
+    let gitRoot = await getGitRoot();
+    let root = gitRoot || path.resolve(".");
+    log.debug(`Workspace root: ${root}`);
+
     let pkgDir = path.join(root, "packages");
     let monorepo = fs.existsSync(pkgDir);
+    log.debug(`Workspace is monorepo: ${monorepo}`);
+
     let packages = await Promise.all(
       monorepo
         ? fs.readdirSync(pkgDir).map(d => Package.load(path.join(pkgDir, d)))
         : [Package.load(root)]
     );
+    log.debug(`Found packages: [${packages.map(p => p.name).join(", ")}]`);
+
     return new Workspace(root, packages, monorepo);
   }
 
@@ -132,16 +160,31 @@ export class Workspace {
     );
   }
 
-  async runAllPackages(cmd: Command): Promise<boolean> {
+  dependencyClosure(roots: string[]): Package[] {
+    let depsSet = new Set([...roots]);
+    while (true) {
+      let n = depsSet.size;
+      [...depsSet].forEach(p => {
+        this.depGraph[p].forEach(p2 => depsSet.add(p2));
+      });
+      if (depsSet.size == n) break;
+    }
+    return [...depsSet].map(p => this.pkgMap[p]);
+  }
+
+  async runPackages(cmd: Command, only?: string[]): Promise<boolean> {
+    let rootSet = only || this.packages.map(p => p.name);
+    let pkgs = this.dependencyClosure(rootSet);
+
     if (cmd.parallel && cmd.parallel()) {
-      let results = await Promise.all(this.packages.map(pkg => cmd.run!(pkg)));
+      let results = await Promise.all(pkgs.map(pkg => cmd.run!(pkg)));
       return results.every(x => x);
     }
 
     let status: { [name: string]: "queued" | "running" | "finished" } =
-      _.fromPairs(this.packages.map(pkg => [pkg.name, "queued"]));
+      _.fromPairs(pkgs.map(pkg => [pkg.name, "queued"]));
     let canExecute = () =>
-      this.packages.filter(
+      pkgs.filter(
         pkg =>
           status[pkg.name] == "queued" &&
           this.depGraph[pkg.name].every(name => status[name] == "finished")
@@ -168,9 +211,9 @@ export class Workspace {
     }
   }
 
-  async run(cmd: Command): Promise<boolean> {
+  async run(cmd: Command, only?: string[]): Promise<boolean> {
     let success = true;
-    if (cmd.run) success = (await this.runAllPackages(cmd)) && success;
+    if (cmd.run) success = (await this.runPackages(cmd, only)) && success;
     if (cmd.runWorkspace) success = (await cmd.runWorkspace(this)) && success;
     return success;
   }

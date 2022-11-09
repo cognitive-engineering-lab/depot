@@ -32,6 +32,7 @@ specifiers:
   glob: ^8.0.3
   glob-promise: ^5.0.0
   http-server: ^14.1.1
+  indent-string: ^5.0.0
   jest: ^29.2.2
   lodash: ^4.17.21
   node-pty: ^0.10.1
@@ -66,6 +67,7 @@ dependencies:
   glob: 8.0.3
   glob-promise: 5.0.0_glob@8.0.3
   http-server: 14.1.1
+  indent-string: 5.0.0
   lodash: 4.17.21
   node-pty: 0.10.1
   prettier: 2.7.1
@@ -2575,6 +2577,11 @@ packages:
   /imurmurhash/0.1.4:
     resolution: {integrity: sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==}
     engines: {node: '>=0.8.19'}
+
+  /indent-string/5.0.0:
+    resolution: {integrity: sha512-m6FAo/spmsW2Ab2fU35JTYwtOKa2yAwXSwgjSv1TJzh4Mh7mC3lzAOVLBprb72XsTrgkEIsl7YrFNAiDiRhIGg==}
+    engines: {node: '>=12'}
+    dev: false
 
   /inflight/1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}

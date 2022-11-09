@@ -1,36 +1,26 @@
 import esbuild from "esbuild";
 import fs from "fs-extra";
+import _ from "lodash";
+import path from "path";
+import { fileURLToPath } from "url";
 
+let repoRoot = path.dirname(fileURLToPath(import.meta.url));
 let manifest = JSON.parse(fs.readFileSync("package.json"));
-let debug = process.argv.includes("-g");
 let watch = process.argv.includes("-w");
+let debug = process.argv.includes("-g") || watch;
+
 esbuild.build({
   entryPoints: ["src/main.ts"],
   outdir: "dist",
   bundle: true,
   minify: !debug,
   platform: "node",
+  format: "esm",
+  outExtension: { ".js": ".mjs" },
   external: Object.keys(manifest.dependencies),
   sourcemap: debug,
+  define: { REPO_ROOT: JSON.stringify(repoRoot) },
   watch,
-  plugins: [
-    {
-      name: "esm-externals",
-      setup(build) {
-        build.onResolve({ filter: /^sort-package-json$/ }, args => ({
-          path: args.path,
-          namespace: "esm-externals",
-        }));
-        build.onResolve({ filter: /.*/, namespace: "esm-externals" }, args => ({
-          path: args.path,
-          external: true,
-        }));
-        build.onLoad({ filter: /.*/, namespace: "esm-externals" }, args => ({
-          contents: `var path = "${args.path}"; var module = import(path); export default module;`,
-        }));
-      },
-    },
-  ],
 });
 
 fs.copy("src/assets", "dist/assets", { recursive: true });

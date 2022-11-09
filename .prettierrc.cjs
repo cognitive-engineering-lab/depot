@@ -1,0 +1,1 @@
+src/assets/.prettierrc.cjs

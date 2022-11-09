@@ -8,8 +8,8 @@ import _ from "lodash";
 import { IDependencyMap } from "package-json-type";
 import path from "path";
 
-import { Command, Registration, binPath } from "./common";
-import { Package } from "./workspace";
+import { Command, CommonFlags, Registration, binPath } from "./common";
+import { Package, Workspace } from "./workspace";
 
 interface BuildFlags {
   watch?: boolean;
@@ -18,9 +18,17 @@ interface BuildFlags {
 
 abstract class Logger {
   start() {}
-  abstract log(name: string, data: string): void;
+  abstract log(pkg: string, process: string, data: string): void;
   end() {}
 }
+
+const PROCESSES: [string, number][] = [
+  ["build", 0.5],
+  ["check", 0.5],
+  ["lint", 0.5],
+  ["script", 0.5],
+  // ["graco", 0.33],
+];
 
 class OnceLogger extends Logger {
   logs: {
@@ -28,12 +36,13 @@ class OnceLogger extends Logger {
     logs: string[];
   }[];
 
-  constructor(boxes: [string, number][]) {
+  constructor() {
     super();
-    this.logs = boxes.map(([name]) => ({ name, logs: [] }));
+    this.logs = PROCESSES.map(([name]) => ({ name, logs: [] }));
   }
 
-  log(name: string, data: string) {
+  // TODO: handle process
+  log(_process: string, name: string, data: string) {
     let entry = this.logs.find(r => r.name == name);
     if (!entry) throw new Error(`No logger named: ${name}`);
     entry.logs.push(data);
@@ -48,43 +57,125 @@ class OnceLogger extends Logger {
   }
 }
 
+class ProcessLog {
+  widget: blessed.Widgets.Log;
+
+  constructor(name: string, opts: blessed.Widgets.LogOptions) {
+    this.widget = blessed.log({
+      ...opts,
+      border: { type: "line" },
+      style: { border: { fg: "#eeeeee" } },
+      label: name,
+    });
+  }
+
+  log(data: string) {
+    // Hacky support for ANSI codes that Vite uses.
+    // Note: blessed-xterm solves this issue, but is build in a way
+    // that conflicts with other plugins (it pollutes global namespace
+    // which breaks sass). Need to find a more durable solution.
+    if (data.includes("[2K")) this.widget.deleteBottom();
+    else this.widget.log(data.replace("[1G", ""));
+  }
+}
+
+class PackageLog {
+  processes: { [name: string]: ProcessLog } = {};
+
+  constructor(screen: blessed.Widgets.Screen, gridHeight: number) {
+    let left = 0;
+    let top = 0;
+    let width = screen.width as number;
+    let topRowHeight = Math.round((gridHeight * 2) / 3);
+    let curHeight = topRowHeight;
+    PROCESSES.forEach(([name, frac]) => {
+      let boxWidth = Math.floor(frac * width);
+      let process = new ProcessLog(name, {
+        top,
+        left,
+        width: boxWidth,
+        height: curHeight,
+      });
+
+      left += boxWidth;
+      if (left >= width) {
+        left = 0;
+        top = topRowHeight;
+        curHeight = gridHeight - topRowHeight;
+      }
+
+      this.processes[name] = process;
+      screen.append(process.widget);
+    });
+  }
+
+  log(name: string, data: string) {
+    this.processes[name].log(data);
+  }
+
+  show() {
+    Object.values(this.processes).forEach(log => log.widget.show());
+  }
+
+  hide() {
+    Object.values(this.processes).forEach(log => log.widget.hide());
+  }
+}
+
 class WatchLogger extends Logger {
   screen = blessed.screen({
     fastCSR: true,
     terminal: "xterm-256color",
     fullUnicode: true,
   });
-  boxes: { [name: string]: blessed.Widgets.Log } = {};
+  packages: { [name: string]: PackageLog } = {};
 
-  constructor(boxes: [string, number][]) {
+  constructor(ws: Workspace, only?: string[]) {
     super();
-    this.screen.title = "my window title";
+    this.screen.title = "Graco";
 
-    this.boxes = {};
-    let left = 0;
-    let top = 0;
-    let width = this.screen.width as number;
-    let hh = Math.floor(((this.screen.height as number) * 2) / 3);
-    boxes.forEach(([name, frac]) => {
-      let boxWidth = Math.floor(frac * width);
-      let box = blessed.log({
-        top,
-        left,
-        width: boxWidth,
-        height: hh,
+    let rootSet = only || ws.packages.map(p => p.name);
+    let packages = ws.dependencyClosure(rootSet);
+    let labels = packages.map(pkg =>
+      pkg.name.startsWith("@") ? pkg.name.split("/")[1] : pkg.name
+    );
+    let buttonWidth = _.max(labels.map(s => s.length))! + 4;
+    let buttonHeight = 3;
+    let gridHeight = (this.screen.height as number) - buttonHeight;
+    let buttons = packages.map((pkg, i) => {
+      let log = new PackageLog(this.screen, gridHeight);
+      let defaultShow =
+        (only && only.length == 1 && only[0] == pkg.name) || i == 0;
+      if (defaultShow) log.show();
+      else log.hide();
+      this.packages[pkg.name] = log;
+
+      let button = blessed.button({
+        top: gridHeight,
+        left: i * buttonWidth,
+        content: labels[i],
+        align: "center",
+        width: buttonWidth,
+        height: buttonHeight,
         border: { type: "line" },
-        style: { border: { fg: "#eeeeee" } },
-        label: name,
+        style: {
+          fg: defaultShow ? "green" : "black",
+          hover: {
+            bg: "#f0f0f0",
+          },
+        },
       });
-
-      left += boxWidth;
-      if (left >= width) {
-        left = 0;
-        top = hh;
-      }
-
-      this.boxes[name] = box;
-      this.screen.append(box);
+      button.on("click", () => {
+        Object.values(this.packages).forEach(log => log.hide());
+        buttons.forEach(btn => {
+          btn.style.fg = "black";
+        });
+        log.show();
+        button.style.fg = "green";
+        this.screen.render();
+      });
+      this.screen.append(button);
+      return button;
     });
 
     // Quit on Escape, q, or Control-C.
@@ -93,15 +184,8 @@ class WatchLogger extends Logger {
     });
   }
 
-  log(name: string, data: string) {
-    let box = this.boxes[name];
-
-    // Hacky support for ANSI codes that Vite uses.
-    // Note: blessed-xterm solves this issue, but is build in a way
-    // that conflicts with other plugins (it pollutes global namespace
-    // which breaks sass). Need to find a more durable solution.
-    if (data.includes("[2K")) box.deleteBottom();
-    else box.log(data.replace("[1G", ""));
+  log(pkg: string, process: string, data: string) {
+    this.packages[pkg].log(process, data);
   }
 
   start() {
@@ -112,15 +196,13 @@ class WatchLogger extends Logger {
 export class BuildCommand implements Command {
   logger: Logger;
 
-  constructor(readonly flags: BuildFlags) {
-    let boxes: [string, number][] = [
-      ["build", 0.5],
-      ["check", 0.5],
-      ["lint", 0.5],
-      ["script", 0.5],
-      // ["graco", 0.33],
-    ];
-    this.logger = flags.watch ? new WatchLogger(boxes) : new OnceLogger(boxes);
+  constructor(
+    readonly flags: BuildFlags & CommonFlags,
+    readonly ws: Workspace
+  ) {
+    this.logger = flags.watch
+      ? new WatchLogger(ws, flags.packages)
+      : new OnceLogger();
   }
 
   async check(pkg: Package): Promise<boolean> {
@@ -134,7 +216,7 @@ export class BuildCommand implements Command {
     return pkg.spawn({
       script: tscPath,
       opts,
-      onData: data => this.logger.log("check", data),
+      onData: data => this.logger.log(pkg.name, "check", data),
     });
   }
 
@@ -156,7 +238,7 @@ export class BuildCommand implements Command {
     await pkg.spawn({
       script,
       opts,
-      onData: data => this.logger.log("lint", data),
+      onData: data => this.logger.log(pkg.name, "lint", data),
     });
     return true;
   }
@@ -213,9 +295,11 @@ export class BuildCommand implements Command {
         name: "logging",
         setup(build) {
           build.onEnd(result => {
-            if (!result.errors.length) logger.log("build", "Build complete!");
+            if (!result.errors.length)
+              logger.log(pkg.name, "build", "Build complete!");
             result.errors.forEach(error => {
               logger.log(
+                pkg.name,
                 "build",
                 chalk.red("✘ ") +
                   chalk.whiteBright.bgRed(" ERROR ") +
@@ -224,12 +308,13 @@ export class BuildCommand implements Command {
               );
               if (error.location) {
                 logger.log(
+                  pkg.name,
                   "build",
                   `\t${error.location.file}:${error.location.line}:${error.location.column}`
                 );
               }
             });
-            logger.log("build", "\n");
+            logger.log(pkg.name, "build", "\n");
           });
         },
       },
@@ -266,7 +351,7 @@ export class BuildCommand implements Command {
     return pkg.spawn({
       script: vitePath,
       opts,
-      onData: data => this.logger.log("build", data),
+      onData: data => this.logger.log(pkg.name, "build", data),
     });
   }
 
@@ -278,7 +363,7 @@ export class BuildCommand implements Command {
       return await pkg.spawn({
         script: "node",
         opts,
-        onData: data => this.logger.log("script", data),
+        onData: data => this.logger.log(pkg.name, "script", data),
       });
     } else {
       return true;

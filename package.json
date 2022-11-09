@@ -2,8 +2,9 @@
     "name": "graco",
     "version": "0.1.0",
     "bin": {
-        "graco": "dist/main.js"
+        "graco": "dist/main.mjs"
     },
+    "type": "module",
     "scripts": {
         "build": "node build.mjs",
         "test": "jest",
@@ -36,6 +37,7 @@
         "glob": "^8.0.3",
         "glob-promise": "^5.0.0",
         "http-server": "^14.1.1",
+        "indent-string": "^5.0.0",
         "lodash": "^4.17.21",
         "node-pty": "^0.10.1",
         "prettier": "^2.7.1",
