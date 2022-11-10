@@ -343,9 +343,9 @@ export class BuildCommand implements Command {
   async compileWebsite(pkg: Package): Promise<boolean> {
     let vitePath = path.join(binPath, "vite");
 
-    let opts = ["build", "--minify=false"];
+    let opts = ["build"];
     if (this.flags.watch) {
-      opts.push("-w");
+      opts = opts.concat(["--watch"]);
     }
 
     return pkg.spawn({

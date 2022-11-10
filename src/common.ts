@@ -44,6 +44,7 @@ export let spawn = async ({
   });
   onData = onData || (data => process.stdout.write(data));
   p.onData(onData);
+  ["SIGINT", "SIGTERM"].forEach(signal => process.on(signal, () => p.kill()));
   let exitCode: number = await new Promise(resolve => {
     p.onExit(({ exitCode }) => resolve(exitCode));
   });
