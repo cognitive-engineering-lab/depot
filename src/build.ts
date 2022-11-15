@@ -14,6 +14,7 @@ import { Package, Workspace } from "./workspace";
 interface BuildFlags {
   watch?: boolean;
   release?: boolean;
+  only?: string;
 }
 
 abstract class Logger {
@@ -27,7 +28,6 @@ const PROCESSES: [string, number][] = [
   ["check", 0.5],
   ["lint", 0.5],
   ["script", 0.5],
-  // ["graco", 0.33],
 ];
 
 class OnceLogger extends Logger {
@@ -36,19 +36,23 @@ class OnceLogger extends Logger {
     logs: string[];
   }[];
 
-  constructor() {
+  constructor(readonly flags: BuildFlags) {
     super();
     this.logs = PROCESSES.map(([name]) => ({ name, logs: [] }));
   }
 
   // TODO: handle process
   log(_process: string, name: string, data: string) {
-    let entry = this.logs.find(r => r.name == name);
-    if (!entry) throw new Error(`No logger named: ${name}`);
-    entry.logs.push(data);
+    if (this.flags.only) process.stdout.write(data);
+    else {
+      let entry = this.logs.find(r => r.name == name);
+      if (!entry) throw new Error(`No logger named: ${name}`);
+      entry.logs.push(data);
+    }
   }
 
   end() {
+    if (this.flags.only) return;
     this.logs.forEach(({ name, logs }) => {
       console.log(chalk.bold(name) + "\n");
       logs.forEach(log => console.log(log));
@@ -202,13 +206,13 @@ export class BuildCommand implements Command {
   ) {
     this.logger = flags.watch
       ? new WatchLogger(ws, flags.packages)
-      : new OnceLogger();
+      : new OnceLogger(flags);
   }
 
   async check(pkg: Package): Promise<boolean> {
     let tscPath = path.join(binPath, "tsc");
 
-    let opts = ["-emitDeclarationOnly"];
+    let opts = [pkg.target == "lib" ? "-emitDeclarationOnly" : "-noEmit"];
     if (this.flags.watch) {
       opts.push("-w");
     }
@@ -345,7 +349,7 @@ export class BuildCommand implements Command {
 
     let opts = ["build"];
     if (this.flags.watch) {
-      opts = opts.concat(["--watch"]);
+      opts = opts.concat(["--watch", "--minify=false"]);
     }
 
     return pkg.spawn({
@@ -407,13 +411,18 @@ export class BuildCommand implements Command {
       return emit.apply(process, arguments as any);
     } as any;
 
-    let results = await Promise.all([
-      this.check(pkg),
-      this.compile(pkg),
-      this.lint(pkg),
-      this.buildScript(pkg),
-      this.serve(pkg),
-    ]);
+    let processes: { [k: string]: (pkg: Package) => Promise<boolean> } = {
+      check: this.check,
+      compile: this.compile,
+      lint: this.lint,
+      buildScript: this.buildScript,
+      serve: this.serve,
+    };
+    let toRun = this.flags.only ? [this.flags.only] : Object.keys(processes);
+
+    let results = await Promise.all(
+      toRun.map(k => processes[k].call(this, pkg))
+    );
 
     this.logger.end();
     return results.every(x => x);
@@ -423,5 +432,6 @@ export class BuildCommand implements Command {
     program
       .command("build")
       .option("-w, --watch", "Watch for changes and rebuild")
-      .option("-r, --release", "Build for production");
+      .option("-r, --release", "Build for production")
+      .option("--only <process>", "Only run given process");
 }

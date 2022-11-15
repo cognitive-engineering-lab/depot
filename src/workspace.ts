@@ -86,6 +86,15 @@ let getGitRoot = async (): Promise<string | undefined> => {
   return success ? gitRoot.join("").trim() : undefined;
 };
 
+let findWorkspaceRoot = (gitRoot: string): string | undefined => {
+  let pathToCwd = path.relative(gitRoot, path.resolve("."));
+  let components = pathToCwd.split(path.sep);
+  let i = _.range(components.length).find(i =>
+    fs.existsSync(path.join(gitRoot, ...components.slice(i), "package.json"))
+  );
+  if (i !== undefined) return path.join(gitRoot, ...components.slice(i));
+};
+
 export class Workspace {
   pkgMap: { [name: string]: Package };
   depGraph: DepGraph;
@@ -101,7 +110,14 @@ export class Workspace {
 
   static async load() {
     let gitRoot = await getGitRoot();
-    let root = gitRoot || path.resolve(".");
+    let root: string | undefined;
+    if (gitRoot) {
+      root = findWorkspaceRoot(gitRoot);
+    } else {
+      let cwd = path.resolve(".");
+      if (fs.existsSync(path.join(cwd, "package.json"))) root = cwd;
+    }
+    if (!root) throw new Error(`Could not find workspace`);
     log.debug(`Workspace root: ${root}`);
 
     let pkgDir = path.join(root, "packages");
@@ -192,6 +208,7 @@ export class Workspace {
     let promise = new Promise<void>((resolve, reject) => {
       let runTasks = () =>
         canExecute().forEach(async pkg => {
+          console.log("Running task for:", pkg.name);
           status[pkg.name] = "running";
           let success = await cmd.run!(pkg);
           if (!success) reject();
