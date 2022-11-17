@@ -1,6 +1,6 @@
 # Graco: a JS devtool orchestrator
 
-![Tests](https://github.com/willcrichton/graco/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/willcrichton/graco/actions/workflows/tests.yaml/badge.svg)
 ![npm](https://img.shields.io/npm/v/graco)
 
 <img width="700" alt="Screen Shot 2022-10-31 at 11 04 35 PM" src="https://user-images.githubusercontent.com/663326/199170700-60027b7f-dfaa-43d6-8afe-3296d8307727.png">
