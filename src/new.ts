@@ -3,7 +3,7 @@ import fs from "fs-extra";
 import path from "path";
 import sortPackageJson from "sort-package-json";
 
-import { Registration, spawn } from "./common";
+import { Registration, binPath, spawn } from "./common";
 import { PLATFORMS, Platform, TARGETS, Target } from "./workspace";
 
 interface NewFlags {
@@ -85,8 +85,9 @@ export class NewCommand {
     ]);
 
     if (devDependencies.length > 0) {
+      let pnpmPath = path.join(binPath, "pnpm");
       await spawn({
-        script: "pnpm",
+        script: pnpmPath,
         opts: ["add", "-D", ...devDependencies],
         cwd: name,
       });

@@ -37,6 +37,7 @@ specifiers:
   lodash: ^4.17.21
   node-pty: ^0.10.1
   package-json-type: ^1.0.3
+  pnpm: ^7.16.1
   prettier: ^2.7.1
   sass: ^1.55.0
   sort-package-json: ^2.0.0
@@ -70,6 +71,7 @@ dependencies:
   indent-string: 5.0.0
   lodash: 4.17.21
   node-pty: 0.10.1
+  pnpm: 7.16.1
   prettier: 2.7.1
   sass: 1.55.0
   sort-package-json: 2.0.0
@@ -3864,6 +3866,12 @@ packages:
     dependencies:
       find-up: 4.1.0
     dev: true
+
+  /pnpm/7.16.1:
+    resolution: {integrity: sha512-vtAw/kJ+Slm/XdLvd3zbSA8FKBgetrk+1KQFDnyvPP0q2Pjc1f2HsA7idYs9MJewYi4o03cjyZhAdqrCcjknsw==}
+    engines: {node: '>=14.6'}
+    hasBin: true
+    dev: false
 
   /portfinder/1.0.32:
     resolution: {integrity: sha512-on2ZJVVDXRADWE6jnQaX0ioEylzgBpQk8r55NE4wjXW1ZxO+BgDlY6DXwj20i0V8eB4SenDQ00WEaxfiIQPcxg==}
