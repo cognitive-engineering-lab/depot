@@ -23,8 +23,7 @@ Don't use this right now. I'm working on it. But if you *really* want to try...
 ```
 npm install -g graco
 graco new --target bin --platform browser my-website
-cd my-webste
-graco init
+cd my-website
 graco build -w
 ```
 
