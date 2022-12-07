@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import indentString from "indent-string";
 import _ from "lodash";
 import type { IPackageJson } from "package-json-type";
+import type esbuild from "esbuild";
 import path from "path";
 
 import { Command, SpawnProps, spawn } from "./common";
@@ -12,13 +13,20 @@ export type Platform = typeof PLATFORMS[number];
 export const TARGETS = ["bin", "lib"] as const;
 export type Target = typeof TARGETS[number];
 
+export interface GracoConfig {
+  format?: esbuild.Format;
+}
+
 export class Package {
   readonly platform: Platform;
   readonly target: Target;
   readonly name: string;
   readonly entryPoint: string;
 
-  constructor(readonly dir: string, readonly manifest: IPackageJson) {
+  constructor(
+    readonly dir: string,
+    readonly manifest: IPackageJson & { graco?: GracoConfig }
+  ) {
     this.name = manifest.name || path.basename(dir);
 
     let entryPoint;
@@ -37,6 +45,10 @@ export class Package {
     } else {
       throw new Error(`Could not determine platform for package: ${this.name}`);
     }
+  }
+
+  config(): GracoConfig {
+    return this.manifest.graco || {};
   }
 
   static async load(dir: string): Promise<Package> {

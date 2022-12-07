@@ -327,7 +327,7 @@ export class BuildCommand implements Command {
     try {      
       let result = await esbuild.build({
         entryPoints: [pkg.entryPoint],
-        format: "esm",
+        format: pkg.config().format || "esm",
         outdir: pkg.path("dist"),
         bundle: true,
         watch: this.flags.watch,
