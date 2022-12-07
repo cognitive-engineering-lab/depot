@@ -324,11 +324,11 @@ export class BuildCommand implements Command {
       },
     ];
 
-    try {
+    try {      
       let result = await esbuild.build({
         entryPoints: [pkg.entryPoint],
         format: "esm",
-        outdir: "dist",
+        outdir: pkg.path("dist"),
         bundle: true,
         watch: this.flags.watch,
         minify: this.flags.release,
@@ -336,7 +336,6 @@ export class BuildCommand implements Command {
         external,
         plugins,
         logLevel: "silent",
-        absWorkingDir: pkg.dir,
       });
       return result.errors.length == 0;
     } catch (e) {
