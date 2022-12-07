@@ -45,7 +45,7 @@ export async function modifyGitignore(cfgs: ConfigFile[], dir: string) {
   let gitignorePath = path.join(dir, ".gitignore");
   if (!fs.existsSync(gitignorePath)) fs.createFileSync(gitignorePath);
 
-  const HEADER = "# Managed by Greco";
+  const HEADER = "# Managed by Graco";
   let contents = await fs.readFile(gitignorePath, "utf-8");
   let entries = contents.split("\n");
   let i = entries.indexOf(HEADER);

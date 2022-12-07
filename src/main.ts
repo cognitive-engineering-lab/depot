@@ -6,9 +6,14 @@ import { CleanCommand } from "./clean";
 import type { Command, CommonFlags, Registration } from "./common";
 import { FmtCommand } from "./fmt";
 import { InitCommand } from "./init";
+import { log } from "./log";
 import { NewCommand } from "./new";
 import { TestCommand } from "./test";
 import { Workspace } from "./workspace";
+
+declare global {
+  var DEV_MODE: boolean;
+}
 
 type Class<T> = { new (...args: any[]): T };
 function register<T extends Command>(Cmd: Class<T>, reg: Registration) {
@@ -28,4 +33,6 @@ register(CleanCommand, CleanCommand.register);
 register(InitCommand, InitCommand.register);
 register(TestCommand, TestCommand.register);
 
-program.parseAsync(process.argv);
+program.parseAsync(process.argv).catch(err => {  
+  log.error(DEV_MODE ? err.stack : err.message);
+});

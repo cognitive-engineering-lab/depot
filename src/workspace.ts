@@ -19,8 +19,7 @@ export class Package {
   readonly entryPoint: string;
 
   constructor(readonly dir: string, readonly manifest: IPackageJson) {
-    if (!manifest.name) throw new Error(`All packages must be named`);
-    this.name = manifest.name;
+    this.name = manifest.name || path.basename(dir);
 
     let entryPoint;
     if ((entryPoint = this.findJs("lib"))) {
