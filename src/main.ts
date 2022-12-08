@@ -33,6 +33,6 @@ register(CleanCommand, CleanCommand.register);
 register(InitCommand, InitCommand.register);
 register(TestCommand, TestCommand.register);
 
-program.parseAsync(process.argv).catch(err => {  
+program.parseAsync(process.argv).catch(err => {
   log.error(DEV_MODE ? err.stack : err.message);
 });

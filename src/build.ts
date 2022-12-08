@@ -324,7 +324,7 @@ export class BuildCommand implements Command {
       },
     ];
 
-    try {      
+    try {
       let result = await esbuild.build({
         entryPoints: [pkg.entryPoint],
         format: pkg.config().format || "esm",

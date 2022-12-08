@@ -1,8 +1,8 @@
+import type esbuild from "esbuild";
 import fs from "fs-extra";
 import indentString from "indent-string";
 import _ from "lodash";
 import type { IPackageJson } from "package-json-type";
-import type esbuild from "esbuild";
 import path from "path";
 
 import { Command, SpawnProps, spawn } from "./common";

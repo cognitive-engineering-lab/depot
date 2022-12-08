@@ -25,7 +25,7 @@ export class CleanCommand implements Command {
     let dirs = ["dist", "node_modules"];
     if (this.flags.all) {
       let cfgs = await findManagedConfigs(configsFor(pkg), pkg.dir);
-      dirs = dirs.concat(cfgs.map(cfg => cfg.name))
+      dirs = dirs.concat(cfgs.map(cfg => cfg.name));
     }
     await this.rmDirs(dirs.map(d => pkg.path(d)));
     return true;
@@ -35,7 +35,7 @@ export class CleanCommand implements Command {
     let dirs = ["node_modules"];
     if (this.flags.all) {
       let cfgs = await findManagedConfigs(configsFor(ws), ws.root);
-      dirs = dirs.concat(cfgs.map(cfg =>cfg.name));
+      dirs = dirs.concat(cfgs.map(cfg => cfg.name));
     }
     await this.rmDirs(dirs.map(d => ws.path(d)));
     return true;
