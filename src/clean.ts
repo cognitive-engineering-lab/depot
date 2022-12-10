@@ -2,6 +2,7 @@ import fs from "fs-extra";
 
 import { Command, Registration } from "./common";
 import { configsFor, findManagedConfigs } from "./config-files";
+import { log } from "./log";
 import { Package, Workspace } from "./workspace";
 
 interface CleanFlags {
@@ -16,6 +17,7 @@ export class CleanCommand implements Command {
   }
 
   async rmDirs(dirs: string[]) {
+    log.info(`Removing:\n${dirs.join("\n")}`);
     return await Promise.all(
       dirs.map(d => fs.rm(d, { recursive: true, force: true }))
     );
