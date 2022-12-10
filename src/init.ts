@@ -43,7 +43,9 @@ export class InitCommand implements Command {
   }
 
   async runWorkspace(ws: Workspace): Promise<boolean> {
-    await this.ensureConfigs(configsFor(ws), ws.root);
+    let cfgs = configsFor(ws);
+    if (!ws.monorepo) cfgs = cfgs.concat(configsFor(ws.packages[0]));
+    await this.ensureConfigs(cfgs, ws.root);
 
     let pnpmPath = path.join(binPath, "pnpm");
     let success = await ws.spawn({ script: pnpmPath, opts: ["install"] });
