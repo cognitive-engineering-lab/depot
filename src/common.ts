@@ -2,14 +2,15 @@ import * as commander from "commander";
 import fs from "fs-extra";
 import * as pty from "node-pty";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import { Package, Workspace } from "./workspace";
 
-declare global {
-  var REPO_ROOT: string;
-}
+export let gracoPkgRoot = path.resolve(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
+);
 
-export let modulesPath = path.resolve(path.join(REPO_ROOT, "node_modules"));
+export let modulesPath = path.join(gracoPkgRoot, "node_modules");
 
 export let binPath = path.join(modulesPath, ".bin");
 

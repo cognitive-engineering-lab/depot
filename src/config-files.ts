@@ -1,9 +1,10 @@
 import fs from "fs-extra";
 import path from "path";
 
+import { gracoPkgRoot } from "./common";
 import { Package, Platform, Workspace } from "./workspace";
 
-export const CONFIG_FILE_DIR = path.join(REPO_ROOT, "src", "assets");
+export const CONFIG_FILE_DIR = path.join(gracoPkgRoot, "dist", "assets");
 
 export interface ConfigFile {
   name: string;
