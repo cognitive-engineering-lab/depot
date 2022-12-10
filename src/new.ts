@@ -73,11 +73,12 @@ export class NewCommand {
       srcContents = LIB;
       manifest.main = "dist/lib.js";
       manifest.type = "module";
+      manifest.files = ["dist"];
     }
 
     let gitignore = ["node_modules", "dist"].join("\n");
 
-    let manifestPretty = sortPackageJson(JSON.stringify(manifest));
+    let manifestPretty = sortPackageJson(JSON.stringify(manifest, undefined, 4));
     await Promise.all([
       fs.writeFile(path.join(name, "package.json"), manifestPretty),
       fs.writeFile(path.join(name, "src", srcPath), srcContents),
