@@ -29,7 +29,7 @@ export let CONFIG_FILES: ConfigFile[] = [
   },
   {
     name: "jest.config.cjs",
-    granularity: "workspace",
+    granularity: "package",
   },
   {
     name: "vite.config.ts",
@@ -83,7 +83,8 @@ export function configsFor(obj: Package | Workspace): ConfigFile[] {
     return CONFIG_FILES.filter(
       cfg =>
         cfg.granularity == "package" &&
-        (!cfg.platform || cfg.platform == obj.platform)
+        (!cfg.platform || cfg.platform == obj.platform) &&
+        !(cfg.name == "jest.config.cjs" && !fs.existsSync(obj.path("tests")))
     );
   else
     return CONFIG_FILES.filter(

@@ -169,7 +169,7 @@ export class Workspace {
 
     let union = <T>(a: Set<T>, b: Set<T>): boolean => {
       let n = a.size;
-      b.forEach(a.add);
+      b.forEach(x => a.add(x));
       return a.size > n;
     };
     while (true) {

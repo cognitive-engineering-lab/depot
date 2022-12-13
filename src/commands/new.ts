@@ -44,8 +44,9 @@ export class NewCommand {
 
   async run() {
     let { name, target, platform } = this.flags;
-    await fs.mkdir(name);
-    await fs.mkdir(path.join(name, "src"));
+    let dir = name.startsWith("@") ? name.split("/")[1] : name;
+    await fs.mkdir(dir);
+    await fs.mkdir(path.join(dir, "src"));
 
     let manifest: any = {
       name,
@@ -63,11 +64,11 @@ export class NewCommand {
         "@types/react",
         "@types/react-dom",
       ]);
-      await fs.writeFile(path.join(name, "index.html"), HTML);
+      await fs.writeFile(path.join(dir, "index.html"), HTML);
     } else if (target == "bin" && platform == "node") {
       srcPath = "main.ts";
       srcContents = MAIN;
-      manifest.bin = { [name]: "dist/main.js" };
+      manifest.bin = { [dir]: "dist/main.js" };
     } else {
       srcPath = "lib.ts";
       srcContents = LIB;
@@ -78,11 +79,13 @@ export class NewCommand {
 
     let gitignore = ["node_modules", "dist"].join("\n");
 
-    let manifestPretty = sortPackageJson(JSON.stringify(manifest, undefined, 4));
+    let manifestPretty = sortPackageJson(
+      JSON.stringify(manifest, undefined, 4)
+    );
     await Promise.all([
-      fs.writeFile(path.join(name, "package.json"), manifestPretty),
-      fs.writeFile(path.join(name, "src", srcPath), srcContents),
-      fs.writeFile(path.join(name, ".gitignore"), gitignore),
+      fs.writeFile(path.join(dir, "package.json"), manifestPretty),
+      fs.writeFile(path.join(dir, "src", srcPath), srcContents),
+      fs.writeFile(path.join(dir, ".gitignore"), gitignore),
     ]);
 
     if (devDependencies.length > 0) {
@@ -90,14 +93,14 @@ export class NewCommand {
       await spawn({
         script: pnpmPath,
         opts: ["add", "-D", ...devDependencies],
-        cwd: name,
+        cwd: dir,
       });
     }
 
     await spawn({
       script: "graco",
       opts: ["init"],
-      cwd: name,
+      cwd: dir,
     });
   }
 

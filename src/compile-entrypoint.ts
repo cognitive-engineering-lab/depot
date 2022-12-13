@@ -1,7 +1,7 @@
 import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
-import { IDependencyMap } from "package-json-type";
 import fs from "fs-extra";
+import { IDependencyMap } from "package-json-type";
 import path from "path";
 
 async function main() {
@@ -15,9 +15,9 @@ async function main() {
     name: "path-extension-loader",
     setup(build) {
       let loaders = ["url", "raw"];
-      loaders.forEach((loader) => {
+      loaders.forEach(loader => {
         let filter = new RegExp(`\\?${loader}$`);
-        build.onResolve({ filter }, (args) => {
+        build.onResolve({ filter }, args => {
           let p = args.path.slice(0, -(loader.length + 1));
           p = path.resolve(path.join(args.resolveDir, p));
           return { path: p, namespace: loader };
@@ -25,14 +25,14 @@ async function main() {
       });
 
       let toCopy = new Set<string>();
-      build.onLoad({ filter: /.*/, namespace: "url" }, (args) => {
+      build.onLoad({ filter: /.*/, namespace: "url" }, args => {
         toCopy.add(args.path);
         let url = JSON.stringify("./" + path.basename(args.path));
         let contents = `export default new URL(${url}, import.meta.url);`;
         return { contents, loader: "js" };
       });
       build.onEnd(() => {
-        toCopy.forEach((p) => {
+        toCopy.forEach(p => {
           fs.copyFileSync(
             p,
             path.join(build.initialOptions.outdir!, path.basename(p))
@@ -40,7 +40,7 @@ async function main() {
         });
       });
 
-      build.onLoad({ filter: /.*/, namespace: "raw" }, (args) => {
+      build.onLoad({ filter: /.*/, namespace: "raw" }, args => {
         let contents = fs.readFileSync(args.path, "utf-8");
         return { contents, loader: "text" };
       });
@@ -77,14 +77,15 @@ async function main() {
     await esbuild.build({
       ...externalConfig,
       entryPoints: [entryPoint],
-      format: (manifest.graco && manifest.graco.format) || "esm",
+      platform: externalConfig.platform || "browser",
+      format: externalConfig.format || "esm",
       outdir: "dist",
       bundle: true,
       watch,
       minify: release,
       sourcemap: !release,
       external,
-      plugins,
+      plugins: plugins.concat(externalConfig.plugins || []),
       loader,
     });
   } catch (e) {
