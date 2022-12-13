@@ -1,14 +1,17 @@
 import blessed from "blessed";
 import chalk from "chalk";
-import esbuild, { Plugin } from "esbuild";
-import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
 import { createServer } from "http-server";
 import _ from "lodash";
-import { IDependencyMap } from "package-json-type";
 import path from "path";
 
-import { Command, CommonFlags, Registration, binPath } from "./common";
+import {
+  Command,
+  CommonFlags,
+  Registration,
+  binPath,
+  gracoPkgRoot,
+} from "./common";
 import { Package, Workspace } from "./workspace";
 
 interface BuildFlags {
@@ -248,99 +251,21 @@ export class BuildCommand implements Command {
   }
 
   async compileLibrary(pkg: Package): Promise<boolean> {
-    let keys = (map?: IDependencyMap) => Object.keys(map || {});
-    let external = keys(pkg.manifest.peerDependencies).concat(
-      keys(pkg.manifest.dependencies)
+    let gracoBuildPath = path.join(
+      gracoPkgRoot,
+      "dist",
+      "compile-entrypoint.mjs"
     );
 
-    let logger = this.logger;
-    let plugins: Plugin[] = [
-      sassPlugin(),
-      {
-        name: "files",
-        setup(build) {
-          let loaders = ["url", "raw"];
-          loaders.forEach(loader => {
-            let filter = new RegExp(`\\?${loader}$`);
-            build.onResolve({ filter }, args => {
-              let p = args.path.slice(0, -(loader.length + 1));
-              p = path.resolve(path.join(args.resolveDir, p));
-              return { path: p, namespace: loader };
-            });
-          });
+    let opts = [gracoBuildPath, pkg.entryPoint];
+    if (this.flags.watch) opts.push("-w");
+    if (this.flags.release) opts.push("--release");
 
-          let toCopy = new Set<string>();
-          build.onLoad({ filter: /.*/, namespace: "url" }, args => {
-            toCopy.add(args.path);
-            let url = JSON.stringify("./" + path.basename(args.path));
-            let contents = `export default new URL(${url}, import.meta.url);`;
-            return { contents, loader: "js" };
-          });
-          build.onEnd(() => {
-            toCopy.forEach(p => {
-              fs.copyFileSync(
-                p,
-                path.join(
-                  pkg.dir,
-                  build.initialOptions.outdir!,
-                  path.basename(p)
-                )
-              );
-            });
-          });
-
-          build.onLoad({ filter: /.*/, namespace: "raw" }, args => {
-            let contents = fs.readFileSync(args.path, "utf-8");
-            return { contents, loader: "text" };
-          });
-        },
-      },
-      {
-        name: "logging",
-        setup(build) {
-          build.onEnd(result => {
-            if (!result.errors.length)
-              logger.log(pkg.name, "build", "Build complete!");
-            result.errors.forEach(error => {
-              logger.log(
-                pkg.name,
-                "build",
-                chalk.red("✘ ") +
-                  chalk.whiteBright.bgRed(" ERROR ") +
-                  " " +
-                  chalk.bold(error.text)
-              );
-              if (error.location) {
-                logger.log(
-                  pkg.name,
-                  "build",
-                  `\t${error.location.file}:${error.location.line}:${error.location.column}`
-                );
-              }
-            });
-            logger.log(pkg.name, "build", "\n");
-          });
-        },
-      },
-    ];
-
-    try {
-      let result = await esbuild.build({
-        entryPoints: [pkg.entryPoint],
-        format: pkg.config().format || "esm",
-        outdir: pkg.path("dist"),
-        bundle: true,
-        watch: this.flags.watch,
-        minify: this.flags.release,
-        sourcemap: !this.flags.release,
-        external,
-        plugins,
-        logLevel: "silent",
-      });
-      return result.errors.length == 0;
-    } catch (e) {
-      return false;
-    }
+    return pkg.spawn({
+      script: "node",
+      opts,
+      onData: data => this.logger.log(pkg.name, "build", data),
+    });
   }
 
   async compileWebsite(pkg: Package): Promise<boolean> {

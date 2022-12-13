@@ -4,19 +4,17 @@ import _ from "lodash";
 
 let manifest = JSON.parse(fs.readFileSync("package.json"));
 let watch = process.argv.includes("-w");
-let debug = process.argv.includes("-g") || watch;
 let devMode = watch;
 
 esbuild.build({
-  entryPoints: ["src/main.ts"],
+  entryPoints: ["src/main.ts", "src/compile-entrypoint.ts"],
   outdir: "dist",
   bundle: true,
-  minify: !debug,
   platform: "node",
   format: "esm",
   outExtension: { ".js": ".mjs" },
   external: Object.keys(manifest.dependencies),
-  sourcemap: debug,
+  sourcemap: watch,
   define: {
     DEV_MODE: JSON.stringify(devMode),
   },
