@@ -1,3 +1,4 @@
+import * as cp from "child_process";
 import * as commander from "commander";
 import fs from "fs-extra";
 import * as pty from "node-pty";
@@ -6,9 +7,16 @@ import { fileURLToPath } from "url";
 
 import { Package, Workspace } from "./workspace";
 
-export let gracoPkgRoot = path.resolve(
+let thisDir = path.resolve(
   path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
 );
+let findPkgRoot = () => {
+  let globalRoot = cp.execSync("npm root -g", { encoding: "utf-8" });
+  return path.join(globalRoot, "graco");
+};
+export let gracoPkgRoot = fs.existsSync(path.join(thisDir, "node_modules"))
+  ? thisDir
+  : findPkgRoot();
 
 export let modulesPath = path.join(gracoPkgRoot, "node_modules");
 
