@@ -1,7 +1,7 @@
 import path from "path";
 
-import { Command, Registration, binPath, spawn } from "./common";
-import { Package } from "./workspace";
+import { Command, Registration, binPath, spawn } from "../common";
+import { Package } from "../workspace";
 
 interface FmtFlags {}
 

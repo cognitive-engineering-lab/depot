@@ -3,8 +3,8 @@ import fs from "fs-extra";
 import path from "path";
 import sortPackageJson from "sort-package-json";
 
-import { Registration, binPath, spawn } from "./common";
-import { PLATFORMS, Platform, TARGETS, Target } from "./workspace";
+import { Registration, binPath, spawn } from "../common";
+import { PLATFORMS, Platform, TARGETS, Target } from "../workspace";
 
 interface NewFlags {
   name: string;

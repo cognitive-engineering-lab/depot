@@ -7,14 +7,14 @@ import {
   binPath,
   modulesPath,
   symlinkExists,
-} from "./common";
+} from "../common";
 import {
   CONFIG_FILE_DIR,
   ConfigFile,
   configsFor,
   modifyGitignore,
-} from "./config-files";
-import { Package, Workspace } from "./workspace";
+} from "../config-files";
+import { Package, Workspace } from "../workspace";
 
 interface InitFlags {}
 

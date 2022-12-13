@@ -6,7 +6,7 @@
     },
     "type": "module",
     "scripts": {
-        "build": "node build.mjs",
+        "build": "tsc && node build.mjs",
         "test": "jest",
         "clean": "rm -rf node_modules dist",
         "commit-check": "pnpm clean && pnpm install && pnpm build && pnpm test",

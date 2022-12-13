@@ -1,7 +1,7 @@
 import path from "path";
 
-import { Command, Registration, binPath } from "./common";
-import { Workspace } from "./workspace";
+import { Command, Registration, binPath } from "../common";
+import { Workspace } from "../workspace";
 
 interface TestFlags {}
 

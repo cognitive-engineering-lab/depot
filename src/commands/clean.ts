@@ -1,9 +1,9 @@
 import fs from "fs-extra";
 
-import { Command, Registration } from "./common";
-import { configsFor, findManagedConfigs } from "./config-files";
-import { log } from "./log";
-import { Package, Workspace } from "./workspace";
+import { Command, Registration } from "../common";
+import { configsFor, findManagedConfigs } from "../config-files";
+import { log } from "../log";
+import { Package, Workspace } from "../workspace";
 
 interface CleanFlags {
   all?: boolean;

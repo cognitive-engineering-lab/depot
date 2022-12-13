@@ -11,8 +11,8 @@ import {
   Registration,
   binPath,
   gracoPkgRoot,
-} from "./common";
-import { Package, Workspace } from "./workspace";
+} from "../common";
+import { Package, Workspace } from "../workspace";
 
 interface BuildFlags {
   watch?: boolean;
