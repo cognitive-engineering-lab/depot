@@ -1,6 +1,6 @@
 {
     "name": "graco",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "bin": {
         "graco": "dist/main.mjs"
     },
