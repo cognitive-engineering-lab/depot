@@ -47,7 +47,14 @@ async function main() {
     },
   };
 
-  let plugins: Plugin[] = [sassPlugin(), pathExtensionLoaderPlugin];
+  let loggerPlugin: Plugin = {
+    name: "logger",
+    setup(build) {
+      build.onEnd(() => console.log("Build complete."));
+    },
+  };
+
+  let plugins: Plugin[] = [sassPlugin(), pathExtensionLoaderPlugin, loggerPlugin];
 
   let loader: { [ext: string]: esbuild.Loader } = {
     ".otf": "file",
