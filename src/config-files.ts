@@ -1,16 +1,18 @@
 import fs from "fs-extra";
 import path from "path";
 
-import { gracoPkgRoot } from "./common";
+import { gracoPkgRoot, symlinkExists } from "./common";
 import { Package, Platform, Workspace } from "./workspace";
 
 export const CONFIG_FILE_DIR = path.join(gracoPkgRoot, "dist", "assets");
 
 export interface ConfigFile {
   name: string;
+  path?: string;
   granularity: "workspace" | "package";
   platform?: Platform;
   monorepo?: boolean;
+  copy?: boolean;
 }
 
 export let CONFIG_FILES: ConfigFile[] = [
@@ -29,7 +31,16 @@ export let CONFIG_FILES: ConfigFile[] = [
   },
   {
     name: "jest.config.cjs",
+    path: "jest.config.workspace.cjs",
+    granularity: "workspace",
+    monorepo: true,
+    copy: true,
+  },
+  {
+    name: "jest.config.cjs",
+    path: "jest.config.package.cjs",
     granularity: "package",
+    copy: true,
   },
   {
     name: "vite.config.ts",
@@ -41,6 +52,15 @@ export let CONFIG_FILES: ConfigFile[] = [
     granularity: "package",
   },
 ];
+
+export async function ensureConfig(config: ConfigFile, dir: string) {
+  let srcPath = path.join(CONFIG_FILE_DIR, config.path || config.name);
+  let dstPath = path.join(dir, config.name);
+  if (await symlinkExists(dstPath)) return;
+  if (config.copy) await fs.copyFile(srcPath, dstPath);
+  else await fs.symlink(srcPath, dstPath);
+  console.log(`Linked: ${dstPath}`);
+}
 
 export async function modifyGitignore(cfgs: ConfigFile[], dir: string) {
   let gitignorePath = path.join(dir, ".gitignore");
@@ -88,6 +108,8 @@ export function configsFor(obj: Package | Workspace): ConfigFile[] {
     );
   else
     return CONFIG_FILES.filter(
-      cfg => cfg.granularity == "workspace" && (obj.monorepo || !cfg.monorepo)
+      cfg =>
+        cfg.granularity == "workspace" &&
+        (cfg.monorepo === undefined || obj.monorepo === cfg.monorepo)
     );
 }

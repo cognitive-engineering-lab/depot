@@ -9,9 +9,9 @@ import {
   symlinkExists,
 } from "../common";
 import {
-  CONFIG_FILE_DIR,
   ConfigFile,
   configsFor,
+  ensureConfig,
   modifyGitignore,
 } from "../config-files";
 import { Package, Workspace } from "../workspace";
@@ -22,13 +22,7 @@ export class InitCommand implements Command {
   constructor(readonly flags: InitFlags) {}
 
   async ensureConfigs(cfgs: ConfigFile[], dir: string) {
-    let promises = cfgs.map(async config => {
-      let srcPath = path.join(CONFIG_FILE_DIR, config.name);
-      let dstPath = path.join(dir, config.name);
-      if (await symlinkExists(dstPath)) return;
-      await fs.symlink(srcPath, dstPath);
-      console.log(`Linked: ${dstPath}`);
-    });
+    let promises = cfgs.map(cfg => ensureConfig(cfg, dir));
     await Promise.all(promises);
     await modifyGitignore(cfgs, dir);
   }
