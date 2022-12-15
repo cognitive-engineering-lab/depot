@@ -16,7 +16,7 @@ program.command("commit-check").action(() => {
   });
 });
 program.command("prepare").action(() => {
-  cp.execSync("graco init && graco build", { stdio: "inherit" });
+  cp.execSync("graco init && graco build --release", { stdio: "inherit" });
 });
 program.parseAsync(process.argv).catch(err => {
   log.error(DEV_MODE ? err.stack : err.message);
