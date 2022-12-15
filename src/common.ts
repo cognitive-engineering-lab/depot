@@ -5,6 +5,7 @@ import * as pty from "node-pty";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { log } from "./log";
 import { Package, Workspace } from "./workspace";
 
 let thisDir = path.resolve(
@@ -44,13 +45,22 @@ export let spawn = async ({
   cwd,
   onData,
 }: SpawnProps): Promise<boolean> => {
-  let p = pty.spawn(script, opts, {
-    env: {
-      ...process.env,
-      NODE_PATH: modulesPath,
-    },
-    cwd,
-  });
+  let p: pty.IPty;
+  try {
+    p = pty.spawn(script, opts, {
+      env: {
+        ...process.env,
+        NODE_PATH: modulesPath,
+      },
+      cwd,
+    });
+  } catch (e) {
+    log.error(
+      `Failed to spawn process: ${script}\nGraco package root is: ${gracoPkgRoot}`
+    );
+    return false;
+  }
+
   onData = onData || (data => process.stdout.write(data));
   p.onData(onData);
   ["SIGINT", "SIGTERM"].forEach(signal => process.on(signal, () => p.kill()));
