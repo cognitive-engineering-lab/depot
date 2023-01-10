@@ -1,6 +1,7 @@
 import esbuild, { Plugin } from "esbuild";
 import { sassPlugin } from "esbuild-sass-plugin";
 import fs from "fs-extra";
+import _ from "lodash";
 import { IDependencyMap } from "package-json-type";
 import path from "path";
 
@@ -54,7 +55,11 @@ async function main() {
     },
   };
 
-  let plugins: Plugin[] = [sassPlugin(), pathExtensionLoaderPlugin, loggerPlugin];
+  let plugins: Plugin[] = [
+    sassPlugin(),
+    pathExtensionLoaderPlugin,
+    loggerPlugin,
+  ];
 
   let loader: { [ext: string]: esbuild.Loader } = {
     ".otf": "file",
@@ -93,7 +98,7 @@ async function main() {
       sourcemap: !release,
       external,
       plugins: plugins.concat(externalConfig.plugins || []),
-      loader,
+      loader: _.merge(loader, externalConfig.loader || {}),
     });
   } catch (e) {
     process.exit(1);
