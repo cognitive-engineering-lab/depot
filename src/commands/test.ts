@@ -13,7 +13,7 @@ export class TestCommand implements Command {
     if (!fs.existsSync(ws.path("jest.config.cjs"))) return true;
 
     let jestPath = path.join(binPath, "jest");
-    return ws.spawn({ script: jestPath, opts: [] });
+    return ws.spawn({ script: jestPath, opts: ["--passWithNoTests"] });
   }
 
   static register: Registration = program => program.command("test");
