@@ -11,7 +11,7 @@ test("prepare inits and builds a workspace", () => {
 
 test("commit-check cleans, inits, builds, and tests a workspace", () => {
   let src = `export let foo = "bar";\n`;
-  return Graco.with({ src, debug: true }, async graco => {
+  return Graco.with({ src }, async graco => {
     // TODO: test other aspects of commit-check besides building
     expect(await graco.run("commit-check")).toBe(0);
     graco.test("dist/lib.js");
