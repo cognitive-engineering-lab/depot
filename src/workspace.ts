@@ -105,10 +105,10 @@ let getGitRoot = async (): Promise<string | undefined> => {
 let findWorkspaceRoot = (gitRoot: string): string | undefined => {
   let pathToCwd = path.relative(gitRoot, path.resolve("."));
   let components = pathToCwd.split(path.sep);
-  let i = _.range(components.length).find(i =>
-    fs.existsSync(path.join(gitRoot, ...components.slice(i), "package.json"))
+  let i = _.range(components.length + 1).find(i =>
+    fs.existsSync(path.join(gitRoot, ...components.slice(0, i), "package.json"))
   );
-  if (i !== undefined) return path.join(gitRoot, ...components.slice(i));
+  if (i !== undefined) return path.join(gitRoot, ...components.slice(0, i));
 };
 
 export class Workspace {
