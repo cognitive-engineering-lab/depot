@@ -82,6 +82,11 @@ export class Package {
   spawn(props: Omit<SpawnProps, "cwd">): Promise<boolean> {
     return spawn({ ...props, cwd: this.dir });
   }
+
+  nameWithoutScope(): string {
+    let parts = this.name.split("/");
+    return parts.length == 2 ? parts[1] : parts[0];
+  }
 }
 
 type DepGraph = { [name: string]: string[] };
@@ -200,7 +205,17 @@ export class Workspace {
   }
 
   async runPackages(cmd: Command, only?: string[]): Promise<boolean> {
-    let rootSet = only || this.packages.map(p => p.name);
+    let rootSet: string[];
+    if (only) {
+      rootSet = only.map(name => {
+        let pkg = this.packages.find(pkg => name == pkg.nameWithoutScope());
+        if (!pkg)
+          throw new Error(`Could not find package matching name: ${name}`);
+        return pkg.name;
+      });
+    } else {
+      rootSet = this.packages.map(p => p.name);
+    }
     let pkgs = this.dependencyClosure(rootSet);
 
     if (cmd.parallel && cmd.parallel()) {
