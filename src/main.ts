@@ -7,17 +7,58 @@ import { log } from "./log";
 
 declare global {
   var DEV_MODE: boolean;
+  var VERSION: string;
 }
 
+program.name("graco").version(VERSION);
 registerCommands(program);
-program.command("commit-check").action(() => {
-  cp.execSync("graco clean && graco init && graco build && graco test", {
-    stdio: "inherit",
-  });
+
+let exec = (cmd: string) => {
+  cp.execSync(cmd, { stdio: "inherit" });
+};
+
+// TODO: workspace support for these
+let pnpmSynonyms = [
+  {
+    command: "add",
+    description: "Add a new dependency",
+  },
+  {
+    command: "update",
+    description: "Update a dependency",
+  },
+  {
+    command: "link",
+    description: "Symlink a dependency",
+  },
+];
+pnpmSynonyms.forEach(({ command, description }) => {
+  program
+    .command(command)
+    .description(description + " (via pnpm)")
+    .allowUnknownOption(true)
+    .action((_flags, cmd) => exec(`pnpm ${command} ${cmd.args.join(" ")}`));
 });
-program.command("prepare").action(() => {
-  cp.execSync("graco init && graco build --release", { stdio: "inherit" });
+
+let gracoSynonyms = [
+  {
+    command: "commit-check",
+    description: "Clean, init, build, and test",
+    shell: "graco clean && graco init && graco build && graco test",
+  },
+  {
+    command: "prepare",
+    description: "Init and build for production",
+    shell: "graco init && graco build --release",
+  },
+];
+gracoSynonyms.forEach(({ command, description, shell }) => {
+  program
+    .command(command)
+    .description(description)
+    .action(() => exec(shell));
 });
+
 program.parseAsync(process.argv).catch(err => {
   log.error(DEV_MODE ? err.stack : err.message);
 });

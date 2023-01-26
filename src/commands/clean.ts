@@ -46,5 +46,6 @@ export class CleanCommand implements Command {
   static register: Registration = program =>
     program
       .command("clean")
+      .description("Delete Graco-generated files")
       .option("-a, --all", "Clean up all Graco files (including config files)");
 }

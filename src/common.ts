@@ -18,6 +18,7 @@ let findPkgRoot = () => {
 export let gracoPkgRoot = fs.existsSync(path.join(thisDir, "node_modules"))
   ? thisDir
   : findPkgRoot();
+log.debug(`Graco package root: ${gracoPkgRoot}`);
 
 export let modulesPath = path.join(gracoPkgRoot, "node_modules");
 

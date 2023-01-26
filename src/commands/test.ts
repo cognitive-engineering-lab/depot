@@ -16,5 +16,6 @@ export class TestCommand implements Command {
     return ws.spawn({ script: jestPath, opts: ["--passWithNoTests"] });
   }
 
-  static register: Registration = program => program.command("test");
+  static register: Registration = program =>
+    program.command("test").description("Run tests");
 }

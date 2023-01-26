@@ -355,6 +355,7 @@ export class BuildCommand implements Command {
   static register: Registration = program =>
     program
       .command("build")
+      .description("Transpiles and bundles source files")
       .option("-w, --watch", "Watch for changes and rebuild")
       .option("-r, --release", "Build for production")
       .option("--only <process>", "Only run given process");

@@ -18,5 +18,6 @@ export class FmtCommand implements Command {
     return true;
   }
 
-  static register: Registration = program => program.command("fmt");
+  static register: Registration = program =>
+    program.command("fmt").description("Auto-format source files");
 }

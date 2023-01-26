@@ -17,6 +17,7 @@ esbuild.build({
   sourcemap: watch,
   define: {
     DEV_MODE: JSON.stringify(devMode),
+    VERSION: JSON.stringify(manifest.version),
   },
   watch,
   plugins: [

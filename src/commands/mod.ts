@@ -21,10 +21,10 @@ export function registerCommands(program: commander.Command) {
       });
   }
 
+  NewCommand.register(program);
+  register(InitCommand, InitCommand.register);
   register(BuildCommand, BuildCommand.register);
   register(FmtCommand, FmtCommand.register);
-  register(CleanCommand, CleanCommand.register);
-  register(InitCommand, InitCommand.register);
   register(TestCommand, TestCommand.register);
-  NewCommand.register(program);
+  register(CleanCommand, CleanCommand.register);
 }

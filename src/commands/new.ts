@@ -107,6 +107,7 @@ export class NewCommand {
   static register: Registration = program =>
     program
       .command("new")
+      .description("Create a new Graco workspace")
       .argument("<name>")
       .addOption(
         new Option("-t, --target <target>")

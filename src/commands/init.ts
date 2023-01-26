@@ -55,5 +55,6 @@ export class InitCommand implements Command {
     return true;
   }
 
-  static register: Registration = program => program.command("init");
+  static register: Registration = program =>
+    program.command("init").description("Setup config files in workspace");
 }
