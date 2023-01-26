@@ -1,8 +1,10 @@
 import "@cspotcode/source-map-support/register.js";
 import * as cp from "child_process";
 import { program } from "commander";
+import path from "path";
 
 import { registerCommands } from "./commands/mod";
+import { gracoPkgRoot } from "./common";
 import { log } from "./log";
 
 declare global {
@@ -44,15 +46,18 @@ let gracoSynonyms = [
   {
     command: "commit-check",
     description: "Clean, init, build, and test",
-    shell: "graco clean && graco init && graco build && graco test",
+    subcommands: ["clean", "init", "build", "test"],
   },
   {
     command: "prepare",
     description: "Init and build for production",
-    shell: "graco init && graco build --release",
+    subcommands: ["init", "build --release"],
   },
 ];
-gracoSynonyms.forEach(({ command, description, shell }) => {
+gracoSynonyms.forEach(({ command, description, subcommands }) => {
+  let shell = subcommands
+    .map(cmd => `node ${path.join(gracoPkgRoot, "dist", "main.mjs")} ${cmd}`)
+    .join(" && ");
   program
     .command(command)
     .description(description)
