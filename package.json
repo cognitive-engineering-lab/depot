@@ -38,7 +38,7 @@
         "glob-promise": "^5.0.0",
         "http-server": "^14.1.1",
         "indent-string": "^5.0.0",
-        "jest": "^29.2.2",
+        "jest": "^29.4.0",
         "lodash": "^4.17.21",
         "node-pty": "^0.10.1",
         "pnpm": "^7.16.1",
