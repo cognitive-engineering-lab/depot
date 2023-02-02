@@ -137,22 +137,20 @@ class WatchLogger extends Logger {
   });
   packages: { [name: string]: PackageLog } = {};
 
-  constructor(ws: Workspace, only?: string[]) {
+  constructor(ws: Workspace, only?: Package[]) {
     super();
     this.screen.title = "Graco";
 
-    let rootSet = only || ws.packages.map(p => p.name);
+    let rootSet = only || ws.packages;
     let packages = ws.dependencyClosure(rootSet);
-    let labels = packages.map(pkg =>
-      pkg.name.startsWith("@") ? pkg.name.split("/")[1] : pkg.name
-    );
+    let labels = packages.map(pkg => pkg.nameWithoutScope());
     let buttonWidth = _.max(labels.map(s => s.length))! + 4;
     let buttonHeight = 3;
     let gridHeight = (this.screen.height as number) - buttonHeight;
     let buttons = packages.map((pkg, i) => {
       let log = new PackageLog(this.screen, gridHeight);
       let defaultShow =
-        (only && only.length == 1 && only[0] == pkg.name) || i == 0;
+        (only && only.length == 1 && only[0].name == pkg.name) || i == 0;
       if (defaultShow) log.show();
       else log.hide();
       this.packages[pkg.name] = log;

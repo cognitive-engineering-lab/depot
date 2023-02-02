@@ -192,8 +192,8 @@ export class Workspace {
     );
   }
 
-  dependencyClosure(roots: string[]): Package[] {
-    let depsSet = new Set([...roots]);
+  dependencyClosure(roots: Package[]): Package[] {
+    let depsSet = new Set(roots.map(pkg => pkg.name));
     while (true) {
       let n = depsSet.size;
       [...depsSet].forEach(p => {
@@ -204,18 +204,12 @@ export class Workspace {
     return [...depsSet].map(p => this.pkgMap[p]);
   }
 
-  async runPackages(cmd: Command, only?: string[]): Promise<boolean> {
-    let rootSet: string[];
-    if (only) {
-      rootSet = only.map(name => {
-        let pkg = this.packages.find(pkg => name == pkg.nameWithoutScope());
-        if (!pkg)
-          throw new Error(`Could not find package matching name: ${name}`);
-        return pkg.name;
-      });
-    } else {
-      rootSet = this.packages.map(p => p.name);
-    }
+  userStringToPackage(name: string): Package | undefined {
+    return this.packages.find(pkg => name == pkg.nameWithoutScope());
+  }
+
+  async runPackages(cmd: Command, only?: Package[]): Promise<boolean> {
+    let rootSet = only ?? this.packages;   
     let pkgs = this.dependencyClosure(rootSet);
 
     if (cmd.parallel && cmd.parallel()) {
@@ -254,7 +248,7 @@ export class Workspace {
     }
   }
 
-  async run(cmd: Command, only?: string[]): Promise<boolean> {
+  async run(cmd: Command, only?: Package[]): Promise<boolean> {
     let success = true;
     if (cmd.run) success = (await this.runPackages(cmd, only)) && success;
     if (cmd.runWorkspace) success = (await cmd.runWorkspace(this)) && success;

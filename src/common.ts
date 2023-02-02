@@ -82,7 +82,7 @@ export interface Command {
 }
 
 export interface CommonFlags {
-  packages?: string[];
+  packages?: Package[];
 }
 
 export type Registration = (program: commander.Command) => commander.Command;

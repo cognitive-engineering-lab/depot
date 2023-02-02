@@ -14,9 +14,18 @@ export function registerCommands(program: commander.Command) {
   function register<T extends Command>(Cmd: Class<T>, reg: Registration) {
     reg(program)
       .option("-p, --packages <packages...>")
-      .action(async (flags: CommonFlags) => {
+      .action(async (flags: { packages?: string[] }) => {
         let ws = await Workspace.load();
-        let success = await ws.run(new Cmd(flags, ws), flags.packages);
+        let packages = flags.packages?.map(name => {
+          let pkg = ws.userStringToPackage(name);
+          if (!pkg)
+            throw new Error(`Could not find package matching name: ${name}`);
+          return pkg;
+        });
+        let success = await ws.run(
+          new Cmd({ ...flags, packages }, ws),
+          packages
+        );
         process.exit(success ? 0 : 1);
       });
   }
