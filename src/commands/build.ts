@@ -213,7 +213,7 @@ export class BuildCommand implements Command {
   async check(pkg: Package): Promise<boolean> {
     let tscPath = path.join(binPath, "tsc");
 
-    let opts = [pkg.target == "lib" ? "-emitDeclarationOnly" : "-noEmit"];
+    let opts = [];
     if (this.flags.watch) {
       opts.push("-w");
     }
@@ -249,6 +249,10 @@ export class BuildCommand implements Command {
   }
 
   async compileLibrary(pkg: Package): Promise<boolean> {
+    return true;
+  }
+
+  async compileBinary(pkg: Package): Promise<boolean> {
     let gracoBuildPath = path.join(
       gracoPkgRoot,
       "dist",
@@ -269,10 +273,7 @@ export class BuildCommand implements Command {
   async compileWebsite(pkg: Package): Promise<boolean> {
     let vitePath = path.join(binPath, "vite");
 
-    let opts = ["build"];
-    if (this.flags.watch) {
-      opts = opts.concat(["--watch", "--minify=false"]);
-    }
+    let opts = [this.flags.watch ? "dev" : "build"];
 
     return pkg.spawn({
       script: vitePath,
@@ -297,8 +298,9 @@ export class BuildCommand implements Command {
   }
 
   compile(pkg: Package): Promise<boolean> {
-    if (pkg.platform == "node") return this.compileLibrary(pkg);
-    /* pkg.platform == "browser" */ else return this.compileWebsite(pkg);
+    if (pkg.target == "lib") return this.compileLibrary(pkg);
+    if (pkg.target == "bin") return this.compileBinary(pkg);
+    /* pkg.target == "site" */ else return this.compileWebsite(pkg);
   }
 
   async serve(pkg: Package): Promise<boolean> {

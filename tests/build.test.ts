@@ -25,24 +25,16 @@ describe("build", () => {
   });
 
   it("runs vite to build a website", () => {
-    let src = {
-      "src/index.tsx": `export let foo = "bar";\n`,
-      "index.html": `<html><script type="module" src="/src/index.tsx"></script></html>`,
-    };
-    return Graco.with({ src }, async graco => {
+    return Graco.with({ flags: "-t site" }, async graco => {
       expect(await graco.run("build")).toBe(0);
       graco.test("dist/index.html");
     });
   });
 
   it("supports monorepos", () => {
-    let src = {
-      "packages/foo/src/lib.ts": `export let foo = "bar";\n`,
-      "packages/foo/package.json": `{"name": "foo", "version": "0.0.1", "main": "dist/lib.js"}`,
-      "packages/bar/src/lib.ts": `import { foo } from "foo";\n\nconsole.log(foo);\n`,
-      "packages/bar/package.json": `{"name": "bar", "dependencies": {"foo": "0.0.1"}}`,
-    };
-    return Graco.with({ src }, async graco => {
+    return Graco.with({ flags: "-w" }, async graco => {
+      expect(await graco.run("new foo")).toBe(0);
+      expect(await graco.run("new bar")).toBe(0);
       expect(await graco.run("build")).toBe(0);
       graco.test("packages/foo/dist/lib.js");
       graco.test("packages/bar/dist/lib.js");

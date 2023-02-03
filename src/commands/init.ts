@@ -8,39 +8,14 @@ import {
   modulesPath,
   symlinkExists,
 } from "../common";
-import {
-  ConfigFile,
-  configsFor,
-  ensureConfig,
-  modifyGitignore,
-} from "../config-files";
-import { Package, Workspace } from "../workspace";
+import { Workspace } from "../workspace";
 
 interface InitFlags {}
 
 export class InitCommand implements Command {
   constructor(readonly flags: InitFlags) {}
 
-  async ensureConfigs(cfgs: ConfigFile[], dir: string) {
-    let promises = cfgs.map(cfg => ensureConfig(cfg, dir));
-    await Promise.all(promises);
-    await modifyGitignore(cfgs, dir);
-  }
-
-  parallel() {
-    return true;
-  }
-
-  async run(pkg: Package): Promise<boolean> {
-    await this.ensureConfigs(configsFor(pkg), pkg.dir);
-    return true;
-  }
-
   async runWorkspace(ws: Workspace): Promise<boolean> {
-    let cfgs = configsFor(ws);
-    if (!ws.monorepo) cfgs = cfgs.concat(configsFor(ws.packages[0]));
-    await this.ensureConfigs(cfgs, ws.root);
-
     let pnpmPath = path.join(binPath, "pnpm");
     let success = await ws.spawn({ script: pnpmPath, opts: ["install"] });
     if (!success) return false;

@@ -1,13 +1,10 @@
 import fs from "fs-extra";
 
 import { Command, Registration } from "../common";
-import { configsFor, findManagedConfigs } from "../config-files";
 import { log } from "../log";
 import { Package, Workspace } from "../workspace";
 
-interface CleanFlags {
-  all?: boolean;
-}
+interface CleanFlags {}
 
 export class CleanCommand implements Command {
   constructor(readonly flags: CleanFlags) {}
@@ -25,27 +22,16 @@ export class CleanCommand implements Command {
 
   async run(pkg: Package): Promise<boolean> {
     let dirs = ["dist", "node_modules"];
-    if (this.flags.all) {
-      let cfgs = await findManagedConfigs(configsFor(pkg), pkg.dir);
-      dirs = dirs.concat(cfgs.map(cfg => cfg.name));
-    }
     await this.rmDirs(dirs.map(d => pkg.path(d)));
     return true;
   }
 
   async runWorkspace(ws: Workspace): Promise<boolean> {
     let dirs = ["node_modules"];
-    if (this.flags.all) {
-      let cfgs = await findManagedConfigs(configsFor(ws), ws.root);
-      dirs = dirs.concat(cfgs.map(cfg => cfg.name));
-    }
     await this.rmDirs(dirs.map(d => ws.path(d)));
     return true;
   }
 
   static register: Registration = program =>
-    program
-      .command("clean")
-      .description("Delete Graco-generated files")
-      .option("-a, --all", "Clean up all Graco files (including config files)");
+    program.command("clean").description("Delete Graco-generated files");
 }

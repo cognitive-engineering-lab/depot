@@ -2,14 +2,7 @@ import { Graco } from "./harness";
 
 describe("test", () => {
   it("runs and checks tests", () => {
-    let src = {
-      "package.json": `{"name": "foo", "main": "dist/lib.js", "type": "module"}`,
-      "src/lib.ts": "export let foo = 1;\n",
-      "tests/lib.test.ts": `import {foo} from "../dist/lib.js";
-
-test("ok", () => expect(foo).toBe(1));`,
-    };
-    return Graco.with({ src }, async graco => {
+    return Graco.with({ }, async graco => {
       expect(await graco.run("build")).toBe(0);
       expect(await graco.run("test")).toBe(0);
     });
@@ -17,11 +10,10 @@ test("ok", () => expect(foo).toBe(1));`,
 
   it("fails if a test does not pass", () => {
     let src = {
-      "package.json": `{"name": "foo", "main": "dist/lib.js", "type": "module"}`,
-      "src/lib.ts": "export let foo = 1;\n",
-      "tests/lib.test.ts": `import {foo} from "../dist/lib.js";
+      "tests/add.test.ts": `
+import {add} from "example";
 
-test("ok", () => expect(foo).toBe(0));`,
+test("add", () => expect(add(1, 1)).toBe(3));`,
     };
     return Graco.with({ src }, async graco => {
       expect(await graco.run("build")).toBe(0);

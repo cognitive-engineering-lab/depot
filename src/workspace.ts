@@ -10,10 +10,11 @@ import { log } from "./log";
 
 export const PLATFORMS = ["browser", "node"] as const;
 export type Platform = typeof PLATFORMS[number];
-export const TARGETS = ["bin", "lib"] as const;
+export const TARGETS = ["bin", "lib", "site"] as const;
 export type Target = typeof TARGETS[number];
 
 export interface GracoConfig {
+  platform?: Platform;
   format?: esbuild.Format;
 }
 
@@ -31,20 +32,19 @@ export class Package {
 
     let entryPoint;
     if ((entryPoint = this.findJs("lib"))) {
-      this.platform = "node";
       this.target = "lib";
       this.entryPoint = entryPoint;
     } else if ((entryPoint = this.findJs("main"))) {
-      this.platform = "node";
       this.target = "bin";
       this.entryPoint = entryPoint;
     } else if ((entryPoint = this.findJs("index"))) {
-      this.platform = "browser";
-      this.target = "bin";
+      this.target = "site";
       this.entryPoint = entryPoint;
     } else {
-      throw new Error(`Could not determine platform for package: ${this.name}`);
+      throw new Error(`Could not determine target for package: ${this.name}`);
     }
+
+    this.platform = this.config().platform ?? "browser";
   }
 
   config(): GracoConfig {
@@ -91,19 +91,19 @@ export class Package {
 
 type DepGraph = { [name: string]: string[] };
 
-let getGitRoot = async (): Promise<string | undefined> => {
+let getGitRoot = async (cwd: string): Promise<string | undefined> => {
   let gitRoot: string[] = [];
   let success = await spawn({
     script: "git",
     opts: ["rev-parse", "--show-toplevel"],
-    cwd: process.cwd(),
+    cwd,
     onData: data => gitRoot.push(data),
   });
   return success ? gitRoot.join("").trim() : undefined;
 };
 
-let findWorkspaceRoot = (gitRoot: string): string | undefined => {
-  let pathToCwd = path.relative(gitRoot, path.resolve("."));
+let findWorkspaceRoot = (gitRoot: string, cwd: string): string | undefined => {
+  let pathToCwd = path.relative(gitRoot, cwd);
   let components = pathToCwd.split(path.sep);
   let i = _.range(components.length + 1).find(i =>
     fs.existsSync(path.join(gitRoot, ...components.slice(0, i), "package.json"))
@@ -124,15 +124,10 @@ export class Workspace {
     this.depGraph = this.buildDepGraph();
   }
 
-  static async load() {
-    let gitRoot = await getGitRoot();
-    let root: string | undefined;
-    if (gitRoot) {
-      root = findWorkspaceRoot(gitRoot);
-    } else {
-      let cwd = path.resolve(".");
-      if (fs.existsSync(path.join(cwd, "package.json"))) root = cwd;
-    }
+  static async load(cwd?: string) {
+    cwd = cwd ?? process.cwd();
+    let gitRoot = await getGitRoot(cwd);
+    let root = findWorkspaceRoot(gitRoot || "/", cwd);
     if (!root) throw new Error(`Could not find workspace`);
     log.debug(`Workspace root: ${root}`);
 
@@ -209,7 +204,7 @@ export class Workspace {
   }
 
   async runPackages(cmd: Command, only?: Package[]): Promise<boolean> {
-    let rootSet = only ?? this.packages;   
+    let rootSet = only ?? this.packages;
     let pkgs = this.dependencyClosure(rootSet);
 
     if (cmd.parallel && cmd.parallel()) {

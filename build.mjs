@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import fs from "fs-extra";
 import _ from "lodash";
+import path from "path";
 
 let manifest = JSON.parse(fs.readFileSync("package.json"));
 let watch = process.argv.includes("-w");
@@ -21,6 +22,23 @@ esbuild.build({
   },
   watch,
   plugins: [
+    {
+      name: "raw",
+      setup(build) {
+        build.onResolve({ filter: /\?raw$/ }, args => ({
+          path: path.join(args.resolveDir, args.path.slice(0, -"?raw".length)),
+          namespace: "raw",
+        }));
+        build.onLoad({ filter: /.*/, namespace: "raw" }, async args => {
+          let fileContents = await fs.readFile(args.path, "utf-8");
+          let contents = `export default ${JSON.stringify(fileContents)}`;
+          return {
+            contents,
+            loader: "js",
+          };
+        });
+      },
+    },
     {
       name: "executable",
       setup(build) {

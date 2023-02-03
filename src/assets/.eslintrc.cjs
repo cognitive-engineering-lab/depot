@@ -46,4 +46,4 @@ module.exports = {
           "version": "detect"
       }
   }
-};
+};  
