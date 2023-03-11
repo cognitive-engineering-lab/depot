@@ -76,11 +76,11 @@ dependencies:
   node-pty: 0.10.1
   pnpm: 7.29.1
   prettier: 2.8.4
-  sass: 1.59.1
+  sass: 1.59.2
   sort-package-json: 2.4.1
   ts-jest: 29.0.5_itldk7hmevcnenpyj44k737yx4
   typescript: 4.9.5
-  vite: 3.2.5_hc5ildahihg7rrukxfwyrjqvm4
+  vite: 3.2.5_x7dzuadbe27hczg4caescy3qve
   watch: 1.0.2
   winston: 3.8.2
 
@@ -1281,7 +1281,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.19.6_@babel+core@7.21.0
       magic-string: 0.26.7
       react-refresh: 0.14.0
-      vite: 3.2.5_hc5ildahihg7rrukxfwyrjqvm4
+      vite: 3.2.5_x7dzuadbe27hczg4caescy3qve
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -2193,7 +2193,7 @@ packages:
     dependencies:
       esbuild: 0.15.12_skltlcxj4tzk763f3vaggm66ze
       resolve: 1.22.1
-      sass: 1.59.1
+      sass: 1.59.2
     dev: false
 
   /esbuild-sunos-64/0.15.12:
@@ -4594,8 +4594,8 @@ packages:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
     dev: false
 
-  /sass/1.59.1:
-    resolution: {integrity: sha512-KUqJ1AJdXOs448ocHI9FLKXhCkuZbXtyY6hf1gQNJFp/sCSCjxJOLh27k1Ut7i84s4j0zfQW+rjmfW3VNU0JsA==}
+  /sass/1.59.2:
+    resolution: {integrity: sha512-jJyO6SmbzkJexF8MUorHx5tAilcgabioYxT/BHbY4+OvoqmbHxsYlrjZ8Adhqcgl6Zqwie0TgMXLCAmPFxXOuw==}
     engines: {node: '>=12.0.0'}
     hasBin: true
     dependencies:
@@ -5060,7 +5060,7 @@ packages:
       convert-source-map: 1.9.0
     dev: false
 
-  /vite/3.2.5_hc5ildahihg7rrukxfwyrjqvm4:
+  /vite/3.2.5_x7dzuadbe27hczg4caescy3qve:
     resolution: {integrity: sha512-4mVEpXpSOgrssFZAOmGIr85wPHKvaDAcXqxVxVRZhljkJOMZi1ibLibzjLHzJvcok8BMguLc7g1W6W/GqZbLdQ==}
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
@@ -5090,7 +5090,7 @@ packages:
       postcss: 8.4.21
       resolve: 1.22.1
       rollup: 2.79.1
-      sass: 1.59.1
+      sass: 1.59.2
     optionalDependencies:
       fsevents: 2.3.2
     dev: false

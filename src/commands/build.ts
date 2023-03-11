@@ -285,10 +285,10 @@ export class BuildCommand implements Command {
   async buildScript(pkg: Package): Promise<boolean> {
     let buildPath = pkg.path("build.mjs");
     if (fs.existsSync(buildPath)) {
-      let opts = [buildPath];
+      let opts = ["exec", "node", buildPath];
       if (this.flags.watch) opts.push("-w");
       return await pkg.spawn({
-        script: "node",
+        script: "pnpm",
         opts,
         onData: data => this.logger.log(pkg.name, "script", data),
       });

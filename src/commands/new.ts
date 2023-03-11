@@ -49,6 +49,10 @@ export function add(a: number, b: number) {
 }
 `;
 
+let TEST = `import { add } from "../dist/lib";
+
+test("add", () => expect(add(1, 2)).toBe(3));`
+
 function merge(dst: any, src: any) {
   _.mergeWith(dst, src, (obj, src) =>
     _.isArray(obj) ? obj.concat(src) : undefined
@@ -106,7 +110,7 @@ export class NewCommand {
     let baseConfig = {
       compilerOptions: {
         // Makes tsc respect "exports" directives in package.json
-        moduleResolution: "Node16",
+        moduleResolution: "Node",
 
         // Makes tsc generate ESM syntax outputs
         target: "es2022",
@@ -293,9 +297,7 @@ export class NewCommand {
       };
 
       await fs.mkdir(path.join(dir, "tests"));
-      let sampleTest = `import {add} from "${name}";
-test("add", () => expect(add(1, 2)).toBe(3));`;
-      files.push(["tests/add.test.ts", sampleTest]);
+      files.push(["tests/add.test.ts", TEST]);
     }
 
     let gitignore = ["node_modules", "dist"].join("\n");
