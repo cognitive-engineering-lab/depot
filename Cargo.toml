@@ -1,0 +1,17 @@
+[package]
+name = "graco"
+version = "0.1.0"
+edition = "2021"
+author = ["Will Crichton <crichton.will@gmail.com>"]
+
+
+[dependencies]
+clap = { version = "4.1.8", features = ["derive"] }
+anyhow = { version = "1", features = ["backtrace"] }
+package_json_schema = "0.2.0"
+indexmap = { version = "1" } # This must match package_json_schema
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+env_logger = "0.10"
+rayon = "1"

@@ -5,6 +5,7 @@ on:
     tags:
       - "v*"
 
+# TODO: UPDATE THE RELEASE
 jobs:
   publish:
     runs-on: ubuntu-20.04

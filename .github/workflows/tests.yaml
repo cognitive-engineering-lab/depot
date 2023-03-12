@@ -12,7 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.1
-      - name: Check library
-        run: |
-          sudo npm install -g pnpm
-          pnpm commit-check
+      - name: Test library
+        run: cargo test
