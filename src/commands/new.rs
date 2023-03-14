@@ -13,6 +13,8 @@ use crate::workspace::{
   Workspace,
 };
 
+use super::setup::GlobalConfig;
+
 const INDEX: &str = r#"import React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -51,6 +53,7 @@ test("add", () => expect(add(1, 2)).toBe(3));
 
 const VITE_CONFIG: &str = include_str!("configs/vite.config.ts");
 const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
+const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 
 /// Create a new Graco workspace
 #[derive(clap::Parser)]
@@ -73,37 +76,54 @@ pub struct NewArgs {
 pub struct NewCommand {
   args: NewArgs,
   ws_opt: Option<Workspace>,
+  global_config: GlobalConfig,
 }
 
 fn json_merge(a: &mut Value, b: Value) {
-  let (a, b) = match (a, b) {
+  match (a, b) {
     (Value::Object(a), Value::Object(b)) => {
-      for (k, v) in b {
-        if v.is_null() {
-          a.remove(&k);
-        } else {
-          json_merge(a.entry(k).or_insert(Value::Null), v);
-        }
+      for (k, b_v) in b {
+        let a_v = a.entry(k).or_insert(Value::Null);
+        json_merge(a_v, b_v);
       }
-      return;
     }
     (Value::Array(a), Value::Array(b)) => {
       a.extend(b);
-      return;
     }
-    (a, b) => (a, b),
+    (a, b) => *a = b,
   };
-
-  *a = b;
 }
 
 impl NewCommand {
-  pub fn new(args: NewArgs) -> Self {
-    let ws_opt = Workspace::load(None).ok();
-    Self { args, ws_opt }
+  pub fn new(args: NewArgs, global_config: GlobalConfig) -> Self {
+    let ws_opt = Workspace::load(global_config.clone(), None).ok();
+    Self {
+      args,
+      ws_opt,
+      global_config,
+    }
   }
 
   fn new_workspace(self, root: &Path) -> Result<()> {
+    fs::create_dir(root.join("packages"))?;
+
+    let manifest = json!({"private": true});
+    let files: Vec<(PathBuf, Cow<'static, str>)> = vec![
+      (
+        "package.json".into(),
+        serde_json::to_string_pretty(&manifest)?.into(),
+      ),
+      ("tsconfig.json".into(), self.make_tsconfig()?.into()),
+      ("jest.config.cjs".into(), self.make_jest_config()?.into()),
+      (".eslintrc.cjs".into(), self.make_eslint_config()?.into()),
+      ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
+      // (".prettierrc.cjs", self.make_p)
+    ];
+
+    for (rel_path, contents) in files {
+      fs::write(root.join(rel_path), contents.as_bytes())?;
+    }
+
     Ok(())
   }
 
@@ -191,34 +211,32 @@ impl NewCommand {
       },
     });
 
-    if !self.args.workspace {
-      if self.ws_opt.is_some() {
-        config = json!({
-          "extends": "../../.eslintrc.cjs"
-        });
+    if !self.args.workspace && self.ws_opt.is_some() {
+      config = json!({
+        "extends": "../../.eslintrc.cjs"
+      });
 
-        let platform_config = match self.args.platform {
-          Platform::Browser => json!({
-            "env": {"browser": true},
-            "plugins": ["react"],
-            "rules": {
-              "react/prop-types": "off",
-              "react/no-unescaped-entities": "off",
+      let platform_config = match self.args.platform {
+        Platform::Browser => json!({
+          "env": {"browser": true},
+          "plugins": ["react"],
+          "rules": {
+            "react/prop-types": "off",
+            "react/no-unescaped-entities": "off",
+          },
+          "settings": {
+            "react": {
+              "version": "detect",
             },
-            "settings": {
-              "react": {
-                "version": "detect",
-              },
-            },
-          }),
-          Platform::Node => json!({
-            "env": {
-              "node": true,
-            },
-          }),
-        };
-        json_merge(&mut config, platform_config);
-      }
+          },
+        }),
+        Platform::Node => json!({
+          "env": {
+            "node": true,
+          },
+        }),
+      };
+      json_merge(&mut config, platform_config);
     }
 
     let config_str = serde_json::to_string_pretty(&config)?;
@@ -315,12 +333,18 @@ impl NewCommand {
     }
 
     if !dev_dependencies.is_empty() {
-      // TODO: install dev deps, deal with pnpm path
+      let mut pnpm = self.global_config.pnpm();
+      pnpm
+        .args(["add", "-D"])
+        .args(dev_dependencies)
+        .current_dir(root);
+      let status = pnpm.status()?;
+      ensure!(status.success(), "pnpm failed");
     }
 
     let _ws = match self.ws_opt.take() {
       Some(ws) => ws,
-      None => Workspace::load(Some(root.to_owned()))?,
+      None => Workspace::load(self.global_config, Some(root.to_owned()))?,
     };
 
     // TODO: run workspace init
@@ -336,8 +360,8 @@ impl NewCommand {
 
     let name = &self.args.name;
     let parent_dir = match &self.ws_opt {
-      Some(ws) => Cow::Borrowed(&ws.root),
-      None => Cow::Owned(env::current_dir()?),
+      Some(ws) => ws.root.join("packages"),
+      None => env::current_dir()?,
     };
     let root = parent_dir.join(&name.name);
     fs::create_dir(&root)
