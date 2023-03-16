@@ -19,8 +19,7 @@ env_logger = { version = "0.10", default-features = false }
 rayon = "1"
 tui = "0.19"
 crossterm = "0.25" # This must match tui
-ansi-to-tui = "2"
-ansi-parser = "0.8"
+ansi-to-tui = "2" # This must match tui
 home = "0.5"
 reqwest = { version = "0.11", features = ["blocking"] }
 petgraph = { version = "0.6", default-features = false }
@@ -28,3 +27,7 @@ futures = "0.3"
 async-trait = "0.1"
 async-process = "1.6"
 once_cell = "1"
+
+[patch.crates-io]
+# Waiting for this PR to get merged: https://github.com/uttarayan21/ansi-to-tui/pull/21
+ansi-to-tui = { git = "https://github.com/willcrichton/ansi-to-tui" }

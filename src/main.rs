@@ -36,7 +36,7 @@ async fn run() -> Result<()> {
 
   match command {
     Command::Build(args) => {
-      let cmd = commands::build::BuildCommand::new(args, ws.clone());
+      let cmd = commands::build::BuildCommand::new(args);
       ws.run(cmd).await?;
     }
     Command::Setup(..) | Command::New(..) => unreachable!(),

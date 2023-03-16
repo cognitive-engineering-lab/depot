@@ -4,7 +4,7 @@ use petgraph::{
   data::{Element, FromElements},
   graph::DiGraph,
   prelude::NodeIndex,
-  visit::{DfsPostOrder, IntoNeighborsDirected, Walker},
+  visit::{DfsPostOrder, Walker},
 };
 use rayon::prelude::*;
 use std::{
@@ -35,7 +35,8 @@ impl Deref for Workspace {
   }
 }
 
-pub type Terminal = tui::Terminal<tui::backend::CrosstermBackend<Stdout>>;
+pub type TerminalBackend = tui::backend::CrosstermBackend<Stdout>;
+pub type Terminal = tui::Terminal<TerminalBackend>;
 
 pub fn load_terminal() -> Result<Terminal> {
   let stdout = std::io::stdout();
@@ -92,7 +93,7 @@ impl DepGraph {
     let edges = packages.iter().flat_map(|pkg| {
       pkg
         .all_dependencies()
-        .filter_map(|name| packages.iter().find(|other_pkg| &other_pkg.name == &name))
+        .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
         .map(move |dep| Element::Edge {
           source: pkg.index,
           target: dep.index,

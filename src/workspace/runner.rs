@@ -1,6 +1,5 @@
 use anyhow::Result;
 
-use crossterm::event::{Event, KeyCode, KeyModifiers};
 use futures::FutureExt;
 use log::debug;
 use std::{
@@ -12,7 +11,6 @@ use std::{
     Arc,
   },
   thread,
-  time::{Duration, Instant},
 };
 
 use crate::logger::LoggerUi;
@@ -36,23 +34,29 @@ impl Workspace {
     let ws = self.clone();
     let should_exit = Arc::new(AtomicBool::new(false));
     let should_exit_ref = Arc::clone(&should_exit);
-    let log_thread = thread::spawn::<_, Result<()>>(move || {
-      let mut terminal = ws.terminal.lock().unwrap();
-      let mut ui = LoggerUi::new(&ws, &mut *terminal);
-      ui.setup()?;
-      loop {
-        if should_exit_ref.load(Ordering::SeqCst) {
-          break;
+    let log_thread = thread::spawn(move || {
+      let inner = || -> Result<()> {
+        let mut terminal = ws.terminal.lock().unwrap();
+        let mut ui = LoggerUi::new(&ws, &mut terminal);
+        ui.setup()?;
+        loop {
+          if should_exit_ref.load(Ordering::SeqCst) {
+            break;
+          }
+          ui.draw()?;
         }
-        ui.draw()?;
+        ui.cleanup()?;
+        Ok(())
+      };
+      if let Err(e) = inner() {
+        eprintln!("{e}");
+        std::process::exit(1);
       }
-      ui.cleanup()?;
-      Ok(())
     });
 
     move || {
       should_exit.store(true, Ordering::SeqCst);
-      log_thread.join().unwrap().unwrap();
+      log_thread.join().unwrap();
     }
   }
 

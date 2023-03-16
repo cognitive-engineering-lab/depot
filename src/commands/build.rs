@@ -6,7 +6,7 @@ use futures::{
 
 use crate::workspace::{
   package::{Package, PackageName},
-  PackageCommand, Workspace,
+  PackageCommand,
 };
 
 #[derive(clap::Parser)]
@@ -23,7 +23,6 @@ pub struct BuildArgs {
 
 pub struct BuildCommand {
   args: BuildArgs,
-  ws: Workspace,
 }
 
 #[async_trait::async_trait]
@@ -43,13 +42,14 @@ impl PackageCommand for BuildCommand {
 }
 
 impl BuildCommand {
-  pub fn new(args: BuildArgs, ws: Workspace) -> Self {
-    BuildCommand { args, ws }
+  pub fn new(args: BuildArgs) -> Self {
+    BuildCommand { args }
   }
 
   async fn check(&self, pkg: &Package) -> Result<()> {
     pkg
       .exec("tsc", |cmd| {
+        cmd.arg("--pretty");
         if self.args.watch {
           cmd.arg("-w");
         }

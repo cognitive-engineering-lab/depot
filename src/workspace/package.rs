@@ -1,12 +1,11 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 use async_process::Stdio;
-use futures::{io::BufReader, select, AsyncBufReadExt, AsyncReadExt, FutureExt, StreamExt};
+use futures::{io::BufReader, select, AsyncBufReadExt, FutureExt, StreamExt};
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
   fmt::Display,
   fs,
-  io::Write,
   ops::Deref,
   path::{Path, PathBuf},
   str::FromStr,
@@ -212,10 +211,17 @@ impl PackageInner {
     let mut lines = BufReader::new(stdout).lines();
     let stdout_future = async {
       while let Some(line) = lines.next().await {
-        ws.logger
-          .lock()
-          .unwrap()
-          .log(self.index, binary, line.unwrap().as_bytes());
+        let line = line.unwrap();
+        let mut logger = ws.logger.lock().unwrap();
+        let logger = logger.logger(self.index, binary);
+        let line = match line.strip_prefix("\u{1b}c") {
+          Some(rest) => {
+            logger.clear();
+            rest.to_string()
+          }
+          None => line,
+        };
+        logger.push(line);
       }
     };
 

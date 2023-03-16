@@ -1,28 +1,25 @@
-use ansi_parser::AnsiParser;
+use ansi_to_tui::IntoText;
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use std::{
   collections::HashMap,
-  sync::Mutex,
   time::{Duration, Instant},
 };
 use tui::{
   layout::{Constraint, Direction, Layout},
+  style::{Modifier, Style},
   text::{Span, Spans, Text},
-  widgets::{Block, Borders, Paragraph, Tabs},
+  widgets::{Block, Borders, Paragraph, Tabs, Widget},
 };
 
-use crate::workspace::{
-  package::{Package, PackageIndex},
-  Terminal, Workspace,
-};
+use crate::workspace::{package::PackageIndex, Terminal, Workspace};
 
-use self::logbuffer::LogBuffer;
+use self::ringbuffer::RingBuffer;
 
-mod logbuffer;
+mod ringbuffer;
 
 pub struct Logger {
-  logs: HashMap<PackageIndex, HashMap<String, LogBuffer>>,
+  logs: HashMap<PackageIndex, HashMap<String, RingBuffer<String>>>,
 }
 
 impl Logger {
@@ -37,17 +34,11 @@ impl Logger {
       .logs
       .entry(index)
       .or_default()
-      .insert(process.to_string(), LogBuffer::new());
+      .insert(process.to_string(), RingBuffer::new());
   }
 
-  pub fn log(&mut self, index: PackageIndex, process: &str, contents: &[u8]) {
-    self
-      .logs
-      .get_mut(&index)
-      .unwrap()
-      .get_mut(process)
-      .unwrap()
-      .push(contents);
+  pub fn logger(&mut self, index: PackageIndex, process: &str) -> &mut RingBuffer<String> {
+    self.logs.get_mut(&index).unwrap().get_mut(process).unwrap()
   }
 }
 
@@ -59,6 +50,7 @@ pub struct LoggerUi<'a> {
 }
 
 const TICK_RATE: Duration = Duration::from_millis(33);
+const BINARY_ORDER: &[&str] = &["vite", "esbuild", "tsc", "eslint"];
 
 impl<'a> LoggerUi<'a> {
   pub fn new(ws: &'a Workspace, terminal: &'a mut Terminal) -> Self {
@@ -100,6 +92,22 @@ impl<'a> LoggerUi<'a> {
     Ok(())
   }
 
+  fn log_widget<'b>(&self, logger: &'b Logger, pkg: usize, binary: &'b str) -> impl Widget + 'b {
+    let log = &logger.logs[&pkg][binary];
+
+    let mut spans = Vec::new();
+    for line in log.lines() {
+      match line.into_text() {
+        Ok(text) => spans.extend(text.lines),
+        Err(e) => spans.push(Spans::from(Span::raw(format!(
+          "failed to parse line with error: {e:?}"
+        )))),
+      }
+    }
+    let text = Paragraph::new(Text::from(spans));
+    text.block(Block::default().title(binary).borders(Borders::ALL))
+  }
+
   pub fn draw(&mut self) -> Result<()> {
     self.handle_input()?;
 
@@ -108,42 +116,62 @@ impl<'a> LoggerUi<'a> {
     }
 
     let logger = self.ws.logger.lock().unwrap();
+    let mut indices = logger.logs.keys().copied().collect::<Vec<_>>();
+    indices.sort();
+
+    let n = indices.len() as isize;
+    let index = ((n + self.selected % n) % n) as usize;
+    let pkg = indices[index];
+
+    let titles = indices
+      .iter()
+      .enumerate()
+      .map(|(i, pkg)| {
+        let pkg_name = self.ws.packages[*pkg].name.to_string();
+        let mut style = Style::default();
+        if i == index {
+          style = style.add_modifier(Modifier::BOLD);
+        }
+        Spans::from(vec![Span::styled(pkg_name, style)])
+      })
+      .collect::<Vec<_>>();
+
+    let mut log_keys = logger.logs[&pkg].keys().collect::<Vec<_>>();
+    log_keys.sort_by_key(|s| {
+      BINARY_ORDER
+        .iter()
+        .position(|other| s == other)
+        .unwrap_or(usize::MAX)
+    });
+    let logs = log_keys
+      .into_iter()
+      .map(|binary| self.log_widget(&logger, pkg, binary))
+      .collect::<Vec<_>>();
+
     self.terminal.draw(|f| {
       let size = f.size();
-      let chunks = Layout::default()
+      let canvas = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)].as_ref())
+        .constraints([Constraint::Min(0), Constraint::Length(2)].as_ref())
         .split(size);
 
-      let mut indices = logger.logs.keys().copied().collect::<Vec<_>>();
-      indices.sort();
-      let titles = indices
-        .iter()
-        .map(|index| {
-          let pkg_name = self.ws.packages[*index].name.to_string();
-          Spans::from(vec![Span::raw(pkg_name)])
-        })
-        .collect::<Vec<_>>();
-
       let tabs = Tabs::new(titles);
-      f.render_widget(tabs, chunks[1]);
+      f.render_widget(tabs, canvas[1]);
 
-      let n = indices.len() as isize;
-      let index = (n + self.selected % n) % n;
-      let pkg = indices[index as usize];
-      let log = &logger.logs[&pkg]["tsc"];
-      let (first, second) = log.contents();
-      // let bytes = [first, second].concat();
-      // TODO: PICK BACK UP FROM HERE
+      let log_halves = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Ratio(7, 10), Constraint::Ratio(3, 10)])
+        .split(canvas[0]);
+      let log_slots = log_halves.into_iter().flat_map(|half| {
+        Layout::default()
+          .direction(Direction::Horizontal)
+          .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+          .split(half)
+      });
 
-      let text = Paragraph::new(Spans::from(vec![
-        Span::raw(String::from_utf8_lossy(first)),
-        Span::raw(String::from_utf8_lossy(second)),
-      ]));
-      f.render_widget(
-        text.block(Block::default().title("Content").borders(Borders::ALL)),
-        chunks[0],
-      );
+      for (log, slot) in logs.into_iter().zip(log_slots) {
+        f.render_widget(log, slot);
+      }
     })?;
 
     self.last_tick = Instant::now();
