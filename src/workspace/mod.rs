@@ -1,4 +1,8 @@
 use anyhow::{Context, Result};
+use futures::{
+  stream::{self, TryStreamExt},
+  StreamExt,
+};
 use log::debug;
 use petgraph::{
   data::{Element, FromElements},
@@ -6,7 +10,6 @@ use petgraph::{
   prelude::NodeIndex,
   visit::{DfsPostOrder, Walker},
 };
-use rayon::prelude::*;
 use std::{
   env,
   io::Stdout,
@@ -125,7 +128,7 @@ impl DepGraph {
 }
 
 impl Workspace {
-  pub fn load(global_config: GlobalConfig, cwd: Option<PathBuf>) -> Result<Self> {
+  pub async fn load(global_config: GlobalConfig, cwd: Option<PathBuf>) -> Result<Self> {
     let cwd = match cwd {
       Some(cwd) => cwd,
       None => env::current_dir()?,
@@ -150,12 +153,11 @@ impl Workspace {
       vec![root.clone()]
     };
 
-    // TODO: replace rayon with async here
-    let packages = pkg_roots
-      .into_par_iter()
+    let packages: Vec<_> = stream::iter(pkg_roots)
       .enumerate()
-      .map(|(index, pkg_root)| Package::load(&pkg_root, index))
-      .collect::<Result<Vec<_>>>()?;
+      .then(|(index, pkg_root)| async move { Package::load(&pkg_root, index) })
+      .try_collect()
+      .await?;
 
     let dep_graph = DepGraph::build(&packages);
 

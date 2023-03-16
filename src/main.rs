@@ -32,7 +32,7 @@ async fn run() -> Result<()> {
     command => command,
   };
 
-  let ws = Workspace::load(global_config, None)?;
+  let ws = Workspace::load(global_config, None).await?;
 
   match command {
     Command::Build(args) => {
