@@ -1,12 +1,16 @@
 use anyhow::Result;
+use cfg_if::cfg_if;
 use futures::{
-  future::{join_all, BoxFuture},
+  future::{try_join_all, BoxFuture},
   FutureExt,
 };
 
-use crate::workspace::{
-  package::{Package, PackageName},
-  PackageCommand,
+use crate::{
+  utils,
+  workspace::{
+    package::{Package, PackageName, Target},
+    PackageCommand,
+  },
 };
 
 #[derive(clap::Parser)]
@@ -25,14 +29,27 @@ pub struct BuildCommand {
   args: BuildArgs,
 }
 
+const BUILD_SCRIPT: &str = "build.mjs";
+
 #[async_trait::async_trait]
 impl PackageCommand for BuildCommand {
   async fn run(&self, pkg: &Package) -> Result<()> {
-    let processes: Vec<BoxFuture<'_, Result<()>>> =
-      vec![self.check(pkg).boxed(), self.lint(pkg).boxed()];
-    for result in join_all(processes).await {
-      result?;
+    self.init(pkg).await?;
+
+    let mut processes: Vec<BoxFuture<'_, Result<()>>> = Vec::new();
+
+    if matches!(pkg.target, Target::Site) {
+      processes.push(self.vite(pkg).boxed());
     }
+
+    if pkg.root.join(BUILD_SCRIPT).exists() {
+      processes.push(self.build_script(pkg).boxed());
+    }
+
+    processes.extend([self.tsc(pkg).boxed(), self.eslint(pkg).boxed()]);
+
+    try_join_all(processes).await?;
+
     Ok(())
   }
 
@@ -46,7 +63,27 @@ impl BuildCommand {
     BuildCommand { args }
   }
 
-  async fn check(&self, pkg: &Package) -> Result<()> {
+  async fn init(&self, pkg: &Package) -> Result<()> {
+    let node_modules = pkg.root.join("node_modules");
+    utils::create_dir_if_missing(&node_modules)?;
+
+    let ws = pkg.workspace();
+    let esbuild_src = ws.global_config.node_path().join("esbuild");
+    let esbuild_dst = node_modules.join("esbuild");
+    if !esbuild_dst.exists() {
+      cfg_if! {
+        if #[cfg(unix)] {
+          std::os::unix::fs::symlink(esbuild_src, esbuild_dst)?;
+        } else {
+          todo!()
+        }
+      }
+    }
+
+    Ok(())
+  }
+
+  async fn tsc(&self, pkg: &Package) -> Result<()> {
     pkg
       .exec("tsc", |cmd| {
         cmd.arg("--pretty");
@@ -57,7 +94,33 @@ impl BuildCommand {
       .await
   }
 
-  async fn lint(&self, pkg: &Package) -> Result<()> {
-    pkg.exec("eslint", |_| {}).await
+  async fn eslint(&self, pkg: &Package) -> Result<()> {
+    pkg
+      .exec("eslint", |_| {
+        // TODO: watch mode
+      })
+      .await
+  }
+
+  async fn vite(&self, pkg: &Package) -> Result<()> {
+    pkg
+      .exec("vite", |cmd| {
+        cmd.arg(if self.args.watch { "dev" } else { "build" });
+      })
+      .await
+  }
+
+  async fn build_script(&self, pkg: &Package) -> Result<()> {
+    pkg
+      .exec("pnpm", |cmd| {
+        cmd.args(["exec", "node", BUILD_SCRIPT]);
+        if self.args.watch {
+          cmd.arg("--watch");
+        }
+        if self.args.release {
+          cmd.arg("--release");
+        }
+      })
+      .await
   }
 }

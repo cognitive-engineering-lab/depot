@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 pub struct RingBuffer<T> {
-  lines: VecDeque<T>,
+  data: VecDeque<T>,
   max_capacity: usize,
 }
 
@@ -10,7 +10,7 @@ const DEFAULT_MAX_CAPACITY: usize = 1024;
 impl<T> RingBuffer<T> {
   pub fn new() -> Self {
     RingBuffer {
-      lines: VecDeque::new(),
+      data: VecDeque::new(),
       max_capacity: DEFAULT_MAX_CAPACITY,
     }
   }
@@ -18,25 +18,25 @@ impl<T> RingBuffer<T> {
   #[cfg(test)]
   pub fn with_max_capacity(max_capacity: usize) -> Self {
     RingBuffer {
-      lines: VecDeque::new(),
+      data: VecDeque::new(),
       max_capacity,
     }
   }
 
   pub fn push(&mut self, log: T) {
-    if self.lines.len() == self.max_capacity {
-      self.lines.pop_front();
+    if self.data.len() == self.max_capacity {
+      self.data.pop_front();
     }
-    self.lines.push_back(log);
+    self.data.push_back(log);
   }
 
-  pub fn lines(&self) -> impl Iterator<Item = &T> + '_ {
-    let (first, second) = self.lines.as_slices();
+  pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
+    let (first, second) = self.data.as_slices();
     first.iter().chain(second.iter())
   }
 
   pub fn clear(&mut self) {
-    self.lines.clear();
+    self.data.clear();
   }
 }
 
@@ -54,7 +54,7 @@ fn test_log_buffer() {
 
   macro_rules! contents {
     () => {
-      buffer.lines().copied().collect::<Vec<_>>()
+      buffer.iter().copied().collect::<Vec<_>>()
     };
   }
 

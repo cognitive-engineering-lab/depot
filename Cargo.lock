@@ -518,6 +518,7 @@ dependencies = [
  "anyhow",
  "async-process",
  "async-trait",
+ "cfg-if",
  "clap",
  "crossterm",
  "env_logger",

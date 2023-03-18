@@ -86,12 +86,12 @@ impl Workspace {
 
     let cleanup_logs = self.spawn_log_thread();
 
-    loop {
+    let result = loop {
       if tasks
         .iter()
         .all(|(_, task)| matches!(task.status.get(), TaskStatus::Finished))
       {
-        break;
+        break Ok(());
       }
 
       let pending = tasks
@@ -114,13 +114,15 @@ impl Workspace {
         .filter(|(_, task)| matches!(task.status.get(), TaskStatus::Running))
         .map(|(_, task)| &mut task.future);
       let ((index, result), _, _) = futures::future::select_all(running).await;
-      result?;
+      if result.is_err() {
+        break result;
+      }
       tasks[&index].status.set(TaskStatus::Finished);
       log::debug!("Finished task for: {}", self.packages[index].name);
-    }
+    };
 
     cleanup_logs();
 
-    Ok(())
+    result
   }
 }

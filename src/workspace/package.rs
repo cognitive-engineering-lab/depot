@@ -1,6 +1,6 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 use async_process::Stdio;
-use futures::{io::BufReader, select, AsyncBufReadExt, FutureExt, StreamExt};
+use futures::{io::BufReader, select, AsyncBufReadExt, AsyncRead, FutureExt, StreamExt};
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
@@ -20,11 +20,20 @@ pub enum Platform {
   Node,
 }
 
+impl Platform {
+  pub fn to_esbuild_string(self) -> &'static str {
+    match self {
+      Platform::Browser => "browser",
+      Platform::Node => "node",
+    }
+  }
+}
+
 #[derive(Copy, Clone, clap::ValueEnum)]
 pub enum Target {
-  Bin,
   Lib,
   Site,
+  Script,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -121,16 +130,17 @@ impl Package {
   }
 
   pub fn load(root: &Path, index: PackageIndex) -> Result<Self> {
+    let root = root.canonicalize()?;
     let manifest_path = root.join("package.json");
     let manifest_str = fs::read_to_string(manifest_path)
       .with_context(|| format!("Package does not have package.json: {}", root.display()))?;
     let manifest = Manifest::load(manifest_str)?;
 
-    let (entry_point, target) = if let Some(entry_point) = Package::find_source_file(root, "lib") {
+    let (entry_point, target) = if let Some(entry_point) = Package::find_source_file(&root, "lib") {
       (entry_point, Target::Lib)
-    } else if let Some(entry_point) = Package::find_source_file(root, "main") {
-      (entry_point, Target::Bin)
-    } else if let Some(entry_point) = Package::find_source_file(root, "index") {
+    } else if let Some(entry_point) = Package::find_source_file(&root, "main") {
+      (entry_point, Target::Script)
+    } else if let Some(entry_point) = Package::find_source_file(&root, "index") {
       (entry_point, Target::Site)
     } else {
       bail!(
@@ -175,7 +185,7 @@ impl PackageInner {
       .filter_map(|s| PackageName::from_str(s).ok())
   }
 
-  fn workspace(&self) -> &Workspace {
+  pub fn workspace(&self) -> &Workspace {
     self.ws.get().unwrap()
   }
 
@@ -186,16 +196,33 @@ impl PackageInner {
       .unwrap_or_else(|_| panic!("Called set_workspace twice!"));
   }
 
+  async fn pipe_stdio(&self, stdio: impl AsyncRead + Unpin, script_name: &str) {
+    let mut lines = BufReader::new(stdio).lines();
+    while let Some(line) = lines.next().await {
+      let line = line.unwrap();
+      let mut logger = self.workspace().logger.lock().unwrap();
+      let logger = logger.logger(self.index, script_name);
+      let line = match line.strip_prefix("\u{1b}c") {
+        Some(rest) => {
+          logger.clear();
+          rest.to_string()
+        }
+        None => line,
+      };
+      logger.push(line);
+    }
+  }
+
   pub async fn exec(
     &self,
-    binary: &str,
+    script: &str,
     configure: impl FnOnce(&mut async_process::Command),
   ) -> Result<()> {
-    debug_assert!(binary != "pnpm");
     let ws = self.workspace();
-    let binary_path = ws.global_config.bindir().join(binary);
+    let script_path = ws.global_config.bindir().join(script);
+    assert!(script_path.exists());
 
-    let mut cmd = async_process::Command::new(binary_path);
+    let mut cmd = async_process::Command::new(&script_path);
     cmd.current_dir(&self.root);
 
     cmd.stdout(Stdio::piped());
@@ -203,47 +230,20 @@ impl PackageInner {
 
     configure(&mut cmd);
 
-    let mut child = cmd.spawn()?;
+    let mut child = cmd
+      .spawn()
+      .with_context(|| format!("Failed to spawn process: `{}`", script_path.display()))?;
 
-    ws.logger.lock().unwrap().register_log(self.index, binary);
+    ws.logger.lock().unwrap().register_log(self.index, script);
 
-    let stdout = child.stdout.take().unwrap();
-    let mut lines = BufReader::new(stdout).lines();
-    let stdout_future = async {
-      while let Some(line) = lines.next().await {
-        let line = line.unwrap();
-        let mut logger = ws.logger.lock().unwrap();
-        let logger = logger.logger(self.index, binary);
-        let line = match line.strip_prefix("\u{1b}c") {
-          Some(rest) => {
-            logger.clear();
-            rest.to_string()
-          }
-          None => line,
-        };
-        logger.push(line);
-      }
-    };
-
-    // let stderr = child.stderr.take().unwrap();
-    // let mut reader = BufReader::new(stderr);
-    // let stderr_future = async {
-    //   let mut buf = Vec::with_capacity(1024);
-    //   reader.li
-    //   while let Ok(n) = reader.read(&mut buf).await {
-    //     if n == 0 {
-    //       break;
-    //     }
-    //     ws.logger.lock().unwrap().log(self.index, binary, &buf);
-    //   }
-    // };
-
+    let stdout_future = self.pipe_stdio(child.stdout.take().unwrap(), script);
+    let stderr_future = self.pipe_stdio(child.stderr.take().unwrap(), script);
     let process_future = child.status();
 
     select! {
       status = process_future.fuse() => { status?; },
-      _ = stdout_future.fuse() => {}
-      // _ = stderr_future.fuse() => {}
+      _ = stdout_future.fuse() => {},
+      _ = stderr_future.fuse() => {}
     };
 
     Ok(())

@@ -28,7 +28,12 @@ async fn run() -> Result<()> {
     GlobalConfig::load().context("Graco has not been setup yet. Run `graco setup` to proceed.")?;
 
   let command = match command {
-    Command::New(args) => return commands::new::NewCommand::new(args, global_config).run(),
+    Command::New(args) => {
+      return commands::new::NewCommand::new(args, global_config)
+        .await
+        .run()
+        .await
+    }
     command => command,
   };
 

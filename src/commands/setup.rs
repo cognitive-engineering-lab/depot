@@ -1,5 +1,5 @@
 use crate::utils;
-#[cfg(target_family = "unix")]
+#[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
 use std::{
   env,
@@ -61,6 +61,10 @@ impl GlobalConfig {
     cmd.env("PATH", format!("{}:{path}", bindir.display()));
     cmd
   }
+
+  pub fn node_path(&self) -> PathBuf {
+    self.bindir().join("global/5/node_modules")
+  }
 }
 
 const PNPM_VERSION: &str = "7.29.1";
@@ -87,7 +91,7 @@ fn download_pnpm(dst: &Path) -> Result<()> {
     response.copy_to(&mut writer)?;
   }
 
-  #[cfg(target_family = "unix")]
+  #[cfg(unix)]
   file.set_permissions(Permissions::from_mode(0o555))?;
 
   Ok(())
@@ -144,11 +148,11 @@ impl SetupCommand {
       "eslint-plugin-react-hooks",
       "@typescript-eslint/eslint-plugin",
       "@typescript-eslint/parser",
+      "eslint-plugin-prettier",
 
       // Formatting
       "prettier",
       "@trivago/prettier-plugin-sort-imports",
-      "eslint-plugin-prettier",
     ];
 
     println!("Installing JS dependencies...");

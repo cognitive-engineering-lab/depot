@@ -2,6 +2,8 @@ use anyhow::{ensure, Context, Result};
 use indexmap::indexmap;
 use package_json_schema::PackageJson;
 use serde_json::{json, Value};
+#[cfg(unix)]
+use std::os::unix::prelude::PermissionsExt;
 use std::{
   borrow::Cow,
   env, fs,
@@ -95,8 +97,8 @@ fn json_merge(a: &mut Value, b: Value) {
 }
 
 impl NewCommand {
-  pub fn new(args: NewArgs, global_config: GlobalConfig) -> Self {
-    let ws_opt = Workspace::load(global_config.clone(), None).ok();
+  pub async fn new(args: NewArgs, global_config: GlobalConfig) -> Self {
+    let ws_opt = Workspace::load(global_config.clone(), None).await.ok();
     Self {
       args,
       ws_opt,
@@ -125,6 +127,42 @@ impl NewCommand {
     }
 
     Ok(())
+  }
+
+  fn make_build_script(&self) -> String {
+    let platform = self.args.platform.to_esbuild_string();
+    format!(
+      r#"import esbuild from "esbuild";
+
+let watch = process.argv.includes("--watch");
+let release = process.argv.includes("--release");
+
+async function main() {{
+  try {{
+    let ctx = await esbuild.context({{
+      entryPoints: ["src/main.ts"],
+      platform: "{platform}",
+      format: "esm",
+      outdir: "dist",
+      bundle: true,
+      minify: release,
+      sourcemap: !release,
+    }});
+    if (watch) {{
+      await ctx.watch();
+    }} else {{
+      await ctx.rebuild();
+      await ctx.dispose();
+    }}
+  }} catch (e) {{
+    console.error(e);
+    process.exit(1);
+  }}
+}}
+
+
+main();"#
+    )
   }
 
   fn make_tsconfig(&self) -> Result<String> {
@@ -168,7 +206,7 @@ impl NewCommand {
             }),
           );
         }
-        Target::Bin | Target::Site => {
+        Target::Script | Target::Site => {
           json_merge(
             &mut config,
             json!({
@@ -263,7 +301,7 @@ impl NewCommand {
     Ok(format!("module.exports = {config_str}"))
   }
 
-  fn new_package(mut self, root: &Path) -> Result<()> {
+  async fn new_package(mut self, root: &Path) -> Result<()> {
     let NewArgs {
       name,
       target,
@@ -292,10 +330,13 @@ impl NewCommand {
         files.push(("vite.config.ts".into(), VITE_CONFIG.into()));
         ("index.tsx", INDEX)
       }
-      Target::Bin => {
-        manifest.bin = Some(package_json_schema::Binary::Object(indexmap! {
-          root.display().to_string() => String::from("dist/main.js")
-        }));
+      Target::Script => {
+        if matches!(platform, Platform::Node) {
+          manifest.bin = Some(package_json_schema::Binary::Object(indexmap! {
+            name.name.clone() => String::from("dist/main.js")
+          }));
+        }
+        files.push(("build.mjs".into(), self.make_build_script().into()));
         ("main.ts", MAIN)
       }
       Target::Lib => {
@@ -332,6 +373,14 @@ impl NewCommand {
       fs::write(root.join(rel_path), contents.as_bytes())?;
     }
 
+    #[cfg(unix)]
+    {
+      let build_script_path = root.join("build.mjs");
+      if build_script_path.exists() {
+        fs::set_permissions(build_script_path, PermissionsExt::from_mode(0o755))?;
+      }
+    }
+
     if !dev_dependencies.is_empty() {
       let mut pnpm = self.global_config.pnpm();
       pnpm
@@ -344,7 +393,7 @@ impl NewCommand {
 
     let _ws = match self.ws_opt.take() {
       Some(ws) => ws,
-      None => Workspace::load(self.global_config, Some(root.to_owned()))?,
+      None => Workspace::load(self.global_config, Some(root.to_owned())).await?,
     };
 
     // TODO: run workspace init
@@ -352,7 +401,7 @@ impl NewCommand {
     Ok(())
   }
 
-  pub fn run(self) -> Result<()> {
+  pub async fn run(self) -> Result<()> {
     ensure!(
       !(self.ws_opt.is_some() && self.args.workspace),
       "Cannot create a new workspace inside an existing workspace"
@@ -370,7 +419,7 @@ impl NewCommand {
     if self.args.workspace {
       self.new_workspace(&root)
     } else {
-      self.new_package(&root)
+      self.new_package(&root).await
     }
   }
 }
