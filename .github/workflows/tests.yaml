@@ -8,8 +8,11 @@ on:
       - "v*"
         
 jobs:
-  ci:
+  ci:    
     runs-on: ubuntu-latest
+    env:
+      RUST_BACKTRACE: 1
+      RUST_LIB_BACKTRACE: 1
     steps:
       - uses: actions/checkout@v2.3.1
       - name: Test library

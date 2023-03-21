@@ -154,7 +154,7 @@ impl Workspace {
       }
     };
     let git_root = utils::get_git_root(&cwd);
-    let max_ancestor: &Path = git_root.as_deref().unwrap_or_else(|| fs_root);
+    let max_ancestor: &Path = git_root.as_deref().unwrap_or(fs_root);
     let root = find_workspace_root(max_ancestor, &cwd)?;
     debug!("Workspace root: `{}`", root.display());
 

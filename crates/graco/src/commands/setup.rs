@@ -4,7 +4,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::{
   env,
   fs::{File, Permissions},
-  io::BufWriter,
+  io::{BufWriter, Write},
   path::{Path, PathBuf},
   process::Command,
 };
@@ -87,14 +87,22 @@ fn download_pnpm(dst: &Path) -> Result<()> {
     _ => "x64",
   };
 
-  let pnpm_url =
-    format!("https://github.com/pnpm/pnpm/releases/download/v{version}/pnpm-{platform}-{arch}");
-  let mut response = reqwest::blocking::get(pnpm_url).context("Failed to download pnpm")?;
-
   let mut file = File::create(dst).context("Could not save pnpm binary to file")?;
+
   {
     let mut writer = BufWriter::new(&mut file);
-    response.copy_to(&mut writer)?;
+    let pnpm_url =
+      format!("https://github.com/pnpm/pnpm/releases/download/v{version}/pnpm-{platform}-{arch}");
+    let mut curl = curl::easy::Easy::new();
+    curl.url(&pnpm_url)?;
+    curl.follow_location(true)?;
+    let mut transfer = curl.transfer();
+    transfer.write_function(|data| {
+      writer
+        .write(data)
+        .map_err(|_| curl::easy::WriteError::Pause)
+    })?;
+    transfer.perform()?;
   }
 
   #[cfg(unix)]
