@@ -113,6 +113,9 @@ impl SetupCommand {
       Some(dir) => dir,
       None => GlobalConfig::find_root()?,
     };
+    if config_dir.exists() {
+      return Ok(());
+    }
     utils::create_dir_if_missing(&config_dir)?;
 
     let config = GlobalConfig { root: config_dir };
@@ -128,37 +131,37 @@ impl SetupCommand {
     #[rustfmt::skip]
     const PACKAGES: &[&str] = &[
       // Binary bundling
-      "esbuild",   
+      "esbuild@^0.17.12",
 
-      // Types   
-      "typescript",
+      // Types
+      "typescript@^4.9.5",
 
       // Styling
-      "sass",
-      "esbuild-sass-plugin",
-      "resolve",
+      "sass@^1.59.3",
+      "esbuild-sass-plugin@^2.7.0",
+      "resolve@^1.22.1",
 
       // Site bundlig
-      "vite",
-      "@vitejs/plugin-react",
+      "vite@^4.2.1",
+      "@vitejs/plugin-react@^3.1.0",
 
       // Testing
-      "jest",
-      "@types/jest",
-      "jest-environment-jsdom",       
-      "ts-jest",   
+      "jest@^29.5.0",
+      "@types/jest@^29.5.0",
+      "jest-environment-jsdom@^29.5.0",
+      "ts-jest@^29.0.5",
 
       // Linting
-      "eslint",
-      "eslint-plugin-react",
-      "eslint-plugin-react-hooks",
-      "@typescript-eslint/eslint-plugin",
-      "@typescript-eslint/parser",
-      "eslint-plugin-prettier",
+      "eslint@^8.36.0",
+      "eslint-plugin-react@^7.32.2",
+      "eslint-plugin-react-hooks@^4.6.0",
+      "@typescript-eslint/eslint-plugin@^5.56.0",
+      "@typescript-eslint/parser@^5.56.0",
+      "eslint-plugin-prettier@^4.2.1",
 
       // Formatting
-      "prettier",
-      "@trivago/prettier-plugin-sort-imports",
+      "prettier@^2.8.5",
+      "@trivago/prettier-plugin-sort-imports@^4.1.1",
     ];
 
     println!("Installing JS dependencies...");

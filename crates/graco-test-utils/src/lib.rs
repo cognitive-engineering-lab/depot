@@ -2,6 +2,7 @@ use std::{
   fs,
   path::{Path, PathBuf},
   process::Command,
+  sync::Once,
 };
 
 use either::Either;
@@ -16,8 +17,17 @@ pub struct CommandOutput {
   stderr: String,
 }
 
+static SETUP: Once = Once::new();
+
 impl ProjectBuilder {
   pub fn new(target: &str, platform: &str) -> Self {
+    SETUP.call_once(|| {
+      let status = Command::new(graco_exe()).arg("setup").status().unwrap();
+      if !status.success() {
+        panic!("graco setup failed");
+      }
+    });
+
     let tmpdir = TempDir::new().unwrap();
     let mut process = Command::new(graco_exe());
     process.current_dir(tmpdir.path());
