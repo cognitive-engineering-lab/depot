@@ -16,7 +16,7 @@ use std::{
   iter,
   ops::Deref,
   path::{Path, PathBuf},
-  sync::{Arc, Mutex},
+  sync::{Arc, Mutex, MutexGuard},
 };
 
 use package::Package;
@@ -179,5 +179,11 @@ impl Workspace {
     }
 
     Ok(ws)
+  }
+}
+
+impl WorkspaceInner {
+  pub fn terminal(&self) -> MutexGuard<'_, Terminal> {
+    self.terminal.lock().unwrap()
   }
 }

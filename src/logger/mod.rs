@@ -6,10 +6,8 @@ use crate::workspace::package::PackageIndex;
 
 use self::ringbuffer::RingBuffer;
 
-pub use ui::LoggerUi;
-
 mod ringbuffer;
-mod ui;
+pub mod ui;
 
 pub struct Logger {
   logs: HashMap<PackageIndex, HashMap<String, RingBuffer<String>>>,

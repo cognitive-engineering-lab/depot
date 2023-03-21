@@ -5,7 +5,15 @@ use crossterm::{
   execute,
   terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::time::{Duration, Instant};
+use futures::StreamExt;
+use std::{
+  sync::{
+    atomic::{AtomicIsize, Ordering},
+    MutexGuard,
+  },
+  time::Duration,
+};
+use tokio::sync::Notify;
 use tui::{
   layout::{Constraint, Direction, Layout},
   style::{Modifier, Style},
@@ -17,69 +25,64 @@ use crate::workspace::{Terminal, Workspace};
 
 use super::Logger;
 
-pub struct LoggerUi<'a> {
-  ws: &'a Workspace,
-  terminal: &'a mut Terminal,
-  selected: isize,
-  last_tick: Instant,
+pub struct LoggerUi {
+  selected: AtomicIsize,
 }
 
 const TICK_RATE: Duration = Duration::from_millis(33);
 const BINARY_ORDER: &[&str] = &["vite", "pnpm", "tsc", "eslint"];
 
-impl<'a> LoggerUi<'a> {
-  pub fn new(ws: &'a Workspace, terminal: &'a mut Terminal) -> Self {
+impl LoggerUi {
+  fn new() -> Self {
     LoggerUi {
-      ws,
-      terminal,
-      selected: 0,
-      last_tick: Instant::now(),
+      selected: AtomicIsize::new(0),
     }
   }
 
-  pub fn setup(&mut self) -> Result<()> {
+  fn setup(mut terminal: MutexGuard<'_, Terminal>) -> Result<()> {
     crossterm::terminal::enable_raw_mode()?;
     execute!(
-      self.terminal.backend_mut(),
+      terminal.backend_mut(),
       EnterAlternateScreen,
       EnableMouseCapture
     )?;
-    self.terminal.clear()?;
+    terminal.clear()?;
     Ok(())
   }
 
-  pub fn cleanup(&mut self) -> Result<()> {
+  fn cleanup(mut terminal: MutexGuard<'_, Terminal>) -> Result<()> {
     crossterm::terminal::disable_raw_mode()?;
     execute!(
-      self.terminal.backend_mut(),
+      terminal.backend_mut(),
       LeaveAlternateScreen,
       DisableMouseCapture
     )?;
-    self.terminal.show_cursor()?;
+    terminal.show_cursor()?;
     Ok(())
   }
-
-  pub fn handle_input(&mut self) -> Result<()> {
-    let timeout = TICK_RATE
-      .checked_sub(self.last_tick.elapsed())
-      .unwrap_or_else(|| Duration::from_secs(0));
-    if crossterm::event::poll(timeout)? {
-      if let Event::Key(key) = crossterm::event::read()? {
+ 
+  // TODO: This still occasionally drops inputs, seems to conflict with async-process.
+  // See the note on `crossterm` dependency in Cargo.toml.
+  pub async fn handle_input(&self) -> Result<bool> {
+    let mut reader = crossterm::event::EventStream::new();
+    while let Some(event) = reader.next().await {
+      if let Event::Key(key) = event? {
         match key.code {
-          KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-            self.cleanup()?;
-            std::process::exit(1)
+          KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(true),
+          KeyCode::Left => {
+            self.selected.fetch_sub(1, Ordering::SeqCst);
           }
-          KeyCode::Left => self.selected += 1,
-          KeyCode::Right => self.selected -= 1,
+          KeyCode::Right => {
+            self.selected.fetch_add(1, Ordering::SeqCst);
+          }
           _ => {}
         }
       }
     }
-    Ok(())
+    Ok(false)
   }
 
-  fn log_widget<'b>(&self, logger: &'b Logger, pkg: usize, binary: &'b str) -> impl Widget + 'b {
+  fn log_widget<'b>(logger: &'b Logger, pkg: usize, binary: &'b str) -> impl Widget + 'b {
     let log = &logger.logs[&pkg][binary];
 
     let mut spans = Vec::new();
@@ -95,14 +98,9 @@ impl<'a> LoggerUi<'a> {
     text.block(Block::default().title(binary).borders(Borders::ALL))
   }
 
-  pub fn draw(&mut self) -> Result<()> {
-    self.handle_input()?;
-
-    if self.last_tick.elapsed() < TICK_RATE {
-      return Ok(());
-    }
-
-    let logger = self.ws.logger.lock().unwrap();
+  pub fn draw(&self, ws: &Workspace) -> Result<()> {
+    let mut terminal = ws.terminal();
+    let logger = ws.logger.lock().unwrap();
     let mut indices = logger.logs.keys().copied().collect::<Vec<_>>();
     indices.sort();
 
@@ -111,14 +109,15 @@ impl<'a> LoggerUi<'a> {
       return Ok(());
     }
 
-    let index = ((n + self.selected % n) % n) as usize;
+    let selected = self.selected.load(Ordering::SeqCst);
+    let index = ((n + selected % n) % n) as usize;
     let pkg = indices[index];
 
     let titles = indices
       .iter()
       .enumerate()
       .map(|(i, pkg)| {
-        let pkg_name = self.ws.packages[*pkg].name.to_string();
+        let pkg_name = ws.packages[*pkg].name.to_string();
         let mut style = Style::default();
         if i == index {
           style = style.add_modifier(Modifier::BOLD);
@@ -136,10 +135,10 @@ impl<'a> LoggerUi<'a> {
     });
     let logs = log_keys
       .into_iter()
-      .map(|binary| self.log_widget(&logger, pkg, binary))
+      .map(|binary| LoggerUi::log_widget(&logger, pkg, binary))
       .collect::<Vec<_>>();
 
-    self.terminal.draw(|f| {
+    terminal.draw(|f| {
       let size = f.size();
       let canvas = Layout::default()
         .direction(Direction::Vertical)
@@ -165,8 +164,49 @@ impl<'a> LoggerUi<'a> {
       }
     })?;
 
-    self.last_tick = Instant::now();
-
     Ok(())
   }
+
+  async fn draw_loop(&self, ws: &Workspace) -> Result<()> {
+    loop {
+      self.draw(ws)?;
+      tokio::time::sleep(TICK_RATE).await;
+    }
+  }
+}
+
+pub async fn render(ws: &Workspace, should_exit: &Notify) -> Result<()> {
+  let ui = LoggerUi::new();
+  LoggerUi::setup(ws.terminal())?;
+
+  let exit_future = should_exit.notified();
+  tokio::pin!(exit_future);
+
+  let input_future = ui.handle_input();
+  tokio::pin!(input_future);
+
+  let draw_future = ui.draw_loop(ws);
+  tokio::pin!(draw_future);
+
+  let exit_early = loop {
+    tokio::select! { biased;
+      _ = &mut exit_future => break false,
+      result = &mut input_future => {
+        if result? {
+          break true;
+        }
+      },
+      result = &mut draw_future => {
+        result?;
+      }
+    }
+  };
+
+  LoggerUi::cleanup(ws.terminal())?;
+
+  if exit_early {
+    std::process::exit(1);
+  }
+
+  Ok(())
 }

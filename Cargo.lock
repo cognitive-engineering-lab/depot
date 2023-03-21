@@ -292,6 +292,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossterm"
+version = "0.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a84cda67535339806297f1b331d6dd6320470d2a0fe65381e79ee9e156dd3d13"
+dependencies = [
+ "bitflags",
+ "crossterm_winapi",
+ "filedescriptor",
+ "futures-core",
+ "libc",
+ "mio",
+ "parking_lot",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
 name = "crossterm_winapi"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -362,6 +380,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
 dependencies = [
  "instant",
+]
+
+[[package]]
+name = "filedescriptor"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7199d965852c3bac31f779ef99cbb4537f80e952e2d6aa0ffeb30cce00f4f46e"
+dependencies = [
+ "libc",
+ "thiserror",
+ "winapi",
 ]
 
 [[package]]
@@ -520,7 +549,7 @@ dependencies = [
  "async-trait",
  "cfg-if",
  "clap",
- "crossterm",
+ "crossterm 0.26.1",
  "env_logger",
  "futures",
  "home",
@@ -532,6 +561,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tokio",
  "tui",
 ]
 
@@ -1380,7 +1410,19 @@ dependencies = [
  "num_cpus",
  "pin-project-lite",
  "socket2",
+ "tokio-macros",
  "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d266c00fde287f55d3f1c3e96c500c362a2b8c695076ec180f27918820bc6df8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1447,7 +1489,7 @@ checksum = "ccdd26cbd674007e649a272da4475fb666d3aa0ad0531da7136db6fab0e5bad1"
 dependencies = [
  "bitflags",
  "cassowary",
- "crossterm",
+ "crossterm 0.25.0",
  "unicode-segmentation",
  "unicode-width",
 ]

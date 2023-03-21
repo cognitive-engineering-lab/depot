@@ -53,6 +53,12 @@ impl GlobalConfig {
     self.root.join("bin")
   }
 
+  /*
+  TODO: pick back up here.
+  need to decide whether to run ALL pnpm commands thru custom global dir
+  or default user home dir. getting inconsistent store locations.
+   */
+
   pub fn pnpm(&self) -> Command {
     let bindir = self.bindir();
     let mut cmd = Command::new(bindir.join("pnpm"));

@@ -1,6 +1,6 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 use async_process::Stdio;
-use futures::{io::BufReader, select, AsyncBufReadExt, AsyncRead, FutureExt, StreamExt};
+use futures::{io::BufReader, AsyncBufReadExt, AsyncRead, StreamExt};
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
@@ -36,7 +36,7 @@ pub enum Target {
   Script,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PackageName {
   pub name: String,
   pub scope: Option<String>,
@@ -61,8 +61,8 @@ impl FromStr for PackageName {
         ensure!(components.len() == 2, "Invalid package name");
 
         Ok(PackageName {
-          name: components[0].to_string(),
-          scope: Some(components[1].to_string()),
+          scope: Some(components[0].to_string()),
+          name: components[1].to_string(),
         })
       }
       None => Ok(PackageName {
@@ -168,6 +168,57 @@ impl Package {
       ws: OnceCell::default(),
     })))
   }
+
+  async fn pipe_stdio(self, stdio: impl AsyncRead + Unpin, script_name: &str) {
+    let mut lines = BufReader::new(stdio).lines();
+    while let Some(line) = lines.next().await {
+      let line = line.unwrap();
+      let mut logger = self.workspace().logger.lock().unwrap();
+      let logger = logger.logger(self.index, script_name);
+      let line = match line.strip_prefix("\u{1b}c") {
+        Some(rest) => {
+          logger.clear();
+          rest.to_string()
+        }
+        None => line,
+      };
+      logger.push(line);
+    }
+  }
+
+  pub async fn exec(
+    &self,
+    script: &'static str,
+    configure: impl FnOnce(&mut async_process::Command),
+  ) -> Result<()> {
+    let ws = self.workspace();
+    let script_path = ws.global_config.bindir().join(script);
+    assert!(script_path.exists());
+
+    let mut cmd = async_process::Command::new(&script_path);
+    cmd.current_dir(&self.root);
+
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    configure(&mut cmd);
+
+    let mut child = cmd
+      .spawn()
+      .with_context(|| format!("Failed to spawn process: `{}`", script_path.display()))?;
+
+    ws.logger.lock().unwrap().register_log(self.index, script);
+
+    let this = self.clone();
+    tokio::spawn(this.pipe_stdio(child.stdout.take().unwrap(), script));
+    let this = self.clone();
+    tokio::spawn(this.pipe_stdio(child.stderr.take().unwrap(), script));
+
+    let status = child.status().await?;
+    ensure!(status.success());
+
+    Ok(())
+  }
 }
 
 impl PackageInner {
@@ -195,57 +246,36 @@ impl PackageInner {
       .set(ws.clone())
       .unwrap_or_else(|_| panic!("Called set_workspace twice!"));
   }
+}
 
-  async fn pipe_stdio(&self, stdio: impl AsyncRead + Unpin, script_name: &str) {
-    let mut lines = BufReader::new(stdio).lines();
-    while let Some(line) = lines.next().await {
-      let line = line.unwrap();
-      let mut logger = self.workspace().logger.lock().unwrap();
-      let logger = logger.logger(self.index, script_name);
-      let line = match line.strip_prefix("\u{1b}c") {
-        Some(rest) => {
-          logger.clear();
-          rest.to_string()
-        }
-        None => line,
-      };
-      logger.push(line);
-    }
-  }
+#[cfg(test)]
+mod test {
+  use super::*;
 
-  pub async fn exec(
-    &self,
-    script: &str,
-    configure: impl FnOnce(&mut async_process::Command),
-  ) -> Result<()> {
-    let ws = self.workspace();
-    let script_path = ws.global_config.bindir().join(script);
-    assert!(script_path.exists());
+  #[test]
+  fn test_package_name() {
+    let s = "foo";
+    let name = PackageName::from_str(s).unwrap();
+    assert_eq!(
+      name,
+      PackageName {
+        name: "foo".into(),
+        scope: None
+      }
+    );
 
-    let mut cmd = async_process::Command::new(&script_path);
-    cmd.current_dir(&self.root);
+    let s = "@foo/bar";
+    let name = PackageName::from_str(s).unwrap();
+    assert_eq!(
+      name,
+      PackageName {
+        name: "bar".into(),
+        scope: Some("foo".into())
+      }
+    );
+    assert_eq!("@foo/bar", format!("{}", name));
 
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
-    configure(&mut cmd);
-
-    let mut child = cmd
-      .spawn()
-      .with_context(|| format!("Failed to spawn process: `{}`", script_path.display()))?;
-
-    ws.logger.lock().unwrap().register_log(self.index, script);
-
-    let stdout_future = self.pipe_stdio(child.stdout.take().unwrap(), script);
-    let stderr_future = self.pipe_stdio(child.stderr.take().unwrap(), script);
-    let process_future = child.status();
-
-    select! {
-      status = process_future.fuse() => { status?; },
-      _ = stdout_future.fuse() => {},
-      _ = stderr_future.fuse() => {}
-    };
-
-    Ok(())
+    let s = "@what/is/this";
+    assert!(PackageName::from_str(s).is_err());
   }
 }

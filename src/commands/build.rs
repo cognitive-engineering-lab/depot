@@ -1,9 +1,8 @@
+use std::str::FromStr;
+
 use anyhow::Result;
-use cfg_if::cfg_if;
-use futures::{
-  future::{try_join_all, BoxFuture},
-  FutureExt,
-};
+
+use futures::{future::try_join_all, FutureExt};
 
 use crate::{
   utils,
@@ -36,7 +35,7 @@ impl PackageCommand for BuildCommand {
   async fn run(&self, pkg: &Package) -> Result<()> {
     self.init(pkg).await?;
 
-    let mut processes: Vec<BoxFuture<'_, Result<()>>> = Vec::new();
+    let mut processes = Vec::new();
 
     if matches!(pkg.target, Target::Site) {
       processes.push(self.vite(pkg).boxed());
@@ -64,20 +63,28 @@ impl BuildCommand {
   }
 
   async fn init(&self, pkg: &Package) -> Result<()> {
-    let node_modules = pkg.root.join("node_modules");
-    utils::create_dir_if_missing(&node_modules)?;
+    let local_node_modules = pkg.root.join("node_modules");
+    utils::create_dir_if_missing(&local_node_modules)?;
 
     let ws = pkg.workspace();
-    let esbuild_src = ws.global_config.node_path().join("esbuild");
-    let esbuild_dst = node_modules.join("esbuild");
-    if !esbuild_dst.exists() {
-      cfg_if! {
-        if #[cfg(unix)] {
-          std::os::unix::fs::symlink(esbuild_src, esbuild_dst)?;
-        } else {
-          todo!()
-        }
+    let pkgs_to_link = match pkg.target {
+      Target::Script => vec!["esbuild"],
+      Target::Site => vec!["vite", "@vitejs/plugin-react"],
+      Target::Lib => vec![],
+    };
+
+    let global_node_modules = ws.global_config.node_path();
+    for pkg in pkgs_to_link {
+      let pkg_name = PackageName::from_str(pkg).unwrap();
+      let src = global_node_modules.join(pkg);
+      let dst = local_node_modules.join(pkg);
+      if let Some(scope) = pkg_name.scope {
+        utils::create_dir_if_missing(
+          local_node_modules.join(local_node_modules.join(format!("@{scope}"))),
+        )?;
       }
+
+      utils::symlink_dir_if_missing(&src, &dst)?;
     }
 
     Ok(())

@@ -6,14 +6,11 @@ use std::{
   cell::Cell,
   collections::{HashMap, HashSet},
   future::Future,
-  sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-  },
-  thread,
+  sync::Arc,
 };
+use tokio::sync::Notify;
 
-use crate::logger::LoggerUi;
+use crate::logger::ui;
 
 use super::{package::PackageIndex, PackageCommand, Workspace};
 
@@ -30,34 +27,16 @@ struct Task<F: Future<Output = (PackageIndex, Result<()>)>> {
 }
 
 impl Workspace {
-  fn spawn_log_thread(&self) -> impl FnOnce() {
+  fn spawn_log_thread(&self, should_exit: &Arc<Notify>) -> impl Future {
     let ws = self.clone();
-    let should_exit = Arc::new(AtomicBool::new(false));
-    let should_exit_ref = Arc::clone(&should_exit);
-    let log_thread = thread::spawn(move || {
-      let inner = || -> Result<()> {
-        let mut terminal = ws.terminal.lock().unwrap();
-        let mut ui = LoggerUi::new(&ws, &mut terminal);
-        ui.setup()?;
-        loop {
-          if should_exit_ref.load(Ordering::SeqCst) {
-            break;
-          }
-          ui.draw()?;
-        }
-        ui.cleanup()?;
-        Ok(())
-      };
-      if let Err(e) = inner() {
+    let should_exit = Arc::clone(should_exit);
+    tokio::spawn(async move {
+      let result = ui::render(&ws, &should_exit).await;
+      if let Err(e) = result {
         eprintln!("{e}");
         std::process::exit(1);
       }
-    });
-
-    move || {
-      should_exit.store(true, Ordering::SeqCst);
-      log_thread.join().unwrap();
-    }
+    })
   }
 
   pub async fn run(&self, cmd: impl PackageCommand) -> Result<()> {
@@ -84,7 +63,8 @@ impl Workspace {
       })
       .collect::<HashMap<_, _>>();
 
-    let cleanup_logs = self.spawn_log_thread();
+    let should_exit = Arc::new(Notify::new());
+    let cleanup_logs = self.spawn_log_thread(&should_exit);
 
     let result = loop {
       if tasks
@@ -121,7 +101,8 @@ impl Workspace {
       log::debug!("Finished task for: {}", self.packages[index].name);
     };
 
-    cleanup_logs();
+    should_exit.notify_waiters();
+    cleanup_logs.await;
 
     result
   }

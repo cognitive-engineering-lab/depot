@@ -49,9 +49,10 @@ async fn run() -> Result<()> {
   Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
   env_logger::init();
-  if let Err(e) = futures::executor::block_on(run()) {
+  if let Err(e) = run().await {
     eprintln!("Graco failed with the error:\n");
     if cfg!(debug_assertions) {
       eprintln!("{e:?}");
