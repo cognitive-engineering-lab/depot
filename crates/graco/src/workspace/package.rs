@@ -199,6 +199,7 @@ impl Package {
 
     let mut cmd = async_process::Command::new(&script_path);
     cmd.current_dir(&self.root);
+    cmd.kill_on_drop(true);
 
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());

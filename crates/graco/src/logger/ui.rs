@@ -211,6 +211,7 @@ pub async fn render(ws: &Workspace, should_exit: &Notify) -> Result<()> {
   LoggerUi::cleanup(ws.terminal())?;
 
   if exit_early {
+    // TODO: don't call process::exit, we need to cleanup processes first
     std::process::exit(1);
   }
 
