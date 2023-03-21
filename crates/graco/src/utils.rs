@@ -17,9 +17,11 @@ pub fn create_dir_if_missing(p: impl AsRef<Path>) -> Result<()> {
 pub fn get_git_root(cwd: &Path) -> Option<PathBuf> {
   let mut cmd = Command::new("git");
   cmd.args(["rev-parse", "--show-toplevel"]).current_dir(cwd);
-  Some(PathBuf::from(
-    String::from_utf8(cmd.output().ok()?.stdout).unwrap(),
-  ))
+  let output = cmd.output().ok()?;
+  output
+    .status
+    .success()
+    .then(|| PathBuf::from(String::from_utf8(output.stdout).unwrap()))
 }
 
 pub fn symlink_dir_if_missing(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<()> {

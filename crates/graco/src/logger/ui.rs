@@ -4,9 +4,11 @@ use crossterm::{
   event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
   execute,
   terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+  tty::IsTty,
 };
 use futures::StreamExt;
 use std::{
+  io::stdout,
   sync::{
     atomic::{AtomicIsize, Ordering},
     MutexGuard,
@@ -60,7 +62,7 @@ impl LoggerUi {
     terminal.show_cursor()?;
     Ok(())
   }
- 
+
   // TODO: This still occasionally drops inputs, seems to conflict with async-process.
   // See the note on `crossterm` dependency in Cargo.toml.
   pub async fn handle_input(&self) -> Result<bool> {
@@ -176,6 +178,10 @@ impl LoggerUi {
 }
 
 pub async fn render(ws: &Workspace, should_exit: &Notify) -> Result<()> {
+  if !stdout().is_tty() {
+    return Ok(());
+  }
+
   let ui = LoggerUi::new();
   LoggerUi::setup(ws.terminal())?;
 

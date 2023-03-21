@@ -130,10 +130,12 @@ impl Package {
   }
 
   pub fn load(root: &Path, index: PackageIndex) -> Result<Self> {
-    let root = root.canonicalize()?;
+    let root = root
+      .canonicalize()
+      .with_context(|| format!("Could not find package root: `{}`", root.display()))?;
     let manifest_path = root.join("package.json");
     let manifest_str = fs::read_to_string(manifest_path)
-      .with_context(|| format!("Package does not have package.json: {}", root.display()))?;
+      .with_context(|| format!("Package does not have package.json: `{}`", root.display()))?;
     let manifest = Manifest::load(manifest_str)?;
 
     let (entry_point, target) = if let Some(entry_point) = Package::find_source_file(&root, "lib") {
@@ -144,7 +146,7 @@ impl Package {
       (entry_point, Target::Site)
     } else {
       bail!(
-        "Could not find entry point to package in directory: {}",
+        "Could not find entry point to package in directory: `{}`",
         root.display()
       )
     };
@@ -215,7 +217,7 @@ impl Package {
     tokio::spawn(this.pipe_stdio(child.stderr.take().unwrap(), script));
 
     let status = child.status().await?;
-    ensure!(status.success());
+    ensure!(status.success(), "Process failed: `{script}`");
 
     Ok(())
   }

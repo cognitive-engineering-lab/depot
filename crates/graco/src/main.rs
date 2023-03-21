@@ -59,5 +59,6 @@ async fn main() {
     } else {
       eprintln!("{e}");
     }
+    std::process::exit(1);
   }
 }

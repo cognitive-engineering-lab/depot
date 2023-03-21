@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use cfg_if::cfg_if;
 use futures::{
   stream::{self, TryStreamExt},
   StreamExt,
@@ -59,6 +60,12 @@ pub struct WorkspaceInner {
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
   let rel_path_to_cwd = cwd.strip_prefix(max_ancestor)?;
+  debug!(
+    "`{}` / `{}` / `{}`",
+    rel_path_to_cwd.display(),
+    cwd.display(),
+    max_ancestor.display()
+  );
   let components = rel_path_to_cwd.iter().collect::<Vec<_>>();
   (0..=components.len())
     .map(|i| {
@@ -66,7 +73,10 @@ fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
         .chain(components[..i].iter().copied())
         .collect::<PathBuf>()
     })
-    .find(|path| path.join("package.json").exists())
+    .find(|path| {
+      log::debug!("wtf `{}`", path.display());
+      path.join("package.json").exists()
+    })
     .with_context(|| {
       format!(
         "Could not find workspace root in working dir: {}",
@@ -134,11 +144,19 @@ impl Workspace {
       None => env::current_dir()?,
     };
 
-    let fs_root = cwd.components().next().unwrap();
+    let fs_root = {
+      cfg_if! {
+        if #[cfg(unix)] {
+          Path::new("/")
+        } else {
+          todo!()
+        }
+      }
+    };
     let git_root = utils::get_git_root(&cwd);
-    let max_ancestor: &Path = git_root.as_deref().unwrap_or_else(|| fs_root.as_ref());
+    let max_ancestor: &Path = git_root.as_deref().unwrap_or_else(|| fs_root);
     let root = find_workspace_root(max_ancestor, &cwd)?;
-    debug!("Workspace root: {}", root.display());
+    debug!("Workspace root: `{}`", root.display());
 
     let pkg_dir = root.join("packages");
     let monorepo = pkg_dir.exists();
