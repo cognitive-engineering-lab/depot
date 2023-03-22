@@ -4,7 +4,6 @@ use crossterm::{
   event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
   execute,
   terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-  tty::IsTty,
 };
 use futures::StreamExt;
 use ratatui::{
@@ -14,7 +13,6 @@ use ratatui::{
   widgets::{Block, Borders, Paragraph, Tabs, Widget},
 };
 use std::{
-  io::stdout,
   sync::{
     atomic::{AtomicIsize, Ordering},
     MutexGuard,
@@ -154,7 +152,7 @@ impl LoggerUi {
         .direction(Direction::Vertical)
         .constraints([Constraint::Ratio(7, 10), Constraint::Ratio(3, 10)])
         .split(canvas[0]);
-      let log_slots = log_halves.into_iter().flat_map(|half| {
+      let log_slots = log_halves.iter().flat_map(|half| {
         Layout::default()
           .direction(Direction::Horizontal)
           .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
@@ -179,7 +177,7 @@ impl LoggerUi {
 }
 
 pub async fn render(ws: &Workspace, should_exit: &Notify) -> Result<()> {
-  if !stdout().is_tty() {
+  if !ws.has_terminal() {
     return Ok(());
   }
 

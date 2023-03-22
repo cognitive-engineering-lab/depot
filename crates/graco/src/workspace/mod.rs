@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use cfg_if::cfg_if;
+use crossterm::tty::IsTty;
 use futures::{
   stream::{self, TryStreamExt},
   StreamExt,
@@ -13,7 +14,7 @@ use petgraph::{
 };
 use std::{
   env,
-  io::Stdout,
+  io::{stdout, Stdout},
   iter,
   ops::Deref,
   path::{Path, PathBuf},
@@ -45,7 +46,7 @@ pub type Terminal = ratatui::Terminal<TerminalBackend>;
 pub fn load_terminal() -> Result<Terminal> {
   let stdout = std::io::stdout();
   let backend = ratatui::backend::CrosstermBackend::new(stdout);
-  Ok(ratatui::Terminal::new(backend)?)
+  ratatui::Terminal::new(backend).context("Failed to create reference to terminal")
 }
 
 pub struct WorkspaceInner {
@@ -55,7 +56,7 @@ pub struct WorkspaceInner {
   pub global_config: GlobalConfig,
   pub dep_graph: DepGraph,
   pub logger: Mutex<Logger>,
-  pub terminal: Mutex<Terminal>,
+  pub terminal: Option<Mutex<Terminal>>,
 }
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
@@ -180,7 +181,11 @@ impl Workspace {
     let dep_graph = DepGraph::build(&packages);
 
     let logger = Mutex::new(Logger::new()?);
-    let terminal = Mutex::new(load_terminal()?);
+    let terminal = if stdout().is_tty() {
+      Some(Mutex::new(load_terminal()?))
+    } else {
+      None
+    };
 
     let ws = Workspace(Arc::new(WorkspaceInner {
       root,
@@ -201,7 +206,11 @@ impl Workspace {
 }
 
 impl WorkspaceInner {
+  pub fn has_terminal(&self) -> bool {
+    self.terminal.is_some()
+  }
+
   pub fn terminal(&self) -> MutexGuard<'_, Terminal> {
-    self.terminal.lock().unwrap()
+    self.terminal.as_ref().unwrap().lock().unwrap()
   }
 }
