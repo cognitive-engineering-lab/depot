@@ -17,4 +17,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2.3.1
       - name: Test library
-        run: cargo test -- --test-threads=1
+        run: cargo test --features dev -- --test-threads=1

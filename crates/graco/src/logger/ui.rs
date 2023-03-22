@@ -7,6 +7,12 @@ use crossterm::{
   tty::IsTty,
 };
 use futures::StreamExt;
+use ratatui::{
+  layout::{Constraint, Direction, Layout},
+  style::{Modifier, Style},
+  text::{Span, Spans, Text},
+  widgets::{Block, Borders, Paragraph, Tabs, Widget},
+};
 use std::{
   io::stdout,
   sync::{
@@ -16,12 +22,6 @@ use std::{
   time::Duration,
 };
 use tokio::sync::Notify;
-use tui::{
-  layout::{Constraint, Direction, Layout},
-  style::{Modifier, Style},
-  text::{Span, Spans, Text},
-  widgets::{Block, Borders, Paragraph, Tabs, Widget},
-};
 
 use crate::workspace::{Terminal, Workspace};
 
@@ -158,7 +158,8 @@ impl LoggerUi {
         Layout::default()
           .direction(Direction::Horizontal)
           .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
-          .split(half)
+          .split(*half)
+          .to_vec()
       });
 
       for (log, slot) in logs.into_iter().zip(log_slots) {

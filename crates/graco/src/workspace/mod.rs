@@ -39,13 +39,13 @@ impl Deref for Workspace {
   }
 }
 
-pub type TerminalBackend = tui::backend::CrosstermBackend<Stdout>;
-pub type Terminal = tui::Terminal<TerminalBackend>;
+pub type TerminalBackend = ratatui::backend::CrosstermBackend<Stdout>;
+pub type Terminal = ratatui::Terminal<TerminalBackend>;
 
 pub fn load_terminal() -> Result<Terminal> {
   let stdout = std::io::stdout();
-  let backend = tui::backend::CrosstermBackend::new(stdout);
-  Ok(tui::Terminal::new(backend)?)
+  let backend = ratatui::backend::CrosstermBackend::new(stdout);
+  Ok(ratatui::Terminal::new(backend)?)
 }
 
 pub struct WorkspaceInner {

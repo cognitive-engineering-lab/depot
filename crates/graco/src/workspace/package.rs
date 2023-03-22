@@ -217,8 +217,17 @@ impl Package {
     let this = self.clone();
     tokio::spawn(this.pipe_stdio(child.stderr.take().unwrap(), script));
 
-    let status = child.status().await?;
-    ensure!(status.success(), "Process failed: `{script}`");
+    let status = child
+      .status()
+      .await
+      .with_context(|| format!("Process `{script}` failed"))?;
+    match status.code() {
+      Some(code) => ensure!(
+        status.success(),
+        "Process `{script}` exited with non-zero exit code: {code}"
+      ),
+      None => bail!("Process `{script}` exited due to signal"),
+    }
 
     Ok(())
   }
