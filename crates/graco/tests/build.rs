@@ -1,7 +1,7 @@
 use graco_test_utils::{project, project_for};
 
 #[test]
-fn basic_lib_browser() {
+fn build_basic_lib_browser() {
   let project = project_for("lib", "browser").persist();
   project.graco("build");
   assert!(project.exists("dist/lib.js"));
@@ -10,7 +10,7 @@ fn basic_lib_browser() {
 }
 
 #[test]
-fn basic_lib_node() {
+fn build_basic_lib_node() {
   let project = project_for("lib", "node");
   project.graco("build");
   assert!(project.exists("dist/lib.js"));
@@ -18,7 +18,7 @@ fn basic_lib_node() {
 }
 
 #[test]
-fn basic_script_browser() {
+fn build_basic_script_browser() {
   let project = project_for("script", "browser");
   project.graco("build");
   assert!(project.exists("dist/main.js"));
@@ -26,7 +26,7 @@ fn basic_script_browser() {
 }
 
 #[test]
-fn basic_script_node() {
+fn build_basic_script_node() {
   let project = project_for("script", "node");
   project.graco("build");
   assert!(project.exists("dist/main.js"));
@@ -34,14 +34,14 @@ fn basic_script_node() {
 }
 
 #[test]
-fn basic_site_browser() {
+fn build_basic_site_browser() {
   let project = project_for("site", "browser");
   project.graco("build");
   assert!(project.exists("dist/index.html"));
 }
 
 #[test]
-fn release() {
+fn build_release() {
   let project = project();
   project.graco("build --release");
   assert!(project.exists("dist/lib.js"));

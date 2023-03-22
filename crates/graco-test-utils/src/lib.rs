@@ -30,6 +30,7 @@ impl ProjectBuilder {
     });
 
     let tmpdir = TempDir::new().unwrap();
+
     let mut process = Command::new(graco_exe());
     process.current_dir(tmpdir.path());
     process.args(["new", "foo", "-t", target, "-p", platform]);
@@ -38,9 +39,13 @@ impl ProjectBuilder {
       panic!("graco new failed");
     }
 
-    ProjectBuilder {
+    let builder = ProjectBuilder {
       tmpdir: Either::Left(tmpdir),
-    }
+    };
+
+    builder.graco("init");
+
+    builder
   }
 
   pub fn persist(mut self) -> Self {
@@ -62,6 +67,10 @@ impl ProjectBuilder {
     fs::create_dir_all(self.root().join(path.parent().unwrap())).unwrap();
     fs::write(self.root().join(path), body).unwrap();
     self
+  }
+
+  pub fn read(&self, path: impl AsRef<Path>) -> String {
+    fs::read_to_string(self.root().join(path)).unwrap()
   }
 
   pub fn graco(&self, cmd: impl AsRef<str>) -> CommandOutput {

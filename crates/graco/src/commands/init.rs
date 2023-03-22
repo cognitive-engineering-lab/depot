@@ -39,7 +39,11 @@ impl PackageCommand for InitCommand {
       Platform::Browser => pkgs_to_link.extend(["jest-environment-jsdom"]),
       Platform::Node => {}
     }
-    pkgs_to_link.extend(["ts-jest", "@types/jest"]);
+    pkgs_to_link.extend([
+      "ts-jest",
+      "@types/jest",
+      "@trivago/prettier-plugin-sort-imports",
+    ]);
 
     let global_node_modules = ws.global_config.node_path();
     for to_link in pkgs_to_link {
@@ -51,9 +55,9 @@ impl PackageCommand for InitCommand {
           local_node_modules.join(local_node_modules.join(format!("@{scope}"))),
         )?;
       }
-
       utils::symlink_dir_if_missing(&src, &dst)?;
     }
+
     Ok(())
   }
 }

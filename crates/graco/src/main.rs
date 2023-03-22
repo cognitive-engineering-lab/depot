@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use commands::{
   build::BuildCommand,
+  fmt::FmtCommand,
   init::InitCommand,
   new::NewCommand,
   setup::{GlobalConfig, SetupCommand},
@@ -58,6 +59,10 @@ async fn run() -> Result<()> {
       ws.run(build_cmd).await?;
       let test_cmd = TestCommand::new(args);
       ws.run_ws(test_cmd).await?;
+    }
+    Command::Fmt(args) => {
+      let fmt_cmd = FmtCommand::new(args);
+      ws.run(fmt_cmd).await?;
     }
     Command::Setup(..) | Command::New(..) => unreachable!(),
   };
