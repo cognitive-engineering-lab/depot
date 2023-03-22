@@ -3,6 +3,7 @@ use anyhow::Result;
 use crossterm::{
   event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
   execute,
+  style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
   terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use futures::StreamExt;
@@ -13,6 +14,7 @@ use ratatui::{
   widgets::{Block, Borders, Paragraph, Tabs, Widget},
 };
 use std::{
+  io::stdout,
   sync::{
     atomic::{AtomicIsize, Ordering},
     MutexGuard,
@@ -212,6 +214,51 @@ pub async fn render(ws: &Workspace, should_exit: &Notify) -> Result<()> {
   if exit_early {
     // TODO: don't call process::exit, we need to cleanup processes first
     std::process::exit(1);
+  }
+
+  Ok(())
+}
+
+pub fn complete(ws: &Workspace) -> Result<()> {
+  let logger = ws.logger.lock().unwrap();
+  let mut indices = logger.logs.keys().copied().collect::<Vec<_>>();
+  indices.sort();
+
+  for idx in indices {
+    let pkg = &ws.packages[idx];
+
+    execute!(
+      stdout(),
+      SetAttribute(Attribute::Bold),
+      Print(format!("{}\n", pkg.name)),
+      SetAttribute(Attribute::Reset)
+    )?;
+
+    let processes = &logger.logs[&idx];
+    let mut log_keys = processes.keys().collect::<Vec<_>>();
+    log_keys.sort_by_key(|s| {
+      BINARY_ORDER
+        .iter()
+        .position(|other| s == other)
+        .unwrap_or(usize::MAX)
+    });
+    for key in log_keys {
+      let log = &processes[key];
+      if log.len() == 0 {
+        continue;
+      }
+
+      execute!(
+        stdout(),
+        SetAttribute(Attribute::Bold),
+        Print(format!("  {}\n", key)),
+        SetAttribute(Attribute::Reset)
+      )?;
+
+      for line in processes[key].iter() {
+        println!("{}", textwrap::indent(line, "    "));
+      }
+    }
   }
 
   Ok(())

@@ -95,7 +95,10 @@ impl BuildCommand {
       .exec("tsc", |cmd| {
         cmd.arg("--pretty");
         if self.args.watch {
-          cmd.arg("-w");
+          cmd.arg("--watch");
+        }
+        if matches!(pkg.target, Target::Lib) && !self.args.release {
+          cmd.arg("--sourceMap");
         }
       })
       .await

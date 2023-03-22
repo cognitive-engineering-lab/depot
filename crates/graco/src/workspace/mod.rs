@@ -46,7 +46,7 @@ pub type Terminal = ratatui::Terminal<TerminalBackend>;
 pub fn load_terminal() -> Result<Terminal> {
   let stdout = std::io::stdout();
   let backend = ratatui::backend::CrosstermBackend::new(stdout);
-  ratatui::Terminal::new(backend).context("Failed to create reference to terminal")
+  ratatui::Terminal::new(backend).context("Failed to initialize terminal")
 }
 
 pub struct WorkspaceInner {

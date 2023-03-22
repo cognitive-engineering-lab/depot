@@ -104,6 +104,8 @@ impl Workspace {
     should_exit.notify_waiters();
     cleanup_logs.await;
 
+    ui::complete(&self)?;
+
     result
   }
 }
