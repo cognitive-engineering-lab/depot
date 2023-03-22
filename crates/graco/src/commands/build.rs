@@ -1,18 +1,13 @@
-use std::str::FromStr;
-
 use anyhow::Result;
 
 use futures::{future::try_join_all, FutureExt};
 
-use crate::{
-  utils,
-  workspace::{
-    package::{Package, PackageName, Target},
-    PackageCommand,
-  },
+use crate::workspace::{
+  package::{Package, PackageName, Target},
+  PackageCommand,
 };
 
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Default)]
 pub struct BuildArgs {
   #[arg(short, long)]
   watch: bool,
@@ -33,8 +28,6 @@ const BUILD_SCRIPT: &str = "build.mjs";
 #[async_trait::async_trait]
 impl PackageCommand for BuildCommand {
   async fn run(&self, pkg: &Package) -> Result<()> {
-    self.init(pkg).await?;
-
     let mut processes = Vec::new();
 
     if matches!(pkg.target, Target::Site) {
@@ -60,34 +53,6 @@ impl PackageCommand for BuildCommand {
 impl BuildCommand {
   pub fn new(args: BuildArgs) -> Self {
     BuildCommand { args }
-  }
-
-  async fn init(&self, pkg: &Package) -> Result<()> {
-    let local_node_modules = pkg.root.join("node_modules");
-    utils::create_dir_if_missing(&local_node_modules)?;
-
-    let ws = pkg.workspace();
-    let pkgs_to_link = match pkg.target {
-      Target::Script => vec!["esbuild"],
-      Target::Site => vec!["vite", "@vitejs/plugin-react"],
-      Target::Lib => vec![],
-    };
-
-    let global_node_modules = ws.global_config.node_path();
-    for pkg in pkgs_to_link {
-      let pkg_name = PackageName::from_str(pkg).unwrap();
-      let src = global_node_modules.join(pkg);
-      let dst = local_node_modules.join(pkg);
-      if let Some(scope) = pkg_name.scope {
-        utils::create_dir_if_missing(
-          local_node_modules.join(local_node_modules.join(format!("@{scope}"))),
-        )?;
-      }
-
-      utils::symlink_dir_if_missing(&src, &dst)?;
-    }
-
-    Ok(())
   }
 
   async fn tsc(&self, pkg: &Package) -> Result<()> {

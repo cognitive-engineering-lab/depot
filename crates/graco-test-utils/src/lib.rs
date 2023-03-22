@@ -12,6 +12,7 @@ pub struct ProjectBuilder {
   tmpdir: Either<TempDir, PathBuf>,
 }
 
+#[allow(unused)]
 pub struct CommandOutput {
   stdout: String,
   stderr: String,

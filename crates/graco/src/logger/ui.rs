@@ -3,7 +3,7 @@ use anyhow::Result;
 use crossterm::{
   event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
   execute,
-  style::{Attribute, Color, Print, SetAttribute, SetForegroundColor},
+  style::{Attribute, Print, SetAttribute},
   terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use futures::StreamExt;
@@ -234,6 +234,7 @@ pub fn complete(ws: &Workspace) -> Result<()> {
       SetAttribute(Attribute::Reset)
     )?;
 
+    // TODO: duplicated sorting code w/ watch UI
     let processes = &logger.logs[&idx];
     let mut log_keys = processes.keys().collect::<Vec<_>>();
     log_keys.sort_by_key(|s| {

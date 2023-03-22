@@ -61,12 +61,6 @@ pub struct WorkspaceInner {
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
   let rel_path_to_cwd = cwd.strip_prefix(max_ancestor)?;
-  debug!(
-    "`{}` / `{}` / `{}`",
-    rel_path_to_cwd.display(),
-    cwd.display(),
-    max_ancestor.display()
-  );
   let components = rel_path_to_cwd.iter().collect::<Vec<_>>();
   (0..=components.len())
     .map(|i| {
@@ -74,10 +68,7 @@ fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
         .chain(components[..i].iter().copied())
         .collect::<PathBuf>()
     })
-    .find(|path| {
-      log::debug!("wtf `{}`", path.display());
-      path.join("package.json").exists()
-    })
+    .find(|path| path.join("package.json").exists())
     .with_context(|| {
       format!(
         "Could not find workspace root in working dir: {}",
@@ -94,8 +85,9 @@ pub trait PackageCommand: Send + Sync + 'static {
   }
 }
 
+#[async_trait::async_trait]
 pub trait WorkspaceCommand {
-  fn run(&self) -> Result<()>;
+  async fn run(&self, ws: &Workspace) -> Result<()>;
 }
 
 pub struct DepGraph {

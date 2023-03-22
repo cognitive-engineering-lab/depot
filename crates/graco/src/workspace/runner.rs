@@ -12,7 +12,7 @@ use tokio::sync::Notify;
 
 use crate::logger::ui;
 
-use super::{package::PackageIndex, PackageCommand, Workspace};
+use super::{package::PackageIndex, PackageCommand, Workspace, WorkspaceCommand};
 
 #[derive(Clone, Copy)]
 enum TaskStatus {
@@ -39,6 +39,11 @@ impl Workspace {
     })
   }
 
+  pub async fn run_ws(&self, cmd: impl WorkspaceCommand) -> Result<()> {
+    cmd.run(self).await?;
+    Ok(())
+  }
+
   pub async fn run(&self, cmd: impl PackageCommand) -> Result<()> {
     let ignore_deps = cmd.ignore_dependencies();
     let roots = self.packages.clone();
@@ -53,11 +58,15 @@ impl Workspace {
       .map(|idx| {
         let pkg = &self.packages[idx];
         let cmd = Arc::clone(&cmd);
+        let future = async move {
+          let result = cmd.run(pkg).await;
+          (idx, result)
+        };
         (
           idx,
           Task {
             status: Cell::new(TaskStatus::Pending),
-            future: (async move { (idx, cmd.run(pkg).await) }).boxed(),
+            future: future.boxed(),
           },
         )
       })
@@ -101,10 +110,12 @@ impl Workspace {
       log::debug!("Finished task for: {}", self.packages[index].name);
     };
 
-    should_exit.notify_waiters();
+    log::debug!("All tasks complete, waiting for log thread to exit");
+    should_exit.notify_one();
     cleanup_logs.await;
 
-    ui::complete(&self)?;
+    log::debug!("Flushing logs");
+    ui::complete(self)?;
 
     result
   }

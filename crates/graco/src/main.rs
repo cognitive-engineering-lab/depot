@@ -1,7 +1,13 @@
 use self::commands::Command;
 use anyhow::{Context, Result};
 use clap::Parser;
-use commands::setup::GlobalConfig;
+use commands::{
+  build::BuildCommand,
+  init::InitCommand,
+  new::NewCommand,
+  setup::{GlobalConfig, SetupCommand},
+  test::TestCommand,
+};
 use workspace::Workspace;
 
 mod commands;
@@ -20,7 +26,7 @@ async fn run() -> Result<()> {
   let Args { command } = Args::parse();
 
   let command = match command {
-    Command::Setup(args) => return commands::setup::SetupCommand::new(args).run(),
+    Command::Setup(args) => return SetupCommand::new(args).run(),
     command => command,
   };
 
@@ -28,21 +34,30 @@ async fn run() -> Result<()> {
     GlobalConfig::load().context("Graco has not been setup yet. Run `graco setup` to proceed.")?;
 
   let command = match command {
-    Command::New(args) => {
-      return commands::new::NewCommand::new(args, global_config)
-        .await
-        .run()
-        .await
-    }
+    Command::New(args) => return NewCommand::new(args, global_config).await.run().await,
     command => command,
   };
 
   let ws = Workspace::load(global_config, None).await?;
 
   match command {
+    Command::Init(args) => {
+      let init_cmd = InitCommand::new(args);
+      ws.run(init_cmd).await?;
+    }
     Command::Build(args) => {
-      let cmd = commands::build::BuildCommand::new(args);
-      ws.run(cmd).await?;
+      let init_cmd = InitCommand::new(Default::default());
+      ws.run(init_cmd).await?;
+      let build_cmd = BuildCommand::new(args);
+      ws.run(build_cmd).await?;
+    }
+    Command::Test(args) => {
+      let init_cmd = InitCommand::new(Default::default());
+      ws.run(init_cmd).await?;
+      let build_cmd = BuildCommand::new(Default::default());
+      ws.run(build_cmd).await?;
+      let test_cmd = TestCommand::new(args);
+      ws.run_ws(test_cmd).await?;
     }
     Command::Setup(..) | Command::New(..) => unreachable!(),
   };
