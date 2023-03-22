@@ -2,7 +2,7 @@ use graco_test_utils::{project, project_for};
 
 #[test]
 fn build_basic_lib_browser() {
-  let project = project_for("lib", "browser").persist();
+  let project = project_for("lib", "browser");
   project.graco("build");
   assert!(project.exists("dist/lib.js"));
   assert!(project.exists("dist/lib.d.ts"));

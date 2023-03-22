@@ -44,3 +44,11 @@ pub fn symlink_dir_if_missing(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> R
     )
   })
 }
+
+pub fn remove_dir_all_if_exists(dir: impl AsRef<Path>) -> Result<()> {
+  let dir = dir.as_ref();
+  if !dir.exists() {
+    return Ok(());
+  }
+  Ok(fs::remove_dir_all(dir)?)
+}
