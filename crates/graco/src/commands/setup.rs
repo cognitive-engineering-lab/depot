@@ -139,13 +139,13 @@ impl SetupCommand {
     #[rustfmt::skip]
     const PACKAGES: &[&str] = &[
       // Binary bundling
-      "esbuild@^0.17.12",
+      "esbuild@^0.17.13",
 
       // Types
-      "typescript@^4.9.5",
+      "typescript@^5.0.2",
 
       // Styling
-      "sass@^1.59.3",
+      "sass@^1.60.0",
       "esbuild-sass-plugin@^2.7.0",
       "resolve@^1.22.1",
 
@@ -168,8 +168,11 @@ impl SetupCommand {
       "eslint-plugin-prettier@^4.2.1",
 
       // Formatting
-      "prettier@^2.8.5",
+      "prettier@^2.8.7",
       "@trivago/prettier-plugin-sort-imports@^4.1.1",
+
+      // Documentation generation
+      "typedoc@^0.23.28"
     ];
 
     println!("Installing JS dependencies...");

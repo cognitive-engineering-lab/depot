@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 use std::{
   fs,
   path::{Path, PathBuf},
@@ -21,7 +23,7 @@ pub struct CommandOutput {
 static SETUP: Once = Once::new();
 
 impl ProjectBuilder {
-  pub fn new(target: &str, platform: &str) -> Self {
+  pub fn new() -> Self {
     SETUP.call_once(|| {
       let status = Command::new(graco_exe()).arg("setup").status().unwrap();
       if !status.success() {
@@ -30,22 +32,9 @@ impl ProjectBuilder {
     });
 
     let tmpdir = TempDir::new().unwrap();
-
-    let mut process = Command::new(graco_exe());
-    process.current_dir(tmpdir.path());
-    process.args(["new", "foo", "-t", target, "-p", platform]);
-    let status = process.status().unwrap();
-    if !status.success() {
-      panic!("graco new failed");
-    }
-
-    let builder = ProjectBuilder {
+    ProjectBuilder {
       tmpdir: Either::Left(tmpdir),
-    };
-
-    builder.graco("init");
-
-    builder
+    }
   }
 
   pub fn persist(mut self) -> Self {
@@ -62,20 +51,16 @@ impl ProjectBuilder {
     tmpdir.join("foo")
   }
 
-  pub fn file(self, path: impl AsRef<Path>, body: impl AsRef<str>) -> Self {
+  pub fn file(&self, path: impl AsRef<Path>, body: impl AsRef<str>) -> &Self {
     let (path, body) = (path.as_ref(), body.as_ref());
     fs::create_dir_all(self.root().join(path.parent().unwrap())).unwrap();
     fs::write(self.root().join(path), body).unwrap();
     self
   }
 
-  pub fn read(&self, path: impl AsRef<Path>) -> String {
-    fs::read_to_string(self.root().join(path)).unwrap()
-  }
-
-  pub fn graco(&self, cmd: impl AsRef<str>) -> CommandOutput {
+  pub fn graco_in(&self, cmd: impl AsRef<str>, dir: impl AsRef<Path>) -> CommandOutput {
     let mut process = Command::new(graco_exe());
-    process.current_dir(self.root());
+    process.current_dir(dir);
     process.args(shlex::split(cmd.as_ref()).unwrap());
 
     let output = process.output().unwrap();
@@ -88,17 +73,42 @@ impl ProjectBuilder {
     CommandOutput { stdout, stderr }
   }
 
+  pub fn graco(&self, cmd: impl AsRef<str>) -> CommandOutput {
+    self.graco_in(cmd, self.root())
+  }
+
+  pub fn read(&self, path: impl AsRef<Path>) -> String {
+    fs::read_to_string(self.root().join(path)).unwrap()
+  }
+
   pub fn exists(&self, path: impl AsRef<Path>) -> bool {
     self.root().join(path).exists()
   }
 }
 
 pub fn project() -> ProjectBuilder {
-  ProjectBuilder::new("lib", "browser")
+  project_for("lib", "browser")
 }
 
 pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
-  ProjectBuilder::new(target, platform)
+  let builder = ProjectBuilder::new();
+  builder.graco_in(
+    format!("new foo --target {target} --platform {platform}"),
+    builder.root().parent().unwrap(),
+  );
+  builder
+}
+
+pub fn workspace() -> ProjectBuilder {
+  let builder = ProjectBuilder::new();
+  builder.graco_in("new foo --workspace", builder.root().parent().unwrap());
+  builder
+}
+
+pub fn workspace_single_lib() -> ProjectBuilder {
+  let ws = workspace();
+  ws.graco("new bar");
+  ws
 }
 
 pub fn graco_exe() -> PathBuf {

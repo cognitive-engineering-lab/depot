@@ -1,5 +1,6 @@
 pub mod build;
 pub mod clean;
+pub mod doc;
 pub mod fmt;
 pub mod init;
 pub mod new;
@@ -15,4 +16,5 @@ pub enum Command {
   Test(test::TestArgs),
   Fmt(fmt::FmtArgs),
   Clean(clean::CleanArgs),
+  Doc(doc::DocArgs),
 }

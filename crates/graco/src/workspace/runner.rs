@@ -39,12 +39,18 @@ impl Workspace {
     })
   }
 
+  pub async fn run_both(&self, cmd: &(impl WorkspaceCommand + PackageCommand)) -> Result<()> {
+    self.run_ws(cmd).await?;
+    self.run_pkgs(cmd).await?;
+    Ok(())
+  }
+
   pub async fn run_ws(&self, cmd: &impl WorkspaceCommand) -> Result<()> {
     cmd.run(self).await?;
     Ok(())
   }
 
-  pub async fn run(&self, cmd: &impl PackageCommand) -> Result<()> {
+  pub async fn run_pkgs(&self, cmd: &impl PackageCommand) -> Result<()> {
     let ignore_deps = cmd.ignore_dependencies();
     let roots = self.packages.clone();
     let pkgs = roots

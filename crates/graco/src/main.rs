@@ -4,6 +4,7 @@ use clap::Parser;
 use commands::{
   build::BuildCommand,
   clean::CleanCommand,
+  doc::DocCommand,
   fmt::FmtCommand,
   init::InitCommand,
   new::NewCommand,
@@ -45,31 +46,43 @@ async fn run() -> Result<()> {
   match command {
     Command::Init(args) => {
       let init_cmd = InitCommand::new(args);
-      ws.run(&init_cmd).await?;
+      ws.run_both(&init_cmd).await?;
     }
+
     Command::Build(args) => {
       let init_cmd = InitCommand::new(Default::default());
-      ws.run(&init_cmd).await?;
+      ws.run_both(&init_cmd).await?;
+
       let build_cmd = BuildCommand::new(args);
-      ws.run(&build_cmd).await?;
+      ws.run_pkgs(&build_cmd).await?;
     }
+
     Command::Test(args) => {
       let init_cmd = InitCommand::new(Default::default());
-      ws.run(&init_cmd).await?;
+      ws.run_both(&init_cmd).await?;
+
       let build_cmd = BuildCommand::new(Default::default());
-      ws.run(&build_cmd).await?;
+      ws.run_pkgs(&build_cmd).await?;
+
       let test_cmd = TestCommand::new(args);
       ws.run_ws(&test_cmd).await?;
     }
+
     Command::Fmt(args) => {
       let fmt_cmd = FmtCommand::new(args);
-      ws.run(&fmt_cmd).await?;
+      ws.run_ws(&fmt_cmd).await?;
     }
+
     Command::Clean(args) => {
       let clean_cmd = CleanCommand::new(args);
-      ws.run(&clean_cmd).await?;
-      ws.run_ws(&clean_cmd).await?;
+      ws.run_both(&clean_cmd).await?;
     }
+
+    Command::Doc(args) => {
+      let doc_cmd = DocCommand::new(args);
+      ws.run_ws(&doc_cmd).await?;
+    }
+
     Command::Setup(..) | Command::New(..) => unreachable!(),
   };
   Ok(())

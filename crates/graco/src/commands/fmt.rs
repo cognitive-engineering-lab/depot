@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 
-use crate::workspace::{package::Package, PackageCommand};
+use crate::workspace::{Workspace, WorkspaceCommand};
 
 #[derive(clap::Parser)]
 pub struct FmtArgs {
@@ -20,19 +20,20 @@ impl FmtCommand {
 }
 
 #[async_trait::async_trait]
-impl PackageCommand for FmtCommand {
-  async fn run(&self, pkg: &Package) -> Result<()> {
-    let args = match &self.args.prettier_args {
-      Some(args) => shlex::split(args).context("Failed to parse prettier args")?,
-      None => Vec::new(),
-    };
-    pkg
-      .exec("prettier", |cmd| {
-        cmd.args(["{src,tests}/**/*.{ts,tsx}", "-w"]);
-        cmd.args(args);
-      })
-      .await?;
+impl WorkspaceCommand for FmtCommand {
+  async fn run(&self, ws: &Workspace) -> Result<()> {
+    let mut cmd = async_process::Command::new(ws.global_config.bindir().join("prettier"));
+    cmd.current_dir(&ws.root);
+    let prefix = if ws.monorepo { "packages/**/" } else { "" };
+    cmd.arg(prefix.to_owned() + "{src,tests}/**/*.{ts,tsx}");
+    cmd.arg("-w");
 
+    if let Some(jest_args) = &self.args.prettier_args {
+      cmd.args(shlex::split(jest_args).context("Failed to parse prettier args")?);
+    }
+
+    let status = cmd.status().await?;
+    ensure!(status.success(), "prettier failed");
     Ok(())
   }
 }

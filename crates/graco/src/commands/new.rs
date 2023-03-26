@@ -1,12 +1,14 @@
 use anyhow::{ensure, Context, Result};
 use indexmap::indexmap;
-use package_json_schema::PackageJson;
+use package_json_schema as pj;
 use serde_json::{json, Value};
 #[cfg(unix)]
 use std::os::unix::prelude::PermissionsExt;
 use std::{
   borrow::Cow,
-  env, fs,
+  env,
+  fs::{self, OpenOptions},
+  io::{BufReader, Seek, Write},
   path::{Path, PathBuf},
 };
 
@@ -15,7 +17,7 @@ use crate::workspace::{
   Workspace,
 };
 
-use super::setup::GlobalConfig;
+use super::{init::InitCommand, setup::GlobalConfig};
 
 const INDEX: &str = r#"import React from "react";
 import ReactDOM from "react-dom/client";
@@ -46,11 +48,6 @@ const LIB: &str = r#"/** Adds two numbers together */
 export function add(a: number, b: number) {
   return a + b;
 }
-"#;
-
-const TEST: &str = r#"import { add } from "../dist/lib";
-
-test("add", () => expect(add(1, 2)).toBe(3));
 "#;
 
 const VITE_CONFIG: &str = include_str!("configs/vite.config.ts");
@@ -118,8 +115,9 @@ impl NewCommand {
       ("tsconfig.json".into(), self.make_tsconfig()?.into()),
       ("jest.config.cjs".into(), self.make_jest_config()?.into()),
       (".eslintrc.cjs".into(), self.make_eslint_config()?.into()),
+      ("typedoc.json".into(), self.make_typedoc_config()?.into()),
       ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
-      // (".prettierrc.cjs", self.make_p)
+      (".prettierrc.cjs".into(), PRETTIER_CONFIG.into()),
     ];
 
     for (rel_path, contents) in files {
@@ -169,7 +167,7 @@ main();"#
     let mut config = json!({
       "compilerOptions": {
         // Makes tsc respect "exports" directives in package.json
-        "moduleResolution": "Node",
+        "moduleResolution": "bundler",
 
         // Makes tsc generate ESM syntax outputs
         "target": "es2022",
@@ -297,8 +295,64 @@ main();"#
         "projects": ["<rootDir>/packages/*"]
       })
     };
+
     let config_str = serde_json::to_string_pretty(&config)?;
     Ok(format!("module.exports = {config_str}"))
+  }
+
+  fn make_typedoc_config(&self) -> Result<String> {
+    let mut config = json!({
+      "name": &self.args.name.name,
+      "validation": {
+        "invalidLink": true,
+        "notExported": true
+      }
+    });
+
+    if self.args.workspace {
+      json_merge(
+        &mut config,
+        json!({
+          "entryPointStrategy": "packages",
+          "entryPoints": []
+        }),
+      );
+    } else {
+      json_merge(
+        &mut config,
+        json!({
+          "entryPoints": ["src/lib.ts"]
+        }),
+      );
+    }
+
+    Ok(serde_json::to_string_pretty(&config)?)
+  }
+
+  fn update_typedoc_config(&self, ws: &Workspace) -> Result<()> {
+    let mut f = OpenOptions::new()
+      .read(true)
+      .write(true)
+      .open(ws.root.join("typedoc.json"))?;
+    let mut config: Value = {
+      let reader = BufReader::new(&mut f);
+      serde_json::from_reader(reader)?
+    };
+
+    let entry_points = config
+      .as_object_mut()
+      .unwrap()
+      .get_mut("entryPoints")
+      .unwrap()
+      .as_array_mut()
+      .unwrap();
+    entry_points.push(Value::String(format!("packages/{}", self.args.name.name)));
+
+    f.rewind()?;
+    let config_bytes = serde_json::to_vec_pretty(&config)?;
+    f.write_all(&config_bytes)?;
+
+    Ok(())
   }
 
   async fn new_package(mut self, root: &Path) -> Result<()> {
@@ -313,7 +367,11 @@ main();"#
     fs::create_dir(&src_dir)
       .with_context(|| format!("Failed to create source directory: {}", src_dir.display()))?;
 
-    let mut manifest = PackageJson::builder().build();
+    let tests_dir = root.join("tests");
+    fs::create_dir(&tests_dir)
+      .with_context(|| format!("Failed to create tests directory: {}", tests_dir.display()))?;
+
+    let mut manifest = pj::PackageJson::builder().build();
     manifest.name = Some(name.to_string());
     manifest.version = Some(String::from("0.1.0"));
 
@@ -323,7 +381,7 @@ main();"#
       Target::Site => {
         ensure!(
           matches!(platform, Platform::Browser),
-          "Cannot have platform=node when target=site"
+          "Must have platform=browser when target=site"
         );
         dev_dependencies.extend(["react", "react-dom", "@types/react", "@types/react-dom"]);
         files.push(("index.html".into(), HTML.into()));
@@ -332,8 +390,8 @@ main();"#
       }
       Target::Script => {
         if matches!(platform, Platform::Node) {
-          manifest.bin = Some(package_json_schema::Binary::Object(indexmap! {
-            name.name.clone() => String::from("dist/main.js")
+          manifest.bin = Some(pj::Binary::Object(indexmap! {
+            name.name.clone() => "dist/main.js".into()
           }));
         }
         files.push(("build.mjs".into(), self.make_build_script().into()));
@@ -341,17 +399,40 @@ main();"#
       }
       Target::Lib => {
         manifest.main = Some(String::from("dist/lib.js"));
-        manifest.type_ = Some(package_json_schema::Type::Module);
+        manifest.type_ = Some(pj::Type::Module);
         manifest.files = Some(vec![String::from("dist")]);
+        let main_export = pj::ExportsObject::builder()
+          .default("./dist/lib.js")
+          .build();
+        let sub_exports = pj::ExportsObject::builder().default("./dist/*.js").build();
+        manifest.exports = Some(pj::Exports::Nested(indexmap! {
+          ".".into() => main_export,
+          "./*".into() => sub_exports,
+        }));
 
-        fs::create_dir(root.join("tests"))?;
-        files.push(("tests/add.test.ts".into(), TEST.into()));
+        let test = format!(
+          r#"import {{ add }} from "{name}";
+
+test("add", () => expect(add(1, 2)).toBe(3));
+"#
+        );
+
+        files.push(("tests/add.test.ts".into(), test.into()));
+
+        manifest.other = Some(indexmap! {
+          "typedoc".into() => serde_json::json!({"entryPoint": "./src/lib.ts"})
+        });
+
+        match &self.ws_opt {
+          Some(ws) => self.update_typedoc_config(ws)?,
+          None => files.push(("typedoc.json".into(), self.make_typedoc_config()?.into())),
+        }
 
         ("lib.ts", LIB)
       }
     };
 
-    let gitignore = ["node_modules", "dist"].join("\n");
+    let gitignore = ["node_modules", "dist", "docs"].join("\n");
 
     files.extend([
       (Path::new("src").join(src_path), src_contents.into()),
@@ -391,12 +472,13 @@ main();"#
       ensure!(status.success(), "pnpm failed");
     }
 
-    let _ws = match self.ws_opt.take() {
+    let ws = match self.ws_opt.take() {
       Some(ws) => ws,
       None => Workspace::load(self.global_config, Some(root.to_owned())).await?,
     };
 
-    // TODO: run workspace init
+    let cmd = InitCommand::new(Default::default());
+    ws.run_both(&cmd).await?;
 
     Ok(())
   }

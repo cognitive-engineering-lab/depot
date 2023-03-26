@@ -1,15 +1,43 @@
-use graco_test_utils::project;
+use graco_test_utils::{project, workspace_single_lib};
 
 #[test]
 fn test_basic() {
-  let project = project();
-  project.graco("test");
+  let p = project();
+  p.graco("test");
 }
 
 #[test]
+#[should_panic]
 fn test_should_fail() {
-  // TODO!
+  let p = project();
+  p.file(
+    "tests/fail.test.ts",
+    r#"
+import { add } from "bar";
 
-  // let project = project();
-  // project.graco("test");
+test("add", () => expect(add(1, 2)).toBe(100))
+  "#,
+  );
+  p.graco("test");
+}
+
+#[test]
+fn test_workspace() {
+  let ws = workspace_single_lib();
+  ws.graco("test");
+}
+
+#[test]
+#[should_panic]
+fn test_workspace_should_fail() {
+  let ws = workspace_single_lib();
+  ws.file(
+    "packages/bar/tests/fail.test.ts",
+    r#"
+import { add } from "bar";
+
+test("add", () => expect(add(1, 2)).toBe(100))
+  "#,
+  );
+  ws.graco("test");
 }
