@@ -1,7 +1,7 @@
 use graco_test_utils::{project, workspace_single_lib};
 
 #[test]
-fn clean_basic() {
+fn basic() {
   let p = project();
   p.graco("build");
   assert!(p.exists("dist"));
@@ -10,7 +10,7 @@ fn clean_basic() {
 }
 
 #[test]
-fn clean_workspace() {
+fn workspace() {
   let ws = workspace_single_lib();
   ws.graco("build");
   assert!(ws.exists("packages/bar/dist"));

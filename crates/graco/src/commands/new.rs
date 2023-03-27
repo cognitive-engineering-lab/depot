@@ -50,7 +50,6 @@ export function add(a: number, b: number) {
 }
 "#;
 
-const VITE_CONFIG: &str = include_str!("configs/vite.config.ts");
 const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
 const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 const VITEST_SETUP: &str = include_str!("configs/setup.ts");
@@ -112,17 +111,18 @@ impl NewCommand {
     fs::create_dir(root.join("packages"))?;
 
     let manifest = json!({"private": true});
-    let files: FileVec = vec![
+    let mut files: FileVec = vec![
       (
         "package.json".into(),
         serde_json::to_string_pretty(&manifest)?.into(),
       ),
-      ("tsconfig.json".into(), self.make_tsconfig()?.into()),
-      (".eslintrc.cjs".into(), self.make_eslint_config()?.into()),
-      ("typedoc.json".into(), self.make_typedoc_config()?.into()),
       ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
-      (".prettierrc.cjs".into(), PRETTIER_CONFIG.into()),
     ];
+    files.extend(self.make_tsconfig()?);
+    files.extend(self.make_eslint_config()?);
+    files.extend(self.make_typedoc_config()?);
+    files.extend(self.make_prettier_config());
+    files.extend(self.make_gitignore());
 
     for (rel_path, contents) in files {
       fs::write(root.join(rel_path), contents.as_bytes())?;
@@ -131,12 +131,12 @@ impl NewCommand {
     Ok(())
   }
 
-  fn make_build_script(&self) -> String {
+  fn make_build_script(&self) -> FileVec {
     let platform = match self.args.platform {
       Platform::Browser => "browser",
       Platform::Node => "node",
     };
-    format!(
+    let src = format!(
       r#"import esbuild from "esbuild";
 
 let watch = process.argv.includes("--watch");
@@ -167,10 +167,11 @@ async function main() {{
 
 
 main();"#
-    )
+    );
+    vec![("build.mjs".into(), src.into())]
   }
 
-  fn make_tsconfig(&self) -> Result<String> {
+  fn make_tsconfig(&self) -> Result<FileVec> {
     let mut config = json!({
       "compilerOptions": {
         // Makes tsc respect "exports" directives in package.json
@@ -224,10 +225,11 @@ main();"#
       }
     }
 
-    Ok(serde_json::to_string_pretty(&config)?)
+    let src = serde_json::to_string_pretty(&config)?;
+    Ok(vec![("tsconfig.json".into(), src.into())])
   }
 
-  fn make_eslint_config(&self) -> Result<String> {
+  fn make_eslint_config(&self) -> Result<FileVec> {
     let mut config = json!({
       "env": {
         "es2021": true,
@@ -283,7 +285,8 @@ main();"#
     }
 
     let config_str = serde_json::to_string_pretty(&config)?;
-    Ok(format!("module.exports = {config_str}"))
+    let src = format!("module.exports = {config_str}");
+    Ok(vec![(".eslintrc.cjs".into(), src.into())])
   }
 
   fn make_vite_config(&self) -> Result<FileVec> {
@@ -337,7 +340,7 @@ export default defineConfig({{
     Ok(files)
   }
 
-  fn make_typedoc_config(&self) -> Result<String> {
+  fn make_typedoc_config(&self) -> Result<FileVec> {
     let mut config = json!({
       "name": &self.args.name.name,
       "validation": {
@@ -363,7 +366,8 @@ export default defineConfig({{
       );
     }
 
-    Ok(serde_json::to_string_pretty(&config)?)
+    let src = serde_json::to_string_pretty(&config)?;
+    Ok(vec![("typedoc.json".into(), src.into())])
   }
 
   fn update_typedoc_config(&self, ws: &Workspace) -> Result<()> {
@@ -390,6 +394,15 @@ export default defineConfig({{
     f.write_all(&config_bytes)?;
 
     Ok(())
+  }
+
+  fn make_gitignore(&self) -> FileVec {
+    let gitignore = ["node_modules", "dist", "docs"].join("\n");
+    vec![(".gitignore".into(), gitignore.into())]
+  }
+
+  fn make_prettier_config(&self) -> FileVec {
+    vec![(".prettierrc.cjs".into(), PRETTIER_CONFIG.into())]
   }
 
   async fn new_package(mut self, root: &Path) -> Result<()> {
@@ -445,7 +458,6 @@ export default defineConfig({{
           "Must have platform=browser when target=site"
         );
         files.push(("index.html".into(), HTML.into()));
-        files.push(("vite.config.ts".into(), VITE_CONFIG.into()));
         ("index.tsx", INDEX)
       }
       Target::Script => {
@@ -454,7 +466,7 @@ export default defineConfig({{
             name.name.clone() => "dist/main.js".into()
           }));
         }
-        files.push(("build.mjs".into(), self.make_build_script().into()));
+        files.extend(self.make_build_script());
         ("main.ts", MAIN)
       }
       Target::Lib => {
@@ -483,7 +495,7 @@ test("add", () => expect(add(2, 2)).toBe(4));
 
         match &self.ws_opt {
           Some(ws) => self.update_typedoc_config(ws)?,
-          None => files.push(("typedoc.json".into(), self.make_typedoc_config()?.into())),
+          None => files.extend(self.make_typedoc_config()?),
         }
 
         ("lib.ts", LIB)
@@ -492,22 +504,20 @@ test("add", () => expect(add(2, 2)).toBe(4));
 
     manifest.other = Some(other);
 
-    let gitignore = ["node_modules", "dist", "docs"].join("\n");
-
     files.extend([
       (Path::new("src").join(src_path), src_contents.into()),
-      (".gitignore".into(), gitignore.into()),
       (
         "package.json".into(),
         serde_json::to_string_pretty(&manifest)?.into(),
       ),
-      ("tsconfig.json".into(), self.make_tsconfig()?.into()),
-      (".eslintrc.cjs".into(), self.make_eslint_config()?.into()),
     ]);
+    files.extend(self.make_tsconfig()?);
+    files.extend(self.make_eslint_config()?);
     files.extend(self.make_vite_config()?);
 
     if self.ws_opt.is_none() {
-      files.push((".prettierrc.cjs".into(), PRETTIER_CONFIG.into()));
+      files.extend(self.make_gitignore());
+      files.extend(self.make_prettier_config());
     }
 
     for (rel_path, contents) in files {

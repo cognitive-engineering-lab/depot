@@ -1,7 +1,7 @@
 use graco_test_utils::{project, project_for, workspace};
 
 #[test]
-fn build_basic_lib_browser() {
+fn basic_lib_browser() {
   let p = project_for("lib", "browser");
   p.graco("build");
   assert!(p.exists("dist/lib.js"));
@@ -10,7 +10,7 @@ fn build_basic_lib_browser() {
 }
 
 #[test]
-fn build_basic_lib_node() {
+fn basic_lib_node() {
   let p = project_for("lib", "node");
   p.graco("build");
   assert!(p.exists("dist/lib.js"));
@@ -18,7 +18,7 @@ fn build_basic_lib_node() {
 }
 
 #[test]
-fn build_basic_script_browser() {
+fn basic_script_browser() {
   let p = project_for("script", "browser");
   p.graco("build");
   assert!(p.exists("dist/main.js"));
@@ -26,7 +26,7 @@ fn build_basic_script_browser() {
 }
 
 #[test]
-fn build_basic_script_node() {
+fn basic_script_node() {
   let p = project_for("script", "node");
   p.graco("build");
   assert!(p.exists("dist/main.js"));
@@ -34,14 +34,14 @@ fn build_basic_script_node() {
 }
 
 #[test]
-fn build_basic_site_browser() {
+fn basic_site_browser() {
   let project = project_for("site", "browser");
   project.graco("build");
   assert!(project.exists("dist/index.html"));
 }
 
 #[test]
-fn build_release() {
+fn release() {
   let p = project();
   p.graco("build --release");
   assert!(p.exists("dist/lib.js"));
@@ -51,7 +51,7 @@ fn build_release() {
 }
 
 #[test]
-fn build_workspace() {
+fn workspace_() {
   let ws = workspace().persist();
   ws.graco("new foo");
   ws.graco("new bar");
