@@ -52,13 +52,16 @@ fn build_release() {
 
 #[test]
 fn build_workspace() {
-  let ws = workspace();
+  let ws = workspace().persist();
   ws.graco("new foo");
   ws.graco("new bar");
+
+  // TODO: nicer way of editing package.json
   ws.file(
     "packages/bar/package.json",
     r#"{
-  "dependencies": {"foo": "workspace:^0.1.0"}
+  "dependencies": {"foo": "workspace:^0.1.0"},
+  "graco": {"platform": "browser"}
 }"#,
   );
   ws.graco("build");

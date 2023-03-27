@@ -60,7 +60,13 @@ pub struct WorkspaceInner {
 }
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
-  let rel_path_to_cwd = cwd.strip_prefix(max_ancestor)?;
+  let rel_path_to_cwd = cwd.strip_prefix(max_ancestor).unwrap_or_else(|_| {
+    panic!(
+      "Internal error: Max ancestor `{}` is not a prefix of cwd `{}`",
+      max_ancestor.display(),
+      cwd.display()
+    )
+  });
   let components = rel_path_to_cwd.iter().collect::<Vec<_>>();
   (0..=components.len())
     .map(|i| {

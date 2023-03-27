@@ -21,7 +21,7 @@ pub fn get_git_root(cwd: &Path) -> Option<PathBuf> {
   output
     .status
     .success()
-    .then(|| PathBuf::from(String::from_utf8(output.stdout).unwrap()))
+    .then(|| PathBuf::from(String::from_utf8(output.stdout).unwrap().trim()))
 }
 
 pub fn symlink_dir_if_missing(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<()> {

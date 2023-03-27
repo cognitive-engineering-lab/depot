@@ -10,7 +10,7 @@ fn fmt_basic() {
 
 #[test]
 fn fmt_workspace() {
-  let ws = workspace_single_lib().persist();
+  let ws = workspace_single_lib();
   ws.file("packages/bar/src/lib.ts", "let x = 1 +    2;");
   ws.graco("fmt");
   assert_eq!(ws.read("packages/bar/src/lib.ts"), "let x = 1 + 2;\n");

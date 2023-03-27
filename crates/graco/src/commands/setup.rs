@@ -143,21 +143,20 @@ impl SetupCommand {
 
       // Types
       "typescript@^5.0.2",
+      "@types/node@^18.15.10",
 
       // Styling
       "sass@^1.60.0",
       "esbuild-sass-plugin@^2.7.0",
       "resolve@^1.22.1",
 
-      // Site bundlig
+      // Site bundling
       "vite@^4.2.1",
       "@vitejs/plugin-react@^3.1.0",
 
       // Testing
-      "jest@^29.5.0",
-      "@types/jest@^29.5.0",
-      "jest-environment-jsdom@^29.5.0",
-      "ts-jest@^29.0.5",
+      "vitest@^0.29.7",
+      "jsdom@^21.1.1",
 
       // Linting
       "eslint@^8.36.0",

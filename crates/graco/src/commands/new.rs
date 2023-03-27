@@ -1,5 +1,5 @@
 use anyhow::{ensure, Context, Result};
-use indexmap::indexmap;
+use indexmap::{indexmap, IndexMap};
 use package_json_schema as pj;
 use serde_json::{json, Value};
 #[cfg(unix)]
@@ -13,7 +13,7 @@ use std::{
 };
 
 use crate::workspace::{
-  package::{PackageName, Platform, Target},
+  package::{PackageGracoConfig, PackageName, Platform, Target},
   Workspace,
 };
 
@@ -53,6 +53,9 @@ export function add(a: number, b: number) {
 const VITE_CONFIG: &str = include_str!("configs/vite.config.ts");
 const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
 const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
+const VITEST_SETUP: &str = include_str!("configs/setup.ts");
+
+// TODO: option to specify --react that changes .ts -> .tsx
 
 /// Create a new Graco workspace
 #[derive(clap::Parser)]
@@ -93,6 +96,8 @@ fn json_merge(a: &mut Value, b: Value) {
   };
 }
 
+type FileVec = Vec<(PathBuf, Cow<'static, str>)>;
+
 impl NewCommand {
   pub async fn new(args: NewArgs, global_config: GlobalConfig) -> Self {
     let ws_opt = Workspace::load(global_config.clone(), None).await.ok();
@@ -107,13 +112,12 @@ impl NewCommand {
     fs::create_dir(root.join("packages"))?;
 
     let manifest = json!({"private": true});
-    let files: Vec<(PathBuf, Cow<'static, str>)> = vec![
+    let files: FileVec = vec![
       (
         "package.json".into(),
         serde_json::to_string_pretty(&manifest)?.into(),
       ),
       ("tsconfig.json".into(), self.make_tsconfig()?.into()),
-      ("jest.config.cjs".into(), self.make_jest_config()?.into()),
       (".eslintrc.cjs".into(), self.make_eslint_config()?.into()),
       ("typedoc.json".into(), self.make_typedoc_config()?.into()),
       ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
@@ -128,7 +132,10 @@ impl NewCommand {
   }
 
   fn make_build_script(&self) -> String {
-    let platform = self.args.platform.to_esbuild_string();
+    let platform = match self.args.platform {
+      Platform::Browser => "browser",
+      Platform::Node => "node",
+    };
     format!(
       r#"import esbuild from "esbuild";
 
@@ -279,25 +286,55 @@ main();"#
     Ok(format!("module.exports = {config_str}"))
   }
 
-  fn make_jest_config(&self) -> Result<String> {
-    let config = if !self.args.workspace {
-      let test_environment = match self.args.platform {
-        Platform::Browser => "jsdom",
-        Platform::Node => "node",
-      };
-      json!({
-        "preset": "ts-jest/presets/js-with-ts-esm",
-        "roots": ["<rootDir>/tests"],
-        "testEnvironment": test_environment
-      })
-    } else {
-      json!({
-        "projects": ["<rootDir>/packages/*"]
-      })
+  fn make_vite_config(&self) -> Result<FileVec> {
+    let mut files: FileVec = Vec::new();
+    let (environment, setup_files) = match self.args.platform {
+      Platform::Browser => {
+        files.push(("tests/setup.ts".into(), VITEST_SETUP.into()));
+        ("jsdom", "\n    setupFiles: \"tests/setup.ts\",")
+      }
+      Platform::Node => ("node", ""),
     };
 
-    let config_str = serde_json::to_string_pretty(&config)?;
-    Ok(format!("module.exports = {config_str}"))
+    // TODO: Revisit deps.inline once this issue is closed:
+    // https://github.com/vitest-dev/vitest/issues/2806
+    let test_config = format!(
+      r#"test: {{
+  environment: "{environment}",{setup_files}
+  deps: {{
+    inline: [/^(?!.*vitest).*$/],
+  }},
+}}"#
+    );
+    let test_config = textwrap::indent(&test_config, "  ");
+
+    if matches!(self.args.target, Target::Site) {
+      let src = format!(
+        r#"import react from "@vitejs/plugin-react";
+import {{ defineConfig }} from "vite";
+
+export default defineConfig({{
+  base: "./",
+  plugins: [react()],
+  build: {{ emptyOutDir: false }},
+{test_config}
+}});"#
+      );
+      files.push(("vite.config.ts".into(), src.into()));
+    } else {
+      let src = format!(
+        r#"/// <reference types="vitest" />
+import {{ defineConfig }} from "vite";
+
+export default defineConfig({{
+{test_config}
+}});
+"#
+      );
+      files.push(("vitest.config.ts".into(), src.into()));
+    }
+
+    Ok(files)
   }
 
   fn make_typedoc_config(&self) -> Result<String> {
@@ -375,15 +412,38 @@ main();"#
     manifest.name = Some(name.to_string());
     manifest.version = Some(String::from("0.1.0"));
 
-    let mut files: Vec<(PathBuf, Cow<'static, str>)> = Vec::new();
-    let mut dev_dependencies = Vec::new();
+    let mut files: FileVec = Vec::new();
+    let mut ws_dependencies = Vec::new();
+    let mut peer_dependencies = Vec::new();
+    let mut other: IndexMap<String, Value> = IndexMap::new();
+
+    let pkg_config = PackageGracoConfig {
+      platform: *platform,
+    };
+    other.insert("graco".into(), serde_json::to_value(&pkg_config)?);
+
+    match platform {
+      Platform::Browser => {
+        ws_dependencies.extend([
+          "react",
+          "react-dom",
+          "@types/react",
+          "@types/react-dom",
+          "@testing-library/react",
+        ]);
+        if matches!(target, Target::Lib) {
+          peer_dependencies.extend(["react", "react-dom"]);
+        }
+      }
+      Platform::Node => {}
+    }
+
     let (src_path, src_contents) = match target {
       Target::Site => {
         ensure!(
           matches!(platform, Platform::Browser),
           "Must have platform=browser when target=site"
         );
-        dev_dependencies.extend(["react", "react-dom", "@types/react", "@types/react-dom"]);
         files.push(("index.html".into(), HTML.into()));
         files.push(("vite.config.ts".into(), VITE_CONFIG.into()));
         ("index.tsx", INDEX)
@@ -410,18 +470,16 @@ main();"#
           "./*".into() => sub_exports,
         }));
 
-        let test = format!(
-          r#"import {{ add }} from "{name}";
+        let test = r#"import { test, expect } from "vitest";
 
-test("add", () => expect(add(1, 2)).toBe(3));
-"#
-        );
+import { add } from "../src/lib";
+
+test("add", () => expect(add(2, 2)).toBe(4));
+"#;
 
         files.push(("tests/add.test.ts".into(), test.into()));
 
-        manifest.other = Some(indexmap! {
-          "typedoc".into() => serde_json::json!({"entryPoint": "./src/lib.ts"})
-        });
+        other.insert("typedoc".into(), json!({"entryPoint": "./src/lib.ts"}));
 
         match &self.ws_opt {
           Some(ws) => self.update_typedoc_config(ws)?,
@@ -431,6 +489,8 @@ test("add", () => expect(add(1, 2)).toBe(3));
         ("lib.ts", LIB)
       }
     };
+
+    manifest.other = Some(other);
 
     let gitignore = ["node_modules", "dist", "docs"].join("\n");
 
@@ -443,8 +503,8 @@ test("add", () => expect(add(1, 2)).toBe(3));
       ),
       ("tsconfig.json".into(), self.make_tsconfig()?.into()),
       (".eslintrc.cjs".into(), self.make_eslint_config()?.into()),
-      ("jest.config.cjs".into(), self.make_jest_config()?.into()),
     ]);
+    files.extend(self.make_vite_config()?);
 
     if self.ws_opt.is_none() {
       files.push((".prettierrc.cjs".into(), PRETTIER_CONFIG.into()));
@@ -462,12 +522,29 @@ test("add", () => expect(add(1, 2)).toBe(3));
       }
     }
 
-    if !dev_dependencies.is_empty() {
+    if !peer_dependencies.is_empty() {
       let mut pnpm = self.global_config.pnpm();
       pnpm
-        .args(["add", "-D"])
-        .args(dev_dependencies)
+        .args(["add", "--save-peer"])
+        .args(peer_dependencies)
         .current_dir(root);
+      let status = pnpm.status()?;
+      ensure!(status.success(), "pnpm failed");
+    }
+
+    if !ws_dependencies.is_empty() {
+      let mut pnpm = self.global_config.pnpm();
+      pnpm.args(["add", "--save-dev"]).args(ws_dependencies);
+
+      match &self.ws_opt {
+        Some(ws) => {
+          pnpm.arg("--workspace-root").current_dir(&ws.root);
+        }
+        None => {
+          pnpm.current_dir(root);
+        }
+      }
+
       let status = pnpm.status()?;
       ensure!(status.success(), "pnpm failed");
     }

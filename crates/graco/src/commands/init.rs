@@ -65,14 +65,14 @@ impl PackageCommand for InitCommand {
 
     let mut pkgs_to_link = match pkg.target {
       Target::Script => vec!["esbuild"],
-      Target::Site => vec!["vite", "@vitejs/plugin-react"],
+      Target::Site => vec!["@vitejs/plugin-react"],
       Target::Lib => vec![],
     };
     match pkg.platform {
-      Platform::Browser => pkgs_to_link.extend(["jest-environment-jsdom"]),
+      Platform::Browser => pkgs_to_link.extend(["jsdom"]),
       Platform::Node => {}
     }
-    pkgs_to_link.extend(["ts-jest", "@types/jest"]);
+    pkgs_to_link.extend(["vite", "vitest"]);
 
     self.link_packages(&pkgs_to_link, &local_node_modules, pkg.workspace())?;
 

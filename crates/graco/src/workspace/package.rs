@@ -14,19 +14,12 @@ use std::{
 
 use super::Workspace;
 
-#[derive(Copy, Clone, clap::ValueEnum, serde::Deserialize)]
+#[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum Platform {
+  #[serde(rename = "browser")]
   Browser,
+  #[serde(rename = "node")]
   Node,
-}
-
-impl Platform {
-  pub fn to_esbuild_string(self) -> &'static str {
-    match self {
-      Platform::Browser => "browser",
-      Platform::Node => "node",
-    }
-  }
 }
 
 #[derive(Copy, Clone, clap::ValueEnum)]
@@ -73,27 +66,26 @@ impl FromStr for PackageName {
   }
 }
 
-#[derive(Default, serde::Deserialize)]
-pub struct GracoConfig {
-  platform: Option<Platform>,
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct PackageGracoConfig {
+  pub platform: Platform,
 }
 
-pub struct Manifest {
+pub struct PackageManifest {
   pub manifest: PackageJson,
-  pub config: GracoConfig,
+  pub config: PackageGracoConfig,
 }
 
-impl Manifest {
-  pub fn load(contents: String) -> Result<Self> {
+impl PackageManifest {
+  pub fn load(path: &Path) -> Result<Self> {
+    let contents = fs::read_to_string(path)
+      .with_context(|| format!("Package does not have manifest at: `{}`", path.display()))?;
     let mut manifest = PackageJson::try_from(contents)?;
-    let config = match &mut manifest.other {
-      Some(other) => match other.remove("graco") {
-        Some(value) => serde_json::from_value(value)?,
-        None => GracoConfig::default(),
-      },
-      None => GracoConfig::default(),
-    };
-    Ok(Manifest { manifest, config })
+    let error_msg = || format!("Missing \"graco\" key from manifest: `{}`", path.display());
+    let other = manifest.other.as_mut().with_context(error_msg)?;
+    let config_value = other.remove("graco").with_context(error_msg)?;
+    let config: PackageGracoConfig = serde_json::from_value(config_value)?;
+    Ok(PackageManifest { manifest, config })
   }
 }
 
@@ -112,7 +104,7 @@ pub type PackageIndex = usize;
 
 pub struct PackageInner {
   pub root: PathBuf,
-  pub manifest: Manifest,
+  pub manifest: PackageManifest,
   pub platform: Platform,
   pub target: Target,
   pub name: PackageName,
@@ -134,9 +126,7 @@ impl Package {
       .canonicalize()
       .with_context(|| format!("Could not find package root: `{}`", root.display()))?;
     let manifest_path = root.join("package.json");
-    let manifest_str = fs::read_to_string(manifest_path)
-      .with_context(|| format!("Package does not have package.json: `{}`", root.display()))?;
-    let manifest = Manifest::load(manifest_str)?;
+    let manifest = PackageManifest::load(&manifest_path)?;
 
     let (entry_point, target) = if let Some(entry_point) = Package::find_source_file(&root, "lib") {
       (entry_point, Target::Lib)
@@ -151,7 +141,7 @@ impl Package {
       )
     };
 
-    let platform = manifest.config.platform.unwrap_or(Platform::Browser);
+    let platform = manifest.config.platform;
     let name_str = manifest
       .manifest
       .name

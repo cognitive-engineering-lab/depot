@@ -1,10 +1,13 @@
-use crate::workspace::{Workspace, WorkspaceCommand};
-use anyhow::{ensure, Context, Result};
+use crate::workspace::{package::Package, PackageCommand};
+use anyhow::{Context, Result};
 
 #[derive(clap::Parser)]
 pub struct TestArgs {
+  #[arg(short, long)]
+  watch: bool,
+
   #[arg(last = true)]
-  jest_args: Option<String>,
+  vitest_args: Option<String>,
 }
 
 pub struct TestCommand {
@@ -12,18 +15,23 @@ pub struct TestCommand {
 }
 
 #[async_trait::async_trait]
-impl WorkspaceCommand for TestCommand {
-  async fn run(&self, ws: &Workspace) -> Result<()> {
-    let mut cmd = async_process::Command::new(ws.global_config.bindir().join("jest"));
-    cmd.current_dir(&ws.root);
+impl PackageCommand for TestCommand {
+  async fn run(&self, pkg: &Package) -> Result<()> {
+    let vitest_args = match &self.args.vitest_args {
+      Some(vitest_args) => Some(shlex::split(vitest_args).context("Failed to parse vitest args")?),
+      None => None,
+    };
 
-    if let Some(jest_args) = &self.args.jest_args {
-      cmd.args(shlex::split(jest_args).context("Failed to parse jest args")?);
-    }
+    pkg
+      .exec("vitest", |cmd| {
+        let subcmd = if self.args.watch { "watch" } else { "run" };
+        cmd.arg(subcmd);
 
-    let status = cmd.status().await?;
-    ensure!(status.success(), "jest failed");
-    Ok(())
+        if let Some(vitest_args) = vitest_args {
+          cmd.args(vitest_args);
+        }
+      })
+      .await
   }
 }
 

@@ -65,7 +65,7 @@ async fn run() -> Result<()> {
       ws.run_pkgs(&build_cmd).await?;
 
       let test_cmd = TestCommand::new(args);
-      ws.run_ws(&test_cmd).await?;
+      ws.run_pkgs(&test_cmd).await?;
     }
 
     Command::Fmt(args) => {
