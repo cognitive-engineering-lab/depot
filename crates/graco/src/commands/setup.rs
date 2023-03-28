@@ -53,21 +53,6 @@ impl GlobalConfig {
     self.root.join("bin")
   }
 
-  /*
-  TODO: pick back up here.
-  need to decide whether to run ALL pnpm commands thru custom global dir
-  or default user home dir. getting inconsistent store locations.
-   */
-
-  pub fn pnpm(&self) -> Command {
-    let bindir = self.bindir();
-    let mut cmd = Command::new(bindir.join("pnpm"));
-    cmd.env("PNPM_HOME", &bindir);
-    let path = env::var("PATH").unwrap_or_else(|_| String::new());
-    cmd.env("PATH", format!("{}:{path}", bindir.display()));
-    cmd
-  }
-
   pub fn node_path(&self) -> PathBuf {
     self.bindir().join("global/5/node_modules")
   }
@@ -175,11 +160,13 @@ impl SetupCommand {
     ];
 
     println!("Installing JS dependencies...");
-    let status = config
-      .pnpm()
-      .args(["install", "--global"])
-      .args(PACKAGES)
-      .status()?;
+    let bindir = config.bindir();
+    let mut pnpm = Command::new(bindir.join("pnpm"));
+    pnpm.env("PNPM_HOME", &bindir);
+    let path = env::var("PATH").unwrap_or_else(|_| String::new());
+    pnpm.env("PATH", format!("{}:{path}", bindir.display()));
+
+    let status = pnpm.args(["install", "--global"]).args(PACKAGES).status()?;
     ensure!(status.success(), "pnpm global installation failed");
 
     Ok(())

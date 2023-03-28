@@ -17,6 +17,10 @@ pub struct TestCommand {
 #[async_trait::async_trait]
 impl PackageCommand for TestCommand {
   async fn run(&self, pkg: &Package) -> Result<()> {
+    if !pkg.root.join("tests").exists() {
+      return Ok(());
+    }
+
     let vitest_args = match &self.args.vitest_args {
       Some(vitest_args) => Some(shlex::split(vitest_args).context("Failed to parse vitest args")?),
       None => None,

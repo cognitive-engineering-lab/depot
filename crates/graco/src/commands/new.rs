@@ -10,6 +10,7 @@ use std::{
   fs::{self, OpenOptions},
   io::{BufReader, Seek, Write},
   path::{Path, PathBuf},
+  process::Command,
 };
 
 use crate::workspace::{
@@ -138,12 +139,15 @@ impl NewCommand {
     };
     let src = format!(
       r#"import esbuild from "esbuild";
+import fs from "fs";
 
 let watch = process.argv.includes("--watch");
 let release = process.argv.includes("--release");
+let manifest = JSON.parse(fs.readFileSync("package.json", "utf-8"));
 
-async function main() {{
+async function main() {{  
   try {{
+    let external = Object.keys(manifest.dependencies || {{}});
     let ctx = await esbuild.context({{
       entryPoints: ["src/main.ts"],
       platform: "{platform}",
@@ -152,6 +156,7 @@ async function main() {{
       bundle: true,
       minify: release,
       sourcemap: !release,
+      external,
     }});
     if (watch) {{
       await ctx.watch();
@@ -294,7 +299,7 @@ main();"#
     let (environment, setup_files) = match self.args.platform {
       Platform::Browser => {
         files.push(("tests/setup.ts".into(), VITEST_SETUP.into()));
-        ("jsdom", "\n    setupFiles: \"tests/setup.ts\",")
+        ("jsdom", "\n  setupFiles: \"tests/setup.ts\",")
       }
       Platform::Node => ("node", ""),
     };
@@ -532,8 +537,9 @@ test("add", () => expect(add(2, 2)).toBe(4));
       }
     }
 
+    let pnpm_cmd = || Command::new(self.global_config.bindir().join("pnpm"));
     if !peer_dependencies.is_empty() {
-      let mut pnpm = self.global_config.pnpm();
+      let mut pnpm = pnpm_cmd();
       pnpm
         .args(["add", "--save-peer"])
         .args(peer_dependencies)
@@ -543,7 +549,7 @@ test("add", () => expect(add(2, 2)).toBe(4));
     }
 
     if !ws_dependencies.is_empty() {
-      let mut pnpm = self.global_config.pnpm();
+      let mut pnpm = pnpm_cmd();
       pnpm.args(["add", "--save-dev"]).args(ws_dependencies);
 
       match &self.ws_opt {

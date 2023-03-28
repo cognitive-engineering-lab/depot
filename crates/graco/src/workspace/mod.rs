@@ -107,8 +107,8 @@ impl DepGraph {
         .all_dependencies()
         .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
         .map(move |dep| Element::Edge {
-          source: pkg.index,
-          target: dep.index,
+          source: dep.index,
+          target: pkg.index,
           weight: (),
         })
     });
