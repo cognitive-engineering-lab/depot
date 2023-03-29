@@ -123,19 +123,11 @@ impl SetupCommand {
 
     #[rustfmt::skip]
     const PACKAGES: &[&str] = &[
-      // Binary bundling
-      "esbuild@^0.17.13",
-
       // Types
       "typescript@^5.0.2",
       "@types/node@^18.15.10",
 
-      // Styling
-      "sass@^1.60.0",
-      "esbuild-sass-plugin@^2.7.0",
-      "resolve@^1.22.1",
-
-      // Site bundling
+      // Bundling
       "vite@^4.2.1",
       "@vitejs/plugin-react@^3.1.0",
 

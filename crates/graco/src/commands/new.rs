@@ -2,8 +2,6 @@ use anyhow::{ensure, Context, Result};
 use indexmap::{indexmap, IndexMap};
 use package_json_schema as pj;
 use serde_json::{json, Value};
-#[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
 use std::{
   borrow::Cow,
   env,
@@ -132,50 +130,6 @@ impl NewCommand {
     Ok(())
   }
 
-  fn make_build_script(&self) -> FileVec {
-    let platform = match self.args.platform {
-      Platform::Browser => "browser",
-      Platform::Node => "node",
-    };
-    let src = format!(
-      r#"import esbuild from "esbuild";
-import fs from "fs";
-
-let watch = process.argv.includes("--watch");
-let release = process.argv.includes("--release");
-let manifest = JSON.parse(fs.readFileSync("package.json", "utf-8"));
-
-async function main() {{  
-  try {{
-    let external = Object.keys(manifest.dependencies || {{}});
-    let ctx = await esbuild.context({{
-      entryPoints: ["src/main.ts"],
-      platform: "{platform}",
-      format: "esm",
-      outdir: "dist",
-      bundle: true,
-      minify: release,
-      sourcemap: !release,
-      external,
-    }});
-    if (watch) {{
-      await ctx.watch();
-    }} else {{
-      await ctx.rebuild();
-      await ctx.dispose();
-    }}
-  }} catch (e) {{
-    console.error(e);
-    process.exit(1);
-  }}
-}}
-
-
-main();"#
-    );
-    vec![("build.mjs".into(), src.into())]
-  }
-
   fn make_tsconfig(&self) -> Result<FileVec> {
     let mut config = json!({
       "compilerOptions": {
@@ -295,8 +249,12 @@ main();"#
   }
 
   fn make_vite_config(&self) -> Result<FileVec> {
+    let NewArgs {
+      platform, target, ..
+    } = self.args;
+
     let mut files: FileVec = Vec::new();
-    let (environment, setup_files) = match self.args.platform {
+    let (environment, setup_files) = match platform {
       Platform::Browser => {
         files.push(("tests/setup.ts".into(), VITEST_SETUP.into()));
         ("jsdom", "\n  setupFiles: \"tests/setup.ts\",")
@@ -304,41 +262,80 @@ main();"#
       Platform::Node => ("node", ""),
     };
 
+    let mut imports = vec![("{ defineConfig }", "vite")];
+    if platform.is_browser() {
+      imports.push(("react", "@vitejs/plugin-react"));
+    }
+
+    let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
+
+    match target {
+      Target::Site => config.push(("base", "\"./\"".into())),
+      Target::Script => {
+        imports.push(("{ resolve }", "path"));
+        let build_config = match platform {
+          Platform::Browser => {
+            let name = self.args.name.as_global_var();
+            format!(
+              r#"lib: {{
+  entry: resolve(__dirname, "src/main.ts"),
+  name: "{name}",
+  fileName: "main",
+  formats: ["es"],
+}}"#
+            )
+          }
+          Platform::Node => r#"lib: {
+  entry: resolve(__dirname, "src/main.ts"),
+  fileName: "main",
+  formats: ["cjs"],
+},
+minify: false"#
+            .into(),
+        };
+        let full_obj = format!("{{\n{}\n}}", textwrap::indent(&build_config, "  "));
+        config.push(("build", full_obj.into()));
+      }
+      Target::Lib => {}
+    }
+
+    if platform.is_browser() {
+      config.push(("plugins", "[react()]".into()));
+    }
+
     // TODO: Revisit deps.inline once this issue is closed:
     // https://github.com/vitest-dev/vitest/issues/2806
     let test_config = format!(
-      r#"test: {{
+      r#"{{
   environment: "{environment}",{setup_files}
   deps: {{
     inline: [/^(?!.*vitest).*$/],
   }},
-}}"#
+}}
+"#
     );
-    let test_config = textwrap::indent(&test_config, "  ");
+    config.push(("test", test_config.into()));
 
-    if matches!(self.args.target, Target::Site) {
-      let src = format!(
-        r#"import react from "@vitejs/plugin-react";
-import {{ defineConfig }} from "vite";
+    let imports_str = imports
+      .into_iter()
+      .map(|(l, r)| format!("import {l} from \"{r}\";\n"))
+      .collect::<String>();
+    let config_str = config
+      .into_iter()
+      .map(|(k, v)| textwrap::indent(&format!("{k}: {v},\n"), "  "))
+      .collect::<String>();
+    let mut src = format!(
+      r#"{imports_str}
 
 export default defineConfig({{
-  base: "./",
-  plugins: [react()],
-  build: {{ emptyOutDir: false }},
-{test_config}
+{config_str}
 }});"#
-      );
+    );
+
+    if target.is_site() || target.is_script() {
       files.push(("vite.config.ts".into(), src.into()));
     } else {
-      let src = format!(
-        r#"/// <reference types="vitest" />
-import {{ defineConfig }} from "vite";
-
-export default defineConfig({{
-{test_config}
-}});
-"#
-      );
+      src.insert_str(0, "/// <reference types=\"vitest\" />\n");
       files.push(("vitest.config.ts".into(), src.into()));
     }
 
@@ -449,7 +446,7 @@ export default defineConfig({{
           "@types/react-dom",
           "@testing-library/react",
         ]);
-        if matches!(target, Target::Lib) {
+        if target.is_lib() {
           peer_dependencies.extend(["react", "react-dom"]);
         }
       }
@@ -459,19 +456,18 @@ export default defineConfig({{
     let (src_path, src_contents) = match target {
       Target::Site => {
         ensure!(
-          matches!(platform, Platform::Browser),
+          platform.is_browser(),
           "Must have platform=browser when target=site"
         );
         files.push(("index.html".into(), HTML.into()));
         ("index.tsx", INDEX)
       }
       Target::Script => {
-        if matches!(platform, Platform::Node) {
+        if platform.is_node() {
           manifest.bin = Some(pj::Binary::Object(indexmap! {
             name.name.clone() => "dist/main.js".into()
           }));
         }
-        files.extend(self.make_build_script());
         ("main.ts", MAIN)
       }
       Target::Lib => {
@@ -527,14 +523,6 @@ test("add", () => expect(add(2, 2)).toBe(4));
 
     for (rel_path, contents) in files {
       fs::write(root.join(rel_path), contents.as_bytes())?;
-    }
-
-    #[cfg(unix)]
-    {
-      let build_script_path = root.join("build.mjs");
-      if build_script_path.exists() {
-        fs::set_permissions(build_script_path, PermissionsExt::from_mode(0o755))?;
-      }
     }
 
     let pnpm_cmd = || Command::new(self.global_config.bindir().join("pnpm"));

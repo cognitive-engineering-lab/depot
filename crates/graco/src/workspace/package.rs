@@ -22,6 +22,16 @@ pub enum Platform {
   Node,
 }
 
+impl Platform {
+  pub fn is_browser(self) -> bool {
+    matches!(self, Platform::Browser)
+  }
+
+  pub fn is_node(self) -> bool {
+    matches!(self, Platform::Node)
+  }
+}
+
 #[derive(Copy, Clone, clap::ValueEnum)]
 pub enum Target {
   Lib,
@@ -29,10 +39,38 @@ pub enum Target {
   Script,
 }
 
+impl Target {
+  pub fn is_lib(self) -> bool {
+    matches!(self, Target::Lib)
+  }
+
+  pub fn is_site(self) -> bool {
+    matches!(self, Target::Site)
+  }
+
+  pub fn is_script(self) -> bool {
+    matches!(self, Target::Script)
+  }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PackageName {
   pub name: String,
   pub scope: Option<String>,
+}
+
+impl PackageName {
+  pub fn as_global_var(&self) -> String {
+    self
+      .name
+      .split('-')
+      .map(|substr| {
+        let mut chars = substr.chars();
+        let first = chars.next().unwrap().to_uppercase().to_string();
+        first + &chars.collect::<String>()
+      })
+      .collect::<String>()
+  }
 }
 
 impl Display for PackageName {

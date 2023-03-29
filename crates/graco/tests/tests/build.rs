@@ -19,10 +19,10 @@ fn basic_lib_node() {
 
 #[test]
 fn basic_script_browser() {
-  let p = project_for("script", "browser");
+  let p = project_for("script", "browser").persist();
   p.graco("build");
-  assert!(p.exists("dist/main.js"));
-  assert!(p.exists("dist/main.js.map"));
+  assert!(p.exists("dist/main.mjs"));
+  assert!(p.exists("dist/main.mjs.map"));
 }
 
 #[test]

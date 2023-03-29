@@ -30,7 +30,7 @@ impl PackageCommand for BuildCommand {
   async fn run(&self, pkg: &Package) -> Result<()> {
     let mut processes = Vec::new();
 
-    if matches!(pkg.target, Target::Site) {
+    if pkg.target.is_script() || pkg.target.is_site() {
       processes.push(self.vite(pkg).boxed());
     }
 
@@ -62,7 +62,7 @@ impl BuildCommand {
         if self.args.watch {
           cmd.arg("--watch");
         }
-        if matches!(pkg.target, Target::Lib) && !self.args.release {
+        if pkg.target.is_lib() && !self.args.release {
           cmd.arg("--sourceMap");
         }
       })
@@ -79,8 +79,19 @@ impl BuildCommand {
 
   async fn vite(&self, pkg: &Package) -> Result<()> {
     pkg
-      .exec("vite", |cmd| {
-        cmd.arg(if self.args.watch { "dev" } else { "build" });
+      .exec("vite", |cmd| match pkg.target {
+        Target::Site => {
+          cmd.arg(if self.args.watch { "dev" } else { "build" });
+        }
+        _ => {
+          cmd.arg("build");
+          if self.args.watch {
+            cmd.arg("--watch");
+          }
+          if !self.args.release {
+            cmd.arg("--sourcemap");
+          }
+        }
       })
       .await
   }

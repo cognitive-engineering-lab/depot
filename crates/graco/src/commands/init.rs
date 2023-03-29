@@ -3,7 +3,7 @@ use std::{path::Path, str::FromStr};
 use crate::{
   utils,
   workspace::{
-    package::{Package, PackageName, Platform, Target},
+    package::{Package, PackageName, Platform},
     PackageCommand, Workspace, WorkspaceCommand,
   },
 };
@@ -63,13 +63,9 @@ impl PackageCommand for InitCommand {
     let local_node_modules = pkg.root.join("node_modules");
     utils::create_dir_if_missing(&local_node_modules)?;
 
-    let mut pkgs_to_link = match pkg.target {
-      Target::Script => vec!["esbuild"],
-      Target::Site => vec!["@vitejs/plugin-react"],
-      Target::Lib => vec![],
-    };
+    let mut pkgs_to_link = Vec::new();
     match pkg.platform {
-      Platform::Browser => pkgs_to_link.extend(["jsdom"]),
+      Platform::Browser => pkgs_to_link.extend(["jsdom", "@vitejs/plugin-react"]),
       Platform::Node => {}
     }
     pkgs_to_link.extend(["vite", "vitest"]);
