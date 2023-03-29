@@ -4,6 +4,9 @@ use crate::workspace::{Workspace, WorkspaceCommand};
 
 #[derive(clap::Parser)]
 pub struct FmtArgs {
+  #[arg(short, long)]
+  check: Option<bool>,
+
   #[arg(last = true)]
   prettier_args: Option<String>,
 }
@@ -26,7 +29,10 @@ impl WorkspaceCommand for FmtCommand {
     cmd.current_dir(&ws.root);
     let prefix = if ws.monorepo { "packages/**/" } else { "" };
     cmd.arg(prefix.to_owned() + "{src,tests}/**/*.{ts,tsx}");
-    cmd.arg("-w");
+    cmd.arg("*.{ts,tsx}");
+
+    let check = self.args.check.unwrap_or(false);
+    cmd.arg(if check { "-w" } else { "-c" });
 
     if let Some(jest_args) = &self.args.prettier_args {
       cmd.args(shlex::split(jest_args).context("Failed to parse prettier args")?);

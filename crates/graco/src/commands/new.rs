@@ -262,10 +262,11 @@ impl NewCommand {
       Platform::Node => ("node", ""),
     };
 
-    let mut imports = vec![("{ defineConfig }", "vite")];
+    let mut imports = Vec::new();
     if platform.is_browser() {
       imports.push(("react", "@vitejs/plugin-react"));
     }
+    imports.push(("{ defineConfig }", "vite"));
 
     let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
 
@@ -311,8 +312,7 @@ minify: false"#
   deps: {{
     inline: [/^(?!.*vitest).*$/],
   }},
-}}
-"#
+}}"#
     );
     config.push(("test", test_config.into()));
 
@@ -326,10 +326,9 @@ minify: false"#
       .collect::<String>();
     let mut src = format!(
       r#"{imports_str}
-
 export default defineConfig({{
-{config_str}
-}});"#
+{config_str}}});
+"#
     );
 
     if target.is_site() || target.is_script() {
@@ -483,7 +482,7 @@ export default defineConfig({{
           "./*".into() => sub_exports,
         }));
 
-        let test = r#"import { test, expect } from "vitest";
+        let test = r#"import { expect, test } from "vitest";
 
 import { add } from "../src/lib";
 
