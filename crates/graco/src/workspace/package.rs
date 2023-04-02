@@ -11,6 +11,7 @@ use std::{
   str::FromStr,
   sync::Arc,
 };
+use walkdir::WalkDir;
 
 use super::Workspace;
 
@@ -285,6 +286,26 @@ impl PackageInner {
       .ws
       .set(ws.clone())
       .unwrap_or_else(|_| panic!("Called set_workspace twice!"));
+  }
+
+  pub fn source_files(&self) -> Vec<PathBuf> {
+    ["src", "tests"]
+      .into_iter()
+      .flat_map(|dir| WalkDir::new(self.root.join(dir)))
+      .filter_map(|entry| {
+        let entry = entry.ok()?;
+        if !entry.file_type().is_file() {
+          return None;
+        }
+
+        let path = entry.path();
+        let Some(ext) = path.extension() else {
+          return None;
+        };
+        let is_src_file = ext == "ts" || ext == "tsx";
+        is_src_file.then(|| path.to_owned())
+      })
+      .collect()
   }
 }
 

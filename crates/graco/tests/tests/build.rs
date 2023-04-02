@@ -19,7 +19,7 @@ fn basic_lib_node() {
 
 #[test]
 fn basic_script_browser() {
-  let p = project_for("script", "browser").persist();
+  let p = project_for("script", "browser");
   p.graco("build");
   assert!(p.exists("dist/main.mjs"));
   assert!(p.exists("dist/main.mjs.map"));
@@ -52,7 +52,7 @@ fn release() {
 
 #[test]
 fn workspace_() {
-  let ws = workspace().persist();
+  let ws = workspace();
   ws.graco("new foo");
   ws.graco("new bar");
 

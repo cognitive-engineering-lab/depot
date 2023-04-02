@@ -70,7 +70,7 @@ async fn run() -> Result<()> {
 
     Command::Fmt(args) => {
       let fmt_cmd = FmtCommand::new(args);
-      ws.run_ws(&fmt_cmd).await?;
+      ws.run_pkgs(&fmt_cmd).await?;
     }
 
     Command::Clean(args) => {
