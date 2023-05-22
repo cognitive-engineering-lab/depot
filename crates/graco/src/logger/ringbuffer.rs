@@ -7,6 +7,7 @@ pub struct RingBuffer<T> {
 
 const DEFAULT_MAX_CAPACITY: usize = 1024;
 
+#[allow(unused)]
 impl<T> RingBuffer<T> {
   pub fn new() -> Self {
     RingBuffer {
@@ -15,7 +16,6 @@ impl<T> RingBuffer<T> {
     }
   }
 
-  #[cfg(test)]
   pub fn with_max_capacity(max_capacity: usize) -> Self {
     RingBuffer {
       data: VecDeque::new(),

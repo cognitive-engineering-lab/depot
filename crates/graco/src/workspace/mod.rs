@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use cfg_if::cfg_if;
-use crossterm::tty::IsTty;
+
 use futures::{
   stream::{self, TryStreamExt},
   StreamExt,
@@ -13,21 +13,20 @@ use petgraph::{
   visit::{DfsPostOrder, Walker},
 };
 use std::{
-  env,
-  io::{stdout, Stdout},
-  iter,
+  env, iter,
   ops::Deref,
   path::{Path, PathBuf},
-  sync::{Arc, Mutex, MutexGuard},
+  sync::Arc,
 };
 
 use package::Package;
 
-use crate::{commands::setup::GlobalConfig, logger::Logger, utils};
+use crate::{commands::setup::GlobalConfig, utils};
 
 use self::package::PackageIndex;
 
 pub mod package;
+pub mod process;
 mod runner;
 
 #[derive(Clone)]
@@ -40,23 +39,12 @@ impl Deref for Workspace {
   }
 }
 
-pub type TerminalBackend = ratatui::backend::CrosstermBackend<Stdout>;
-pub type Terminal = ratatui::Terminal<TerminalBackend>;
-
-pub fn load_terminal() -> Result<Terminal> {
-  let stdout = std::io::stdout();
-  let backend = ratatui::backend::CrosstermBackend::new(stdout);
-  ratatui::Terminal::new(backend).context("Failed to initialize terminal")
-}
-
 pub struct WorkspaceInner {
   pub root: PathBuf,
   pub packages: Vec<Package>,
   pub monorepo: bool,
   pub global_config: GlobalConfig,
   pub dep_graph: DepGraph,
-  pub logger: Mutex<Logger>,
-  pub terminal: Option<Mutex<Terminal>>,
 }
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
@@ -178,21 +166,12 @@ impl Workspace {
 
     let dep_graph = DepGraph::build(&packages);
 
-    let logger = Mutex::new(Logger::new()?);
-    let terminal = if stdout().is_tty() {
-      Some(Mutex::new(load_terminal()?))
-    } else {
-      None
-    };
-
     let ws = Workspace(Arc::new(WorkspaceInner {
       root,
       packages,
       monorepo,
       global_config,
       dep_graph,
-      logger,
-      terminal,
     }));
 
     for pkg in &ws.packages {
@@ -200,15 +179,5 @@ impl Workspace {
     }
 
     Ok(ws)
-  }
-}
-
-impl WorkspaceInner {
-  pub fn has_terminal(&self) -> bool {
-    self.terminal.is_some()
-  }
-
-  pub fn terminal(&self) -> MutexGuard<'_, Terminal> {
-    self.terminal.as_ref().unwrap().lock().unwrap()
   }
 }

@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::sync::Notify;
 
-use crate::logger::ui;
+use crate::logger::ui::{FullscreenRenderer, Renderer};
 
 use super::{package::PackageIndex, PackageCommand, Workspace, WorkspaceCommand};
 
@@ -27,14 +27,27 @@ struct Task<F: Future<Output = (PackageIndex, Result<()>)>> {
 }
 
 impl Workspace {
-  fn spawn_log_thread(&self, should_exit: &Arc<Notify>) -> impl Future {
+  fn spawn_log_thread(
+    &self,
+    log_should_exit: &Arc<Notify>,
+    runner_should_exit: &Arc<Notify>,
+  ) -> impl Future {
     let ws = self.clone();
-    let should_exit = Arc::clone(should_exit);
+    let log_should_exit = Arc::clone(log_should_exit);
+    let runner_should_exit = Arc::clone(runner_should_exit);
     tokio::spawn(async move {
-      let result = ui::render(&ws, &should_exit).await;
-      if let Err(e) = result {
-        eprintln!("{e}");
-        std::process::exit(1);
+      let renderer = FullscreenRenderer::new().unwrap();
+      let result = renderer.render_loop(&ws, &log_should_exit).await;
+      match result {
+        Ok(exit_early) => {
+          if exit_early {
+            runner_should_exit.notify_one();
+          }
+        }
+        Err(e) => {
+          eprintln!("{e}");
+          runner_should_exit.notify_one();
+        }
       }
     })
   }
@@ -78,8 +91,13 @@ impl Workspace {
       })
       .collect::<HashMap<_, _>>();
 
-    let should_exit = Arc::new(Notify::new());
-    let cleanup_logs = self.spawn_log_thread(&should_exit);
+    let log_should_exit: Arc<Notify> = Arc::new(Notify::new());
+    let runner_should_exit: Arc<Notify> = Arc::new(Notify::new());
+
+    let runner_should_exit_fut = runner_should_exit.notified();
+    tokio::pin!(runner_should_exit_fut);
+
+    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit);
 
     let result = loop {
       if tasks
@@ -108,7 +126,11 @@ impl Workspace {
         .iter_mut()
         .filter(|(_, task)| matches!(task.status.get(), TaskStatus::Running))
         .map(|(_, task)| &mut task.future);
-      let ((index, result), _, _) = futures::future::select_all(running).await;
+      let running_fut = futures::future::select_all(running);
+      let ((index, result), _, _) = tokio::select! { biased;
+        _ = &mut runner_should_exit_fut => break Ok(()),
+        output = running_fut => output,
+      };
       if result.is_err() {
         break result;
       }
@@ -117,11 +139,8 @@ impl Workspace {
     };
 
     log::debug!("All tasks complete, waiting for log thread to exit");
-    should_exit.notify_one();
+    log_should_exit.notify_one();
     cleanup_logs.await;
-
-    log::debug!("Flushing logs");
-    ui::complete(self)?;
 
     result
   }

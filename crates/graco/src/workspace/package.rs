@@ -1,6 +1,5 @@
 use anyhow::{bail, ensure, Context, Error, Result};
-use async_process::Stdio;
-use futures::{io::BufReader, AsyncBufReadExt, AsyncRead, StreamExt};
+
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
@@ -9,9 +8,11 @@ use std::{
   ops::Deref,
   path::{Path, PathBuf},
   str::FromStr,
-  sync::Arc,
+  sync::{Arc, RwLock, RwLockReadGuard},
 };
 use walkdir::WalkDir;
+
+use crate::workspace::process::Process;
 
 use super::Workspace;
 
@@ -142,6 +143,7 @@ impl Deref for Package {
 pub type PackageIndex = usize;
 
 pub struct PackageInner {
+  // Metadata
   pub root: PathBuf,
   pub manifest: PackageManifest,
   pub platform: Platform,
@@ -149,7 +151,10 @@ pub struct PackageInner {
   pub name: PackageName,
   pub entry_point: PathBuf,
   pub index: PackageIndex,
+
+  // Internals
   ws: OnceCell<Workspace>,
+  processes: RwLock<Vec<Arc<Process>>>,
 }
 
 impl Package {
@@ -158,6 +163,10 @@ impl Package {
       .into_iter()
       .map(|ext| root.join("src").join(format!("{base}.{ext}")))
       .find(|path| path.exists())
+  }
+
+  pub fn processes(&self) -> RwLockReadGuard<'_, Vec<Arc<Process>>> {
+    self.processes.read().unwrap()
   }
 
   pub fn load(root: &Path, index: PackageIndex) -> Result<Self> {
@@ -197,24 +206,8 @@ impl Package {
       name,
       index,
       ws: OnceCell::default(),
+      processes: Default::default(),
     })))
-  }
-
-  async fn pipe_stdio(self, stdio: impl AsyncRead + Unpin, script_name: &str) {
-    let mut lines = BufReader::new(stdio).lines();
-    while let Some(line) = lines.next().await {
-      let line = line.unwrap();
-      let mut logger = self.workspace().logger.lock().unwrap();
-      let logger = logger.logger(self.index, script_name);
-      let line = match line.strip_prefix("\u{1b}c") {
-        Some(rest) => {
-          logger.clear();
-          rest.to_string()
-        }
-        None => line,
-      };
-      logger.push(line);
-    }
   }
 
   pub async fn exec(
@@ -228,35 +221,12 @@ impl Package {
 
     let mut cmd = async_process::Command::new(&script_path);
     cmd.current_dir(&self.root);
-    cmd.kill_on_drop(true);
-
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
     configure(&mut cmd);
 
-    let mut child = cmd
-      .spawn()
-      .with_context(|| format!("Failed to spawn process: `{}`", script_path.display()))?;
+    let process = Arc::new(Process::new(&script_path, cmd)?);
+    self.processes.write().unwrap().push(process.clone());
 
-    ws.logger.lock().unwrap().register_log(self.index, script);
-
-    let this = self.clone();
-    tokio::spawn(this.pipe_stdio(child.stdout.take().unwrap(), script));
-    let this = self.clone();
-    tokio::spawn(this.pipe_stdio(child.stderr.take().unwrap(), script));
-
-    let status = child
-      .status()
-      .await
-      .with_context(|| format!("Process `{script}` failed"))?;
-    match status.code() {
-      Some(code) => ensure!(
-        status.success(),
-        "Process `{script}` exited with non-zero exit code: {code}"
-      ),
-      None => bail!("Process `{script}` exited due to signal"),
-    }
+    process.wait().await?;
 
     Ok(())
   }
