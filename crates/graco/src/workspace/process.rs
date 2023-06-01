@@ -12,11 +12,23 @@ use anyhow::{bail, ensure, Context, Result};
 
 use crate::logger::ringbuffer::RingBuffer;
 
+#[derive(Copy, Clone)]
+pub enum OutputChannel {
+  Stdout,
+  Stderr,
+}
+
+pub struct LogLine {
+  pub line: String,
+  pub channel: OutputChannel,
+}
+
+pub type LogBuffer = RingBuffer<LogLine>;
+
 pub struct Process {
   script: String,
   child: Mutex<Option<async_process::Child>>,
-  stdout: Arc<Mutex<RingBuffer<String>>>,
-  // stderr: Arc<Mutex<RingBuffer<String>>>,
+  logs: Arc<Mutex<LogBuffer>>,
   finished: AtomicBool,
 }
 
@@ -31,27 +43,31 @@ impl Process {
       .with_context(|| format!("Failed to spawn process: `{}`", script.display()))?;
     let script = script.file_name().unwrap().to_string_lossy().to_string();
 
-    let stdout = Arc::new(Mutex::new(RingBuffer::new()));
-    // let stderr = Arc::new(Mutex::new(RingBuffer::new()));
+    let logs = Arc::new(Mutex::new(RingBuffer::new()));
     tokio::spawn(Self::pipe_stdio(
       child.stdout.take().unwrap(),
-      stdout.clone(),
+      logs.clone(),
+      OutputChannel::Stdout,
     ));
     tokio::spawn(Self::pipe_stdio(
       child.stderr.take().unwrap(),
-      stdout.clone(),
+      logs.clone(),
+      OutputChannel::Stderr,
     ));
 
     Ok(Process {
       script,
       child: Mutex::new(Some(child)),
-      stdout,
-      // stderr,
+      logs,
       finished: AtomicBool::new(false),
     })
   }
 
-  async fn pipe_stdio(stdio: impl AsyncRead + Unpin, buffer: Arc<Mutex<RingBuffer<String>>>) {
+  async fn pipe_stdio(
+    stdio: impl AsyncRead + Unpin,
+    buffer: Arc<Mutex<LogBuffer>>,
+    channel: OutputChannel,
+  ) {
     let mut lines = BufReader::new(stdio).lines();
     while let Some(line) = lines.next().await {
       let mut buffer = buffer.lock().unwrap();
@@ -63,7 +79,7 @@ impl Process {
         }
         None => line,
       };
-      buffer.push(line);
+      buffer.push(LogLine { line, channel });
     }
   }
 
@@ -71,14 +87,9 @@ impl Process {
     &self.script
   }
 
-  pub fn stdout(&self) -> MutexGuard<'_, RingBuffer<String>> {
-    self.stdout.lock().unwrap()
+  pub fn stdout(&self) -> MutexGuard<'_, LogBuffer> {
+    self.logs.lock().unwrap()
   }
-
-  // pub fn stderr(&self) -> MutexGuard<'_, RingBuffer<String>> {
-  //   self.stderr.lock().unwrap()
-  // }
-
   pub fn finished(&self) -> bool {
     self.finished.load(Ordering::SeqCst)
   }

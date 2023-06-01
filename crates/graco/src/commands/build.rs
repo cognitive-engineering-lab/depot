@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use anyhow::Result;
 
 use futures::{future::try_join_all, FutureExt};
@@ -10,13 +12,13 @@ use crate::workspace::{
 #[derive(clap::Parser, Default)]
 pub struct BuildArgs {
   #[arg(short, long)]
-  watch: bool,
+  pub watch: bool,
 
   #[arg(short, long)]
-  release: bool,
+  pub release: bool,
 
   #[arg(short, long)]
-  package: Option<PackageName>,
+  pub package: Option<PackageName>,
 }
 
 pub struct BuildCommand {
@@ -43,6 +45,10 @@ impl PackageCommand for BuildCommand {
     try_join_all(processes).await?;
 
     Ok(())
+  }
+
+  fn only_run(&self) -> Cow<'_, Option<PackageName>> {
+    Cow::Borrowed(&self.args.package)
   }
 
   fn ignore_dependencies(&self) -> bool {
@@ -89,7 +95,8 @@ impl BuildCommand {
             cmd.arg("--watch");
           }
           if !self.args.release {
-            cmd.arg("--sourcemap");
+            cmd.args(["--sourcemap", "true"]);
+            cmd.args(["--minify", "false"]);
           }
         }
       })

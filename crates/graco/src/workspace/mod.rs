@@ -6,13 +6,9 @@ use futures::{
   StreamExt,
 };
 use log::debug;
-use petgraph::{
-  data::{Element, FromElements},
-  graph::DiGraph,
-  prelude::NodeIndex,
-  visit::{DfsPostOrder, Walker},
-};
 use std::{
+  borrow::Cow,
+  cmp::Ordering,
   env, iter,
   ops::Deref,
   path::{Path, PathBuf},
@@ -23,8 +19,12 @@ use package::Package;
 
 use crate::{commands::setup::GlobalConfig, utils};
 
-use self::package::PackageIndex;
+use self::{
+  dep_graph::DepGraph,
+  package::{PackageIndex, PackageName},
+};
 
+mod dep_graph;
 pub mod package;
 pub mod process;
 mod runner;
@@ -45,6 +45,8 @@ pub struct WorkspaceInner {
   pub monorepo: bool,
   pub global_config: GlobalConfig,
   pub dep_graph: DepGraph,
+
+  package_display_order: Vec<PackageIndex>,
 }
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
@@ -74,54 +76,19 @@ fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
 #[async_trait::async_trait]
 pub trait PackageCommand: Send + Sync + 'static {
   async fn run(&self, package: &Package) -> Result<()>;
+
   fn ignore_dependencies(&self) -> bool {
     false
+  }
+
+  fn only_run(&self) -> Cow<'_, Option<PackageName>> {
+    Cow::Owned(None)
   }
 }
 
 #[async_trait::async_trait]
 pub trait WorkspaceCommand {
   async fn run(&self, ws: &Workspace) -> Result<()>;
-}
-
-pub struct DepGraph {
-  graph: DiGraph<(), ()>,
-}
-
-impl DepGraph {
-  pub fn build(packages: &[Package]) -> Self {
-    let edges = packages.iter().flat_map(|pkg| {
-      pkg
-        .all_dependencies()
-        .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
-        .map(move |dep| Element::Edge {
-          source: dep.index,
-          target: pkg.index,
-          weight: (),
-        })
-    });
-
-    let graph = DiGraph::<(), ()>::from_elements(
-      (0..packages.len())
-        .map(|_| Element::Node { weight: () })
-        .chain(edges),
-    );
-
-    DepGraph { graph }
-  }
-
-  pub fn immediate_deps_for(&self, index: PackageIndex) -> impl Iterator<Item = PackageIndex> + '_ {
-    self
-      .graph
-      .neighbors_directed(NodeIndex::new(index), petgraph::Direction::Incoming)
-      .map(|node| node.index())
-  }
-
-  pub fn all_deps_for(&self, index: PackageIndex) -> impl Iterator<Item = PackageIndex> + '_ {
-    DfsPostOrder::new(&self.graph, NodeIndex::new(index))
-      .iter(&self.graph)
-      .map(|node| node.index())
-  }
 }
 
 impl Workspace {
@@ -166,9 +133,36 @@ impl Workspace {
 
     let dep_graph = DepGraph::build(&packages);
 
+    let package_display_order = {
+      let mut order = packages.iter().map(|pkg| pkg.index).collect::<Vec<_>>();
+
+      order.sort_by(|pkg1, pkg2| {
+        if dep_graph.is_dependent_on(*pkg2, *pkg1) {
+          Ordering::Less
+        } else if dep_graph.is_dependent_on(*pkg1, *pkg2) {
+          Ordering::Greater
+        } else {
+          Ordering::Equal
+        }
+      });
+
+      order.sort_by(|pkg1, pkg2| {
+        if dep_graph.is_dependent_on(*pkg2, *pkg1) {
+          Ordering::Less
+        } else if dep_graph.is_dependent_on(*pkg1, *pkg2) {
+          Ordering::Greater
+        } else {
+          packages[*pkg1].name.cmp(&packages[*pkg2].name)
+        }
+      });
+
+      order
+    };
+
     let ws = Workspace(Arc::new(WorkspaceInner {
       root,
       packages,
+      package_display_order,
       monorepo,
       global_config,
       dep_graph,
@@ -179,5 +173,14 @@ impl Workspace {
     }
 
     Ok(ws)
+  }
+}
+
+impl WorkspaceInner {
+  pub fn package_display_order(&self) -> impl Iterator<Item = &Package> {
+    self
+      .package_display_order
+      .iter()
+      .map(|idx| &self.packages[*idx])
   }
 }

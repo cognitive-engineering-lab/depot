@@ -5,7 +5,7 @@ use crate::workspace::{Workspace, WorkspaceCommand};
 #[derive(clap::Parser)]
 pub struct DocArgs {
   #[arg(last = true)]
-  typedoc_args: Option<String>,
+  pub typedoc_args: Option<String>,
 }
 
 pub struct DocCommand {

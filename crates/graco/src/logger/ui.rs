@@ -77,7 +77,8 @@ impl FullscreenRenderer {
   fn build_process_pane(process: &Process) -> impl Widget + '_ {
     let mut spans = Vec::new();
     for line in process.stdout().iter() {
-      match line.into_text() {
+      // TODO: distinguish stdout from stderr
+      match line.line.into_text() {
         Ok(text) => spans.extend(text.lines),
         Err(e) => spans.push(Spans::from(Span::raw(format!(
           "failed to parse line with error: {e:?}"
@@ -143,7 +144,7 @@ impl Renderer for FullscreenRenderer {
     let n = ws.packages.len() as isize;
     let selected_unbounded = self.selected.load(Ordering::SeqCst);
     let selected = ((n + selected_unbounded % n) % n) as usize;
-    let pkg = &ws.packages[selected];
+    let pkg = ws.package_display_order().nth(selected).unwrap();
     let processes = pkg.processes();
 
     let tabs = Self::build_tabs(ws, selected);
@@ -199,7 +200,9 @@ pub trait Renderer: Sized + Send + Sync {
   fn complete(self, ws: &Workspace) -> Result<()>;
 
   async fn handle_input(&self) -> Result<bool> {
-    Ok(false)
+    loop {
+      tokio::time::sleep(Duration::MAX).await;
+    }
   }
 
   async fn render_loop(mut self, ws: &Workspace, should_exit: &Arc<Notify>) -> Result<bool> {
@@ -262,7 +265,7 @@ impl InlineRenderer {
       }
     }
 
-    for pkg in &ws.packages {
+    for pkg in ws.package_display_order() {
       let processes = pkg.processes();
       if processes.is_empty() {
         continue;
@@ -296,7 +299,8 @@ impl InlineRenderer {
         let stdout = process.stdout();
         for line in stdout.iter() {
           meta!("{monorepo_prefix}│ ");
-          writeln!(&mut output, "{line}")?;
+          // TODO: distinguish stdout from stderr
+          writeln!(&mut output, "{}", line.line)?;
         }
         let status = if process.finished() {
           "finished"

@@ -14,7 +14,7 @@ use anyhow::{ensure, Context, Result};
 #[derive(clap::Parser)]
 pub struct SetupArgs {
   #[arg(short, long)]
-  config_dir: Option<PathBuf>,
+  pub config_dir: Option<PathBuf>,
 }
 
 pub struct SetupCommand {

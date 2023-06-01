@@ -5,10 +5,10 @@ use crate::workspace::{package::Package, PackageCommand};
 #[derive(clap::Parser)]
 pub struct FmtArgs {
   #[arg(short, long)]
-  check: Option<bool>,
+  pub check: Option<bool>,
 
   #[arg(last = true)]
-  prettier_args: Option<String>,
+  pub prettier_args: Option<String>,
 }
 
 pub struct FmtCommand {

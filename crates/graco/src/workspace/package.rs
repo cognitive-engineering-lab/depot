@@ -55,7 +55,7 @@ impl Target {
   }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
 pub struct PackageName {
   pub name: String,
   pub scope: Option<String>,
@@ -120,7 +120,11 @@ impl PackageManifest {
   pub fn load(path: &Path) -> Result<Self> {
     let contents = fs::read_to_string(path)
       .with_context(|| format!("Package does not have manifest at: `{}`", path.display()))?;
-    let mut manifest = PackageJson::try_from(contents)?;
+    let manifest = PackageJson::try_from(contents)?;
+    Self::from_json(manifest, path)
+  }
+
+  pub fn from_json(mut manifest: PackageJson, path: &Path) -> Result<Self> {
     let error_msg = || format!("Missing \"graco\" key from manifest: `{}`", path.display());
     let other = manifest.other.as_mut().with_context(error_msg)?;
     let config_value = other.remove("graco").with_context(error_msg)?;
@@ -169,6 +173,34 @@ impl Package {
     self.processes.read().unwrap()
   }
 
+  pub fn from_parts(
+    root: PathBuf,
+    manifest: PackageManifest,
+    index: PackageIndex,
+    entry_point: PathBuf,
+    target: Target,
+  ) -> Result<Self> {
+    let platform = manifest.config.platform;
+    let name_str = manifest
+      .manifest
+      .name
+      .as_deref()
+      .unwrap_or_else(|| root.file_name().unwrap().to_str().unwrap());
+    let name = PackageName::from_str(name_str)?;
+
+    Ok(Package(Arc::new(PackageInner {
+      root: root.to_owned(),
+      manifest,
+      entry_point,
+      target,
+      platform,
+      name,
+      index,
+      ws: OnceCell::default(),
+      processes: Default::default(),
+    })))
+  }
+
   pub fn load(root: &Path, index: PackageIndex) -> Result<Self> {
     let root = root
       .canonicalize()
@@ -189,25 +221,7 @@ impl Package {
       )
     };
 
-    let platform = manifest.config.platform;
-    let name_str = manifest
-      .manifest
-      .name
-      .as_deref()
-      .unwrap_or_else(|| root.file_name().unwrap().to_str().unwrap());
-    let name = PackageName::from_str(name_str)?;
-
-    Ok(Package(Arc::new(PackageInner {
-      root: root.to_owned(),
-      manifest,
-      entry_point,
-      target,
-      platform,
-      name,
-      index,
-      ws: OnceCell::default(),
-      processes: Default::default(),
-    })))
+    Self::from_parts(root, manifest, index, entry_point, target)
   }
 
   pub async fn exec(

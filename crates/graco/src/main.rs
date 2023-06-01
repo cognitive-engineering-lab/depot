@@ -2,11 +2,11 @@ use self::commands::Command;
 use anyhow::{Context, Result};
 use clap::Parser;
 use commands::{
-  build::BuildCommand,
+  build::{BuildArgs, BuildCommand},
   clean::CleanCommand,
   doc::DocCommand,
   fmt::FmtCommand,
-  init::InitCommand,
+  init::{InitArgs, InitCommand},
   new::NewCommand,
   setup::{GlobalConfig, SetupCommand},
   test::TestCommand,
@@ -50,7 +50,9 @@ async fn run() -> Result<()> {
     }
 
     Command::Build(args) => {
-      let init_cmd = InitCommand::new(Default::default());
+      let init_cmd = InitCommand::new(InitArgs {
+        package: args.package.clone(),
+      });
       ws.run_both(&init_cmd).await?;
 
       let build_cmd = BuildCommand::new(args);
@@ -58,10 +60,15 @@ async fn run() -> Result<()> {
     }
 
     Command::Test(args) => {
-      let init_cmd = InitCommand::new(Default::default());
+      let init_cmd = InitCommand::new(InitArgs {
+        package: args.package.clone(),
+      });
       ws.run_both(&init_cmd).await?;
 
-      let build_cmd = BuildCommand::new(Default::default());
+      let build_cmd = BuildCommand::new(BuildArgs {
+        package: args.package.clone(),
+        ..Default::default()
+      });
       ws.run_pkgs(&build_cmd).await?;
 
       let test_cmd = TestCommand::new(args);

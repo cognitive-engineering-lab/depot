@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr};
+use std::{borrow::Cow, path::Path, str::FromStr};
 
 use crate::{
   utils,
@@ -10,7 +10,10 @@ use crate::{
 use anyhow::Result;
 
 #[derive(clap::Parser, Default)]
-pub struct InitArgs {}
+pub struct InitArgs {
+  #[arg(short, long)]
+  pub package: Option<PackageName>,
+}
 
 pub struct InitCommand {
   #[allow(unused)]
@@ -73,5 +76,9 @@ impl PackageCommand for InitCommand {
     self.link_packages(&pkgs_to_link, &local_node_modules, pkg.workspace())?;
 
     Ok(())
+  }
+
+  fn only_run(&self) -> Cow<'_, Option<PackageName>> {
+    Cow::Borrowed(&self.args.package)
   }
 }

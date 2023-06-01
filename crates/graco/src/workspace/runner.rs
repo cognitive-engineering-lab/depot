@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use futures::FutureExt;
 use log::debug;
@@ -10,7 +10,7 @@ use std::{
 };
 use tokio::sync::Notify;
 
-use crate::logger::ui::{FullscreenRenderer, Renderer};
+use crate::logger::ui::{FullscreenRenderer, InlineRenderer, Renderer};
 
 use super::{package::PackageIndex, PackageCommand, Workspace, WorkspaceCommand};
 
@@ -31,13 +31,23 @@ impl Workspace {
     &self,
     log_should_exit: &Arc<Notify>,
     runner_should_exit: &Arc<Notify>,
+    ignore_deps: bool,
   ) -> impl Future {
     let ws = self.clone();
     let log_should_exit = Arc::clone(log_should_exit);
     let runner_should_exit = Arc::clone(runner_should_exit);
     tokio::spawn(async move {
-      let renderer = FullscreenRenderer::new().unwrap();
-      let result = renderer.render_loop(&ws, &log_should_exit).await;
+      let result = if ignore_deps {
+        FullscreenRenderer::new()
+          .unwrap()
+          .render_loop(&ws, &log_should_exit)
+          .await
+      } else {
+        InlineRenderer::new()
+          .unwrap()
+          .render_loop(&ws, &log_should_exit)
+          .await
+      };
       match result {
         Ok(exit_early) => {
           if exit_early {
@@ -65,10 +75,31 @@ impl Workspace {
 
   pub async fn run_pkgs(&self, cmd: &impl PackageCommand) -> Result<()> {
     let ignore_deps = cmd.ignore_dependencies();
-    let roots = self.packages.clone();
+    let only_run = cmd.only_run();
+
+    let roots = match only_run.as_ref() {
+      Some(name) => {
+        let only = self
+          .packages
+          .iter()
+          .find(|pkg| &pkg.name == name)
+          .with_context(|| format!("Could not find package in workspace with name \"{name}\""))?
+          .clone();
+        vec![only]
+      }
+      None => self.packages.clone(),
+    };
+    log::debug!(
+      "Roots: {:?}",
+      roots
+        .iter()
+        .map(|pkg| format!("{}", pkg.name))
+        .collect::<Vec<_>>()
+    );
+
     let pkgs = roots
       .iter()
-      .flat_map(|root| self.dep_graph.all_deps_for(root.index))
+      .flat_map(|root| self.dep_graph.all_deps_for(root.index).chain([root.index]))
       .collect::<HashSet<_>>();
 
     let cmd = Arc::new(cmd);
@@ -97,7 +128,7 @@ impl Workspace {
     let runner_should_exit_fut = runner_should_exit.notified();
     tokio::pin!(runner_should_exit_fut);
 
-    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit);
+    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit, ignore_deps);
 
     let result = loop {
       if tasks

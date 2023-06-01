@@ -58,19 +58,19 @@ const VITEST_SETUP: &str = include_str!("configs/setup.ts");
 /// Create a new Graco workspace
 #[derive(clap::Parser)]
 pub struct NewArgs {
-  name: PackageName,
+  pub name: PackageName,
 
   /// If a workspace should be created instead of a single package
   #[arg(short, long)]
-  workspace: bool,
+  pub workspace: bool,
 
   /// Type of package
   #[arg(short, long, value_enum, default_value_t = Target::Lib)]
-  target: Target,
+  pub target: Target,
 
   /// Where the package will run
   #[arg(short, long, value_enum, default_value_t = Platform::Browser)]
-  platform: Platform,
+  pub platform: Platform,
 }
 
 pub struct NewCommand {
@@ -262,7 +262,7 @@ impl NewCommand {
       Platform::Node => ("node", ""),
     };
 
-    let mut imports = Vec::new();
+    let mut imports = vec![("fs", "fs")];
     if platform.is_browser() {
       imports.push(("react", "@vitejs/plugin-react"));
     }
@@ -279,26 +279,41 @@ impl NewCommand {
             let name = self.args.name.as_global_var();
             format!(
               r#"lib: {{
-  entry: resolve(__dirname, "src/main.ts"),
+  entry: resolve(__dirname, "src/main.tsx"),
   name: "{name}",
-  fileName: "main",
-  formats: ["es"],
-}}"#
+  formats: ["iife"],
+}},"#
             )
           }
           Platform::Node => r#"lib: {
-  entry: resolve(__dirname, "src/main.ts"),
-  fileName: "main",
+  entry: resolve(__dirname, "src/main.ts"),  
   formats: ["cjs"],
 },
-minify: false"#
+minify: false,"#
             .into(),
         };
-        let full_obj = format!("{{\n{}\n}}", textwrap::indent(&build_config, "  "));
+
+        let rollup_config = r#"rollupOptions: {
+  external: Object.keys(manifest.dependencies || {})
+}"#;
+        let full_obj = format!(
+          "{{\n{}\n{}\n}}",
+          textwrap::indent(&build_config, "  "),
+          textwrap::indent(rollup_config, "  ")
+        );
         config.push(("build", full_obj.into()));
       }
       Target::Lib => {}
     }
+
+    // This is needed for libraries like React that rely on process.env.NODE_ENV during bundling.
+    config.push((
+      "define",
+      r#"{
+  "process.env.NODE_ENV": JSON.stringify(mode),
+}"#
+        .into(),
+    ));
 
     if platform.is_browser() {
       config.push(("plugins", "[react()]".into()));
@@ -326,8 +341,9 @@ minify: false"#
       .collect::<String>();
     let mut src = format!(
       r#"{imports_str}
-export default defineConfig({{
-{config_str}}});
+let manifest = JSON.parse(fs.readFileSync("package.json", "utf-8"));
+export default defineConfig(({{mode}}) => ({{
+{config_str}}}));
 "#
     );
 
@@ -467,7 +483,11 @@ export default defineConfig({{
             name.name.clone() => "dist/main.js".into()
           }));
         }
-        ("main.ts", MAIN)
+        let filename = match platform {
+          Platform::Browser => "main.tsx",
+          Platform::Node => "main.ts",
+        };
+        (filename, MAIN)
       }
       Target::Lib => {
         manifest.main = Some(String::from("dist/lib.js"));

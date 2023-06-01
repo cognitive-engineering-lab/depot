@@ -37,3 +37,4 @@ ansi-diff = "1"
 
 [dev-dependencies]
 graco-test-utils = { path = "../graco-test-utils" }
+maplit = "*"
