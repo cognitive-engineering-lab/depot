@@ -21,7 +21,8 @@ impl DocCommand {
 #[async_trait::async_trait]
 impl WorkspaceCommand for DocCommand {
   async fn run(&self, ws: &Workspace) -> Result<()> {
-    let mut cmd = async_process::Command::new(ws.global_config.bindir().join("typedoc"));
+    let mut cmd = async_process::Command::new(ws.global_config.bindir().join("pnpm"));
+    cmd.args(["exec", "typedoc"]);
     cmd.current_dir(&ws.root);
 
     if let Some(typedoc_args) = &self.args.typedoc_args {

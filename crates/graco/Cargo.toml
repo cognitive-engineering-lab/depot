@@ -34,6 +34,7 @@ textwrap = "0.16"
 shlex = "1"
 walkdir = "2"
 ansi-diff = "1"
+indicatif = "0.17"
 
 [dev-dependencies]
 graco-test-utils = { path = "../graco-test-utils" }

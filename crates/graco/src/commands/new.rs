@@ -16,7 +16,7 @@ use crate::workspace::{
   Workspace,
 };
 
-use super::{init::InitCommand, setup::GlobalConfig};
+use super::setup::GlobalConfig;
 
 const INDEX: &str = r#"import React from "react";
 import ReactDOM from "react-dom/client";
@@ -47,6 +47,13 @@ const LIB: &str = r#"/** Adds two numbers together */
 export function add(a: number, b: number) {
   return a + b;
 }
+"#;
+
+const TEST: &str = r#"import { expect, test } from "vitest";
+
+import { add } from "../src/lib";
+
+test("add", () => expect(add(2, 2)).toBe(4));
 "#;
 
 const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
@@ -442,30 +449,48 @@ export default defineConfig(({{mode}}) => ({{
     manifest.name = Some(name.to_string());
     manifest.version = Some(String::from("0.1.0"));
 
-    let mut files: FileVec = Vec::new();
-    let mut ws_dependencies = Vec::new();
-    let mut peer_dependencies = Vec::new();
     let mut other: IndexMap<String, Value> = IndexMap::new();
-
     let pkg_config = PackageGracoConfig {
       platform: *platform,
     };
     other.insert("graco".into(), serde_json::to_value(&pkg_config)?);
 
-    match platform {
-      Platform::Browser => {
-        ws_dependencies.extend([
-          "react",
-          "react-dom",
-          "@types/react",
-          "@types/react-dom",
-          "@testing-library/react",
-        ]);
-        if target.is_lib() {
-          peer_dependencies.extend(["react", "react-dom"]);
-        }
-      }
-      Platform::Node => {}
+    let mut files: FileVec = Vec::new();
+
+    #[rustfmt::skip]
+    let ws_dependencies: Vec<&str> = vec![
+      // Types
+      "typescript",
+      "@types/node",
+
+      // Linting
+      "eslint",
+      "eslint-plugin-react",
+      "eslint-plugin-react-hooks",
+      "@typescript-eslint/eslint-plugin",
+      "@typescript-eslint/parser",
+      "eslint-plugin-prettier",
+
+      // Formatting
+      "prettier",
+      "@trivago/prettier-plugin-sort-imports",
+
+      // Documentation generation
+      "typedoc"
+    ];
+
+    let mut peer_dependencies: Vec<&str> = Vec::new();
+    let mut dev_dependencies: Vec<&str> = vec!["vitest"];
+
+    if platform.is_browser() {
+      dev_dependencies.extend([
+        "react",
+        "react-dom",
+        "vite",
+        "@vitejs/plugin-react",
+        "jsdom",
+        "@testing-library/react",
+      ]);
     }
 
     let (src_path, src_contents) = match target {
@@ -475,17 +500,19 @@ export default defineConfig(({{mode}}) => ({{
           "Must have platform=browser when target=site"
         );
         files.push(("index.html".into(), HTML.into()));
+
         ("index.tsx", INDEX)
       }
       Target::Script => {
-        if platform.is_node() {
-          manifest.bin = Some(pj::Binary::Object(indexmap! {
-            name.name.clone() => "dist/main.js".into()
-          }));
-        }
         let filename = match platform {
+          Platform::Node => {
+            manifest.bin = Some(pj::Binary::Object(indexmap! {
+              name.name.clone() => "dist/main.js".into()
+            }));
+            dev_dependencies.push("vite");
+            "main.ts"
+          }
           Platform::Browser => "main.tsx",
-          Platform::Node => "main.ts",
         };
         (filename, MAIN)
       }
@@ -493,6 +520,9 @@ export default defineConfig(({{mode}}) => ({{
         manifest.main = Some(String::from("dist/lib.js"));
         manifest.type_ = Some(pj::Type::Module);
         manifest.files = Some(vec![String::from("dist")]);
+
+        peer_dependencies.push("react");
+
         let main_export = pj::ExportsObject::builder()
           .default("./dist/lib.js")
           .build();
@@ -502,14 +532,7 @@ export default defineConfig(({{mode}}) => ({{
           "./*".into() => sub_exports,
         }));
 
-        let test = r#"import { expect, test } from "vitest";
-
-import { add } from "../src/lib";
-
-test("add", () => expect(add(2, 2)).toBe(4));
-"#;
-
-        files.push(("tests/add.test.ts".into(), test.into()));
+        files.push(("tests/add.test.ts".into(), TEST.into()));
 
         other.insert("typedoc".into(), json!({"entryPoint": "./src/lib.ts"}));
 
@@ -544,41 +567,51 @@ test("add", () => expect(add(2, 2)).toBe(4));
       fs::write(root.join(rel_path), contents.as_bytes())?;
     }
 
-    let pnpm_cmd = || Command::new(self.global_config.bindir().join("pnpm"));
-    if !peer_dependencies.is_empty() {
-      let mut pnpm = pnpm_cmd();
-      pnpm
-        .args(["add", "--save-peer"])
-        .args(peer_dependencies)
-        .current_dir(root);
-      let status = pnpm.status()?;
+    let pnpm_path = self.global_config.bindir().join("pnpm");
+    fn run_pnpm(pnpm_path: &Path, f: impl Fn(&mut Command)) -> Result<()> {
+      let mut cmd = Command::new(pnpm_path);
+      f(&mut cmd);
+      let status = cmd.status()?;
       ensure!(status.success(), "pnpm failed");
+      Ok(())
+    }
+
+    if !peer_dependencies.is_empty() {
+      run_pnpm(&pnpm_path, |pnpm| {
+        pnpm
+          .args(["add", "--save-peer"])
+          .args(&peer_dependencies)
+          .current_dir(root);
+      })?;
     }
 
     if !ws_dependencies.is_empty() {
-      let mut pnpm = pnpm_cmd();
-      pnpm.args(["add", "--save-dev"]).args(ws_dependencies);
-
-      match &self.ws_opt {
-        Some(ws) => {
-          pnpm.arg("--workspace-root").current_dir(&ws.root);
+      run_pnpm(&pnpm_path, |pnpm| {
+        pnpm.args(["add", "--save-dev"]).args(&ws_dependencies);
+        match &self.ws_opt {
+          Some(ws) => {
+            pnpm.arg("--workspace-root").current_dir(&ws.root);
+          }
+          None => {
+            pnpm.current_dir(root);
+          }
         }
-        None => {
-          pnpm.current_dir(root);
-        }
-      }
-
-      let status = pnpm.status()?;
-      ensure!(status.success(), "pnpm failed");
+      })?;
     }
 
-    let ws = match self.ws_opt.take() {
+    if !dev_dependencies.is_empty() {
+      run_pnpm(&pnpm_path, |pnpm| {
+        pnpm
+          .args(["add", "--save-dev"])
+          .args(&dev_dependencies)
+          .current_dir(root);
+      })?;
+    }
+
+    let _ws = match self.ws_opt.take() {
       Some(ws) => ws,
       None => Workspace::load(self.global_config, Some(root.to_owned())).await?,
     };
-
-    let cmd = InitCommand::new(Default::default());
-    ws.run_both(&cmd).await?;
 
     Ok(())
   }

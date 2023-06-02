@@ -6,10 +6,10 @@ use std::{
   fs::{File, Permissions},
   io::{BufWriter, Write},
   path::{Path, PathBuf},
-  process::Command,
 };
 
 use anyhow::{ensure, Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(clap::Parser)]
 pub struct SetupArgs {
@@ -52,13 +52,44 @@ impl GlobalConfig {
   pub fn bindir(&self) -> PathBuf {
     self.root.join("bin")
   }
-
-  pub fn node_path(&self) -> PathBuf {
-    self.bindir().join("global/5/node_modules")
-  }
 }
 
 const PNPM_VERSION: &str = "7.29.1";
+
+fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
+  let mut curl = curl::easy::Easy::new();
+  curl.url(url)?;
+  curl.follow_location(true)?;
+
+  curl.nobody(true)?;
+  curl.perform()?;
+  let total_size = curl.content_length_download()? as u64;
+
+  curl.nobody(false)?;
+  curl.progress(true)?;
+
+  log::debug!("Starting download...");
+  let bar = ProgressBar::new(total_size);
+  bar.set_style(
+    ProgressStyle::with_template(
+      "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}",
+    )
+    .unwrap()
+    .progress_chars("#>-"),
+  );
+
+  let mut transfer = curl.transfer();
+  transfer.progress_function(|_, current, _, _| {
+    bar.set_position(current as u64);
+    true
+  })?;
+  transfer.write_function(|data| dst.write(data).map_err(|_| curl::easy::WriteError::Pause))?;
+
+  transfer.perform()?;
+  bar.finish();
+
+  Ok(())
+}
 
 fn download_pnpm(dst: &Path) -> Result<()> {
   let version = PNPM_VERSION;
@@ -72,23 +103,11 @@ fn download_pnpm(dst: &Path) -> Result<()> {
     _ => "x64",
   };
 
-  let mut file = File::create(dst).context("Could not save pnpm binary to file")?;
+  let pnpm_url =
+    format!("https://github.com/pnpm/pnpm/releases/download/v{version}/pnpm-{platform}-{arch}");
 
-  {
-    let mut writer = BufWriter::new(&mut file);
-    let pnpm_url =
-      format!("https://github.com/pnpm/pnpm/releases/download/v{version}/pnpm-{platform}-{arch}");
-    let mut curl = curl::easy::Easy::new();
-    curl.url(&pnpm_url)?;
-    curl.follow_location(true)?;
-    let mut transfer = curl.transfer();
-    transfer.write_function(|data| {
-      writer
-        .write(data)
-        .map_err(|_| curl::easy::WriteError::Pause)
-    })?;
-    transfer.perform()?;
-  }
+  let mut file = File::create(dst).context("Could not save pnpm binary to file")?;
+  download_file(&pnpm_url, BufWriter::new(&mut file))?;
 
   #[cfg(unix)]
   file.set_permissions(Permissions::from_mode(0o555))?;
@@ -117,49 +136,11 @@ impl SetupCommand {
 
     let pnpm_path = bindir.join("pnpm");
     if !pnpm_path.exists() {
-      println!("Downloading pnpm...");
+      println!("Downloading pnpm from Github...");
       download_pnpm(&pnpm_path)?;
     }
 
-    #[rustfmt::skip]
-    const PACKAGES: &[&str] = &[
-      // Types
-      "typescript@^5.0.2",
-      "@types/node@^18.15.10",
-
-      // Bundling
-      "vite@^4.2.1",
-      "@vitejs/plugin-react@^3.1.0",
-
-      // Testing
-      "vitest@^0.29.7",
-      "jsdom@^21.1.1",
-
-      // Linting
-      "eslint@^8.36.0",
-      "eslint-plugin-react@^7.32.2",
-      "eslint-plugin-react-hooks@^4.6.0",
-      "@typescript-eslint/eslint-plugin@^5.56.0",
-      "@typescript-eslint/parser@^5.56.0",
-      "eslint-plugin-prettier@^4.2.1",
-
-      // Formatting
-      "prettier@^2.8.7",
-      "@trivago/prettier-plugin-sort-imports@^4.1.1",
-
-      // Documentation generation
-      "typedoc@^0.23.28"
-    ];
-
-    println!("Installing JS dependencies...");
-    let bindir = config.bindir();
-    let mut pnpm = Command::new(bindir.join("pnpm"));
-    pnpm.env("PNPM_HOME", &bindir);
-    let path = env::var("PATH").unwrap_or_else(|_| String::new());
-    pnpm.env("PATH", format!("{}:{path}", bindir.display()));
-
-    let status = pnpm.args(["install", "--global"]).args(PACKAGES).status()?;
-    ensure!(status.success(), "pnpm global installation failed");
+    println!("Setup complete!");
 
     Ok(())
   }

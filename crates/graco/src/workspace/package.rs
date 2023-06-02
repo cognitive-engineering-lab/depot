@@ -24,6 +24,7 @@ pub enum Platform {
   Node,
 }
 
+#[allow(unused)]
 impl Platform {
   pub fn is_browser(self) -> bool {
     matches!(self, Platform::Browser)
@@ -230,14 +231,22 @@ impl Package {
     configure: impl FnOnce(&mut async_process::Command),
   ) -> Result<()> {
     let ws = self.workspace();
-    let script_path = ws.global_config.bindir().join(script);
-    assert!(script_path.exists());
+    let pnpm_path = ws.global_config.bindir().join("pnpm");
+    ensure!(
+      pnpm_path.exists(),
+      "Trying to execute a command before Graco is setup"
+    );
 
-    let mut cmd = async_process::Command::new(&script_path);
+    let mut cmd = async_process::Command::new(&pnpm_path);
     cmd.current_dir(&self.root);
+
+    if script != "pnpm" {
+      cmd.args(["exec", script]);
+    }
+
     configure(&mut cmd);
 
-    let process = Arc::new(Process::new(&script_path, cmd)?);
+    let process = Arc::new(Process::new(script.to_owned(), cmd)?);
     self.processes.write().unwrap().push(process.clone());
 
     process.wait().await?;

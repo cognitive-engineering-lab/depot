@@ -43,27 +43,24 @@ async fn run() -> Result<()> {
 
   let ws = Workspace::load(global_config, None).await?;
 
+  // TODO: merge all tasks into a single task graph like Cargo
   match command {
     Command::Init(args) => {
       let init_cmd = InitCommand::new(args);
-      ws.run_both(&init_cmd).await?;
+      ws.run_ws(&init_cmd).await?;
     }
 
     Command::Build(args) => {
-      let init_cmd = InitCommand::new(InitArgs {
-        package: args.package.clone(),
-      });
-      ws.run_both(&init_cmd).await?;
+      let init_cmd = InitCommand::new(InitArgs {});
+      ws.run_ws(&init_cmd).await?;
 
       let build_cmd = BuildCommand::new(args);
       ws.run_pkgs(&build_cmd).await?;
     }
 
     Command::Test(args) => {
-      let init_cmd = InitCommand::new(InitArgs {
-        package: args.package.clone(),
-      });
-      ws.run_both(&init_cmd).await?;
+      let init_cmd = InitCommand::new(InitArgs {});
+      ws.run_ws(&init_cmd).await?;
 
       let build_cmd = BuildCommand::new(BuildArgs {
         package: args.package.clone(),

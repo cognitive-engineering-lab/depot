@@ -1,11 +1,8 @@
 use async_process::Stdio;
 use futures::{io::BufReader, AsyncBufReadExt, AsyncRead, StreamExt};
-use std::{
-  path::Path,
-  sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex, MutexGuard,
-  },
+use std::sync::{
+  atomic::{AtomicBool, Ordering},
+  Arc, Mutex, MutexGuard,
 };
 
 use anyhow::{bail, ensure, Context, Result};
@@ -33,15 +30,14 @@ pub struct Process {
 }
 
 impl Process {
-  pub fn new(script: &Path, mut cmd: async_process::Command) -> Result<Self> {
+  pub fn new(script: String, mut cmd: async_process::Command) -> Result<Self> {
     cmd.kill_on_drop(true);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
     let mut child = cmd
       .spawn()
-      .with_context(|| format!("Failed to spawn process: `{}`", script.display()))?;
-    let script = script.file_name().unwrap().to_string_lossy().to_string();
+      .with_context(|| format!("Failed to spawn process: `{}`", script))?;
 
     let logs = Arc::new(Mutex::new(RingBuffer::new()));
     tokio::spawn(Self::pipe_stdio(

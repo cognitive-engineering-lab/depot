@@ -21,16 +21,16 @@ fn basic_lib_node() {
 fn basic_script_browser() {
   let p = project_for("script", "browser");
   p.graco("build");
-  assert!(p.exists("dist/main.mjs"));
-  assert!(p.exists("dist/main.mjs.map"));
+  assert!(p.exists("dist/foo.iife.js"));
+  assert!(p.exists("dist/foo.iife.js.map"));
 }
 
 #[test]
 fn basic_script_node() {
   let p = project_for("script", "node");
   p.graco("build");
-  assert!(p.exists("dist/main.js"));
-  assert!(p.exists("dist/main.js.map"));
+  assert!(p.exists("dist/foo.js"));
+  assert!(p.exists("dist/foo.js.map"));
 }
 
 #[test]

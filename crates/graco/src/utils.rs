@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use cfg_if::cfg_if;
+
 use std::{
   fs,
   path::{Path, PathBuf},
@@ -22,27 +22,6 @@ pub fn get_git_root(cwd: &Path) -> Option<PathBuf> {
     .status
     .success()
     .then(|| PathBuf::from(String::from_utf8(output.stdout).unwrap().trim()))
-}
-
-pub fn symlink_dir_if_missing(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> Result<()> {
-  let (src, dst) = (src.as_ref(), dst.as_ref());
-  if dst.exists() {
-    return Ok(());
-  }
-  cfg_if! {
-    if #[cfg(unix)] {
-      let result = std::os::unix::fs::symlink(src, dst);
-    } else {
-      let result = std::os::windows::fs::symlink_dir(src, dst);
-    }
-  };
-  result.with_context(|| {
-    format!(
-      "Could not create symlink from {} to {}",
-      src.display(),
-      dst.display()
-    )
-  })
 }
 
 pub fn remove_dir_all_if_exists(dir: impl AsRef<Path>) -> Result<()> {
