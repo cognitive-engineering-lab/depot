@@ -6,16 +6,20 @@ use crate::workspace::{
 };
 use anyhow::{Context, Result};
 
+/// Run tests via vitest
 #[derive(clap::Parser)]
-pub struct TestArgs {
-  #[arg(short, long)]
+pub struct TestArgs {  
+  /// If true, rerun tests when source files change
+  #[arg(short, long, action)]
   pub watch: bool,
 
-  #[arg(last = true)]
-  pub vitest_args: Option<String>,
-
+  /// Only run tests for a specific package
   #[arg(short, long)]
   pub package: Option<PackageName>,
+
+  /// Additional arguments to pass to vitest
+  #[arg(last = true)]
+  pub vitest_args: Option<String>,
 }
 
 pub struct TestCommand {

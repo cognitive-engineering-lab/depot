@@ -2,8 +2,10 @@ use anyhow::{ensure, Context, Result};
 
 use crate::workspace::{Workspace, WorkspaceCommand};
 
+/// Generate documentation for libraries with typedoc
 #[derive(clap::Parser)]
 pub struct DocArgs {
+  /// Additional arguments to pass to typedoc
   #[arg(last = true)]
   pub typedoc_args: Option<String>,
 }

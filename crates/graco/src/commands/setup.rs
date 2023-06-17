@@ -11,8 +11,10 @@ use std::{
 use anyhow::{ensure, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 
+/// Setup Graco for use on this machine
 #[derive(clap::Parser)]
 pub struct SetupArgs {
+  /// Directory for global Graco configuration, defaults to $HOME/.graco
   #[arg(short, long)]
   pub config_dir: Option<PathBuf>,
 }

@@ -99,6 +99,15 @@ pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
   builder
 }
 
+pub fn react_project_for(target: &str, platform: &str) -> ProjectBuilder {
+  let builder = ProjectBuilder::new();
+  builder.graco_in(
+    format!("new foo --target {target} --platform {platform} --react"),
+    builder.root().parent().unwrap(),
+  );
+  builder
+}
+
 pub fn workspace() -> ProjectBuilder {
   let builder = ProjectBuilder::new();
   builder.graco_in("new foo --workspace", builder.root().parent().unwrap());

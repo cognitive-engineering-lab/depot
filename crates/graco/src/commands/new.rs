@@ -18,7 +18,7 @@ use crate::workspace::{
 
 use super::setup::GlobalConfig;
 
-const INDEX: &str = r#"import React from "react";
+const REACT_INDEX: &str = r#"import React from "react";
 import ReactDOM from "react-dom/client";
 
 let App = () => {
@@ -28,17 +28,10 @@ let App = () => {
 ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
 "#;
 
-const HTML: &str = r#"<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
-  </body>
-</html>"#;
+const BASIC_INDEX: &str = r#"
+let root = document.getElementById("root")!;
+root.innerHTML = "<h1>Hello world!</h1>";
+"#;
 
 const MAIN: &str = r#"console.log("Hello world!");
 "#;
@@ -60,8 +53,6 @@ const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
 const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 const VITEST_SETUP: &str = include_str!("configs/setup.ts");
 
-// TODO: option to specify --react that changes .ts -> .tsx
-
 /// Create a new Graco workspace
 #[derive(clap::Parser)]
 pub struct NewArgs {
@@ -78,6 +69,14 @@ pub struct NewArgs {
   /// Where the package will run
   #[arg(short, long, value_enum, default_value_t = Platform::Browser)]
   pub platform: Platform,
+
+  /// If true, then add React as a project dependency
+  #[arg(long, action)]
+  pub react: bool,
+
+  /// If true, then don't attempt to download packages from the web
+  #[arg(long, action)]
+  pub offline: bool
 }
 
 pub struct NewCommand {
@@ -134,6 +133,8 @@ impl NewCommand {
       fs::write(root.join(rel_path), contents.as_bytes())?;
     }
 
+    self.install_ws_dependencies(root, true)?;
+
     Ok(())
   }
 
@@ -149,14 +150,28 @@ impl NewCommand {
         // Generate .d.ts files for downstream consumers
         "declaration": true,
 
-        // Allow JSX syntax in ts files
-        "jsx": "react",
-
-        // Allow ts-jest to import files from dist/ directory
-        "esModuleInterop": true,
+        // Allow JS files to be included
         "allowJs": true,
+
+        // Prevent tsc from checking files in node_modules
+        // See: https://stackoverflow.com/a/57653497
+        // TODO: pretty sure this is not ideal... need to figure out
+        //   a better fix
+        "skipLibCheck": true
       },
     });
+
+    if self.args.react {
+      json_merge(
+        &mut config,
+        json!({
+          "compilerOptions": {
+            // Allow JSX syntax in ts files
+            "jsx": "react",
+          }
+        }),
+      );
+    }
 
     if !self.args.workspace {
       if self.ws_opt.is_some() {
@@ -230,16 +245,6 @@ impl NewCommand {
       let platform_config = match self.args.platform {
         Platform::Browser => json!({
           "env": {"browser": true},
-          "plugins": ["react"],
-          "rules": {
-            "react/prop-types": "off",
-            "react/no-unescaped-entities": "off",
-          },
-          "settings": {
-            "react": {
-              "version": "detect",
-            },
-          },
         }),
         Platform::Node => json!({
           "env": {
@@ -247,7 +252,25 @@ impl NewCommand {
           },
         }),
       };
+
       json_merge(&mut config, platform_config);
+    }
+
+    if self.args.react {
+      let react_config = json!({
+        "plugins": ["react"],
+        "rules": {
+          "react/prop-types": "off",
+          "react/no-unescaped-entities": "off",
+        },
+        "settings": {
+          "react": {
+            "version": "detect",
+          },
+        }
+      });
+
+      json_merge(&mut config, react_config);
     }
 
     let config_str = serde_json::to_string_pretty(&config)?;
@@ -255,22 +278,26 @@ impl NewCommand {
     Ok(vec![(".eslintrc.cjs".into(), src.into())])
   }
 
-  fn make_vite_config(&self) -> Result<FileVec> {
+  fn make_vite_config(&self, entry_point: &str) -> Result<FileVec> {
     let NewArgs {
       platform, target, ..
     } = self.args;
 
     let mut files: FileVec = Vec::new();
-    let (environment, setup_files) = match platform {
-      Platform::Browser => {
-        files.push(("tests/setup.ts".into(), VITEST_SETUP.into()));
-        ("jsdom", "\n  setupFiles: \"tests/setup.ts\",")
-      }
-      Platform::Node => ("node", ""),
+    let environment = match platform {
+      Platform::Browser => "jsdom",
+      Platform::Node => "node",
+    };
+
+    let setup_files = if self.args.react {
+      files.push(("tests/setup.ts".into(), VITEST_SETUP.into()));
+      "\n  setupFiles: \"tests/setup.ts\","
+    } else {
+      ""
     };
 
     let mut imports = vec![("fs", "fs")];
-    if platform.is_browser() {
+    if self.args.react {
       imports.push(("react", "@vitejs/plugin-react"));
     }
     imports.push(("{ defineConfig }", "vite"));
@@ -286,18 +313,19 @@ impl NewCommand {
             let name = self.args.name.as_global_var();
             format!(
               r#"lib: {{
-  entry: resolve(__dirname, "src/main.tsx"),
+  entry: resolve(__dirname, "src/{entry_point}"),
   name: "{name}",
   formats: ["iife"],
 }},"#
             )
           }
-          Platform::Node => r#"lib: {
-  entry: resolve(__dirname, "src/main.ts"),  
+          Platform::Node => format!(
+            r#"lib: {{
+  entry: resolve(__dirname, "src/{entry_point}"),  
   formats: ["cjs"],
-},
+}},
 minify: false,"#
-            .into(),
+          ),
         };
 
         let rollup_config = r#"rollupOptions: {
@@ -322,7 +350,7 @@ minify: false,"#
         .into(),
     ));
 
-    if platform.is_browser() {
+    if self.args.react {
       config.push(("plugins", "[react()]".into()));
     }
 
@@ -429,6 +457,76 @@ export default defineConfig(({{mode}}) => ({{
     vec![(".prettierrc.cjs".into(), PRETTIER_CONFIG.into())]
   }
 
+  fn run_pnpm(&self, f: impl Fn(&mut Command)) -> Result<()> {
+    let pnpm_path = self.global_config.bindir().join("pnpm");
+    let mut cmd = Command::new(pnpm_path);
+    f(&mut cmd);
+
+    if self.args.offline {
+      cmd.arg("--offline");
+    }
+
+    let status = cmd.status()?;
+    ensure!(status.success(), "pnpm failed");
+    Ok(())
+  }
+
+  fn install_ws_dependencies(&self, root: &Path, is_workspace: bool) -> Result<()> {
+    #[rustfmt::skip]
+    let mut ws_dependencies: Vec<&str> = vec![
+      // Building
+      "vite",
+      
+      // Testing
+      "vitest",
+      
+      // Types
+      "typescript",
+      "@types/node",
+
+      // Linting
+      "eslint",
+      "@typescript-eslint/eslint-plugin",
+      "@typescript-eslint/parser",
+      "eslint-plugin-prettier",
+
+      // Formatting
+      "prettier",
+      "@trivago/prettier-plugin-sort-imports",
+
+      // Documentation generation
+      "typedoc"
+    ];
+
+    if self.args.react {
+      ws_dependencies.extend(["eslint-plugin-react", "eslint-plugin-react-hooks"]);
+    }
+
+    self.run_pnpm(|pnpm| {
+      pnpm.args(["add", "--save-dev"]).args(&ws_dependencies);
+      if is_workspace {
+        pnpm.arg("--workspace-root");
+      }
+      pnpm.current_dir(root);
+    })
+  }
+
+  fn make_index_html(entry_point: &str) -> String {
+    format!(
+      r#"<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/{entry_point}"></script>
+  </body>
+</html>"#
+    )
+  }
+
   async fn new_package(mut self, root: &Path) -> Result<()> {
     let NewArgs {
       name,
@@ -457,38 +555,18 @@ export default defineConfig(({{mode}}) => ({{
 
     let mut files: FileVec = Vec::new();
 
-    #[rustfmt::skip]
-    let ws_dependencies: Vec<&str> = vec![
-      // Types
-      "typescript",
-      "@types/node",
-
-      // Linting
-      "eslint",
-      "eslint-plugin-react",
-      "eslint-plugin-react-hooks",
-      "@typescript-eslint/eslint-plugin",
-      "@typescript-eslint/parser",
-      "eslint-plugin-prettier",
-
-      // Formatting
-      "prettier",
-      "@trivago/prettier-plugin-sort-imports",
-
-      // Documentation generation
-      "typedoc"
-    ];
-
     let mut peer_dependencies: Vec<&str> = Vec::new();
-    let mut dev_dependencies: Vec<&str> = vec!["vitest"];
+    let mut dev_dependencies: Vec<&str> = vec![];
 
     if platform.is_browser() {
+      dev_dependencies.extend(["jsdom"]);
+    }
+
+    if self.args.react {
       dev_dependencies.extend([
         "react",
         "react-dom",
-        "vite",
         "@vitejs/plugin-react",
-        "jsdom",
         "@testing-library/react",
       ]);
     }
@@ -499,20 +577,28 @@ export default defineConfig(({{mode}}) => ({{
           platform.is_browser(),
           "Must have platform=browser when target=site"
         );
-        files.push(("index.html".into(), HTML.into()));
 
-        ("index.tsx", INDEX)
+        let (src_path, src_contents) = if self.args.react {
+          ("index.tsx", REACT_INDEX)
+        } else {
+          ("index.ts", BASIC_INDEX)
+        };
+
+        files.push(("index.html".into(), Self::make_index_html(src_path).into()));
+
+        (src_path, src_contents)
       }
       Target::Script => {
-        let filename = match platform {
-          Platform::Node => {
-            manifest.bin = Some(pj::Binary::Object(indexmap! {
-              name.name.clone() => "dist/main.js".into()
-            }));
-            dev_dependencies.push("vite");
-            "main.ts"
-          }
-          Platform::Browser => "main.tsx",
+        if platform.is_node() {
+          manifest.bin = Some(pj::Binary::Object(indexmap! {
+            name.name.clone() => "dist/main.js".into()
+          }));
+          dev_dependencies.push("vite");
+        }
+        let filename = if self.args.react {
+          "main.tsx"
+        } else {
+          "main.ts"
         };
         (filename, MAIN)
       }
@@ -521,7 +607,9 @@ export default defineConfig(({{mode}}) => ({{
         manifest.type_ = Some(pj::Type::Module);
         manifest.files = Some(vec![String::from("dist")]);
 
-        peer_dependencies.push("react");
+        if self.args.react {
+          peer_dependencies.push("react");
+        }
 
         let main_export = pj::ExportsObject::builder()
           .default("./dist/lib.js")
@@ -541,7 +629,13 @@ export default defineConfig(({{mode}}) => ({{
           None => files.extend(self.make_typedoc_config()?),
         }
 
-        ("lib.ts", LIB)
+        let filename = if self.args.react {
+          "lib.tsx"
+        } else {
+          "lib.ts"
+        };
+
+        (filename, LIB)
       }
     };
 
@@ -556,7 +650,7 @@ export default defineConfig(({{mode}}) => ({{
     ]);
     files.extend(self.make_tsconfig()?);
     files.extend(self.make_eslint_config()?);
-    files.extend(self.make_vite_config()?);
+    files.extend(self.make_vite_config(src_path)?);
 
     if self.ws_opt.is_none() {
       files.extend(self.make_gitignore());
@@ -567,17 +661,8 @@ export default defineConfig(({{mode}}) => ({{
       fs::write(root.join(rel_path), contents.as_bytes())?;
     }
 
-    let pnpm_path = self.global_config.bindir().join("pnpm");
-    fn run_pnpm(pnpm_path: &Path, f: impl Fn(&mut Command)) -> Result<()> {
-      let mut cmd = Command::new(pnpm_path);
-      f(&mut cmd);
-      let status = cmd.status()?;
-      ensure!(status.success(), "pnpm failed");
-      Ok(())
-    }
-
     if !peer_dependencies.is_empty() {
-      run_pnpm(&pnpm_path, |pnpm| {
+      self.run_pnpm(|pnpm| {
         pnpm
           .args(["add", "--save-peer"])
           .args(&peer_dependencies)
@@ -585,27 +670,18 @@ export default defineConfig(({{mode}}) => ({{
       })?;
     }
 
-    if !ws_dependencies.is_empty() {
-      run_pnpm(&pnpm_path, |pnpm| {
-        pnpm.args(["add", "--save-dev"]).args(&ws_dependencies);
-        match &self.ws_opt {
-          Some(ws) => {
-            pnpm.arg("--workspace-root").current_dir(&ws.root);
-          }
-          None => {
-            pnpm.current_dir(root);
-          }
-        }
-      })?;
-    }
-
     if !dev_dependencies.is_empty() {
-      run_pnpm(&pnpm_path, |pnpm| {
+      self.run_pnpm(|pnpm| {
         pnpm
           .args(["add", "--save-dev"])
           .args(&dev_dependencies)
           .current_dir(root);
       })?;
+    }
+
+    match &self.ws_opt {
+      Some(ws) => self.install_ws_dependencies(&ws.root, true)?,
+      None => self.install_ws_dependencies(root, false)?,
     }
 
     let _ws = match self.ws_opt.take() {

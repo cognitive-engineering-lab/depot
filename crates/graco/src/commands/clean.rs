@@ -5,6 +5,7 @@ use crate::{
   workspace::{package::Package, PackageCommand, Workspace, WorkspaceCommand},
 };
 
+/// Remove auto-generated files
 #[derive(clap::Parser)]
 pub struct CleanArgs {}
 

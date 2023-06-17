@@ -9,14 +9,18 @@ use crate::workspace::{
   PackageCommand,
 };
 
+/// Check and build packages
 #[derive(clap::Parser, Default)]
 pub struct BuildArgs {
+  /// Watch for changes and rebuild
   #[arg(short, long)]
   pub watch: bool,
 
+  /// Build in release mode
   #[arg(short, long)]
   pub release: bool,
 
+  /// Only build a specific package
   #[arg(short, long)]
   pub package: Option<PackageName>,
 }

@@ -1,6 +1,7 @@
 use crate::workspace::{Workspace, WorkspaceCommand};
 use anyhow::{ensure, Result};
 
+/// Initialize a workspace
 #[derive(clap::Parser, Default)]
 pub struct InitArgs {}
 

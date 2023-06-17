@@ -1,8 +1,17 @@
-use graco_test_utils::{project, project_for, workspace};
+use graco_test_utils::{project, project_for, react_project_for, workspace};
 
 #[test]
 fn basic_lib_browser() {
   let p = project_for("lib", "browser");
+  p.graco("build");
+  assert!(p.exists("dist/lib.js"));
+  assert!(p.exists("dist/lib.d.ts"));
+  assert!(p.exists("dist/lib.js.map"));
+}
+
+#[test]
+fn basic_lib_browser_react() {
+  let p = react_project_for("lib", "browser");
   p.graco("build");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.d.ts"));
