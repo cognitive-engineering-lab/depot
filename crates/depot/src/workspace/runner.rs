@@ -1,12 +1,12 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use futures::{future::BoxFuture, FutureExt};
 use log::debug;
 use std::{
-  cell::{Cell, RefCell},
-  collections::{HashMap, HashSet},
+  cell::RefCell,
+  collections::HashMap,
   future::Future,
-  sync::{atomic::Ordering, Arc, Mutex},
+  sync::{atomic::Ordering, Arc},
 };
 use tokio::sync::Notify;
 
@@ -16,10 +16,8 @@ use crate::{
 };
 
 use super::{
-  build_command_graph,
-  dep_graph::DepGraph,
-  package::{Package, PackageGraph, PackageName},
-  Command, CommandGraph, CommandInner, PackageCommand, Workspace, WorkspaceCommand,
+  build_command_graph, dep_graph::DepGraph, package::Package, Command, CommandGraph, CommandInner,
+  Workspace,
 };
 
 #[atomic_enum::atomic_enum]
@@ -123,11 +121,11 @@ impl Workspace {
     &self,
     cmd_graph: &CommandGraph,
   ) -> Result<(TaskGraph, HashMap<Task, TaskFuture>)> {
-    let mut futures = RefCell::new(HashMap::new());
-    let mut task_pool = RefCell::new(HashMap::new());
+    let futures = RefCell::new(HashMap::new());
+    let task_pool = RefCell::new(HashMap::new());
 
     let pkg_roots = match &self.common.only {
-      Some(name) => vec![self.find_package_by_name(&name)?.clone()],
+      Some(name) => vec![self.find_package_by_name(name)?.clone()],
       None => self.packages.clone(),
     };
 
@@ -269,108 +267,5 @@ impl Workspace {
     cleanup_logs.await;
 
     result
-  }
-
-  pub async fn run_both(&self, cmd: &(impl WorkspaceCommand + PackageCommand)) -> Result<()> {
-    self.run_ws(cmd).await?;
-    self.run_pkgs(cmd).await?;
-    Ok(())
-  }
-
-  pub async fn run_ws(&self, cmd: &impl WorkspaceCommand) -> Result<()> {
-    cmd.run_ws(self).await?;
-    Ok(())
-  }
-
-  pub async fn run_pkgs(&self, cmd: &impl PackageCommand) -> Result<()> {
-    todo!()
-    // let ignore_deps = cmd.ignore_dependencies();
-    // let only_run = cmd.only_run();
-
-    // let roots = match only_run.as_ref() {
-    //   Some(name) => {
-    //     let only = self
-    //       .packages
-    //       .iter()
-    //       .find(|pkg| &pkg.name == name)
-    //       .with_context(|| format!("Could not find package in workspace with name \"{name}\""))?
-    //       .clone();
-    //     vec![only]
-    //   }
-    //   None => self.packages.clone(),
-    // };
-    // log::debug!(
-    //   "Roots: {:?}",
-    //   roots
-    //     .iter()
-    //     .map(|pkg| format!("{}", pkg.name))
-    //     .collect::<Vec<_>>()
-    // );
-
-    // let pkgs = roots
-    //   .iter()
-    //   .flat_map(|root| self.pkg_graph.all_deps_for(root).chain([root]))
-    //   .collect::<HashSet<_>>();
-
-    // let cmd = Arc::new(cmd);
-    // let mut tasks = pkgs
-    //   .into_iter()
-    //   .map(|pkg| {
-    //     let cmd = Arc::clone(&cmd);
-    //     let pkg_ref = pkg.clone();
-    //     let future = async move {
-    //       let result = cmd.run(&pkg_ref).await;
-    //       (pkg_ref, result)
-    //     };
-    //     (
-    //       pkg,
-    //       Task {
-    //         status: Cell::new(TaskStatus::Pending),
-    //         future: future.boxed(),
-    //       },
-    //     )
-    //   })
-    //   .collect::<HashMap<_, _>>();
-
-    // let result = loop {
-    //   if tasks
-    //     .iter()
-    //     .all(|(_, task)| matches!(task.status.get(), TaskStatus::Finished))
-    //   {
-    //     break Ok(());
-    //   }
-
-    //   let pending = tasks
-    //     .iter()
-    //     .filter(|(_, task)| matches!(task.status.get(), TaskStatus::Pending));
-    //   for (index, task) in pending {
-    //     let deps_finished = ignore_deps
-    //       || self
-    //         .pkg_graph
-    //         .immediate_deps_for(*index)
-    //         .all(|dep_index| matches!(tasks[&dep_index].status.get(), TaskStatus::Finished));
-    //     if deps_finished {
-    //       debug!("Starting task for: {}", self.packages[*index].name);
-    //       task.status.set(TaskStatus::Running);
-    //     }
-    //   }
-
-    //   let running = tasks
-    //     .iter_mut()
-    //     .filter(|(_, task)| matches!(task.status.get(), TaskStatus::Running))
-    //     .map(|(_, task)| &mut task.future);
-    //   let running_fut = futures::future::select_all(running);
-    //   let ((index, result), _, _) = tokio::select! { biased;
-    //     _ = &mut runner_should_exit_fut => break Ok(()),
-    //     output = running_fut => output,
-    //   };
-    //   if result.is_err() {
-    //     break result;
-    //   }
-    //   tasks[&index].status.set(TaskStatus::Finished);
-    //   log::debug!("Finished task for: {}", self.packages[index].name);
-    // };
-
-    // result
   }
 }

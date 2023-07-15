@@ -2,11 +2,11 @@ use self::commands::Command;
 use anyhow::{Context, Result};
 use clap::Parser;
 use commands::{
-  build::{BuildArgs, BuildCommand},
+  build::BuildCommand,
   clean::CleanCommand,
   doc::DocCommand,
   fmt::FmtCommand,
-  init::{InitArgs, InitCommand},
+  init::InitCommand,
   new::NewCommand,
   setup::{GlobalConfig, SetupCommand},
   test::TestCommand,

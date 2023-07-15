@@ -1,5 +1,5 @@
 use crate::workspace::{Command, CoreCommand, Workspace, WorkspaceCommand};
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 
 /// Initialize a workspace
 #[derive(clap::Parser, Default, Debug)]

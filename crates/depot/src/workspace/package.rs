@@ -1,14 +1,11 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 
-use cfg_if::cfg_if;
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
-  env,
   fmt::{self, Debug},
   fs,
-  hash::{Hash, Hasher},
-  ops::Deref,
+  hash::Hash,
   path::{Path, PathBuf},
   str::FromStr,
   sync::{Arc, RwLock, RwLockReadGuard},
@@ -183,7 +180,7 @@ impl Package {
       .unwrap_or_else(|| root.file_name().unwrap().to_str().unwrap());
     let name = PackageName::from_str(name_str)?;
 
-    Ok(Package(Arc::new(PackageInner {
+    Ok(Package::new(PackageInner {
       root: root.to_owned(),
       manifest,
       entry_point,
@@ -193,7 +190,7 @@ impl Package {
       index,
       ws: OnceCell::default(),
       processes: Default::default(),
-    })))
+    }))
   }
 
   pub fn load(root: &Path, index: PackageIndex) -> Result<Self> {
@@ -302,7 +299,7 @@ pub fn build_package_graph(packages: &[Package]) -> PackageGraph {
 mod test {
   use super::*;
   use maplit::hashset;
-  use petgraph::prelude::NodeIndex;
+
   use std::collections::HashSet;
 
   #[test]

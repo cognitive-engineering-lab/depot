@@ -14,11 +14,9 @@ use futures::{
 use log::debug;
 use package::Package;
 use std::{
-  borrow::Cow,
   cmp::Ordering,
   env,
   fmt::{self, Debug},
-  hash::{Hash, Hasher},
   iter,
   ops::Deref,
   path::{Path, PathBuf},
@@ -338,6 +336,7 @@ mod test {
   #[test]
   fn test_command_graph() {
     let root = TestCommand::new(TestArgs::default()).kind();
-    let cmd_graph = build_command_graph(&root);
+    let _cmd_graph = build_command_graph(&root);
+    // TODO: finish this test
   }
 }

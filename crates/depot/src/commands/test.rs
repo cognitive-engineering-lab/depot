@@ -1,10 +1,5 @@
-use std::borrow::Cow;
-
 use super::build::{BuildArgs, BuildCommand};
-use crate::workspace::{
-  package::{Package, PackageName},
-  Command, CoreCommand, PackageCommand,
-};
+use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
 use anyhow::{Context, Result};
 
 /// Run tests via vitest

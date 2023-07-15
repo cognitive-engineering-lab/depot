@@ -10,7 +10,7 @@ use futures::StreamExt;
 use ratatui::{
   layout::{Constraint, Direction, Layout},
   style::{Modifier, Style},
-  text::{Line, Span, Spans, Text},
+  text::{Line, Span, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Widget},
 };
 use std::{
@@ -67,7 +67,7 @@ impl FullscreenRenderer {
           if i == selected {
             style = style.add_modifier(Modifier::BOLD);
           }
-          Spans::from(vec![Span::styled(pkg_name, style)])
+          Line::from(vec![Span::styled(pkg_name, style)])
         })
         .collect::<Vec<_>>();
       Tabs::new(titles)
@@ -268,8 +268,7 @@ impl InlineRenderer {
     let ws_processes = ws.processes();
     if !ws_processes.is_empty() {
       // TODO: this repeats a lot of code with the block below
-      for (j, process) in ws_processes.iter().enumerate() {
-        let last_process = j == ws_processes.len() - 1;
+      for process in ws_processes.iter() {
         writeln!(&mut output, "ws/{}", process.script())?;
 
         let stdout = process.stdout();

@@ -1,12 +1,10 @@
-use std::borrow::Cow;
-
 use anyhow::Result;
 
 use futures::{future::try_join_all, FutureExt};
 
 use super::init::{InitArgs, InitCommand};
 use crate::workspace::{
-  package::{Package, PackageName, Target},
+  package::{Package, Target},
   Command, CoreCommand, PackageCommand,
 };
 

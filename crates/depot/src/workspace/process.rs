@@ -28,6 +28,9 @@ pub struct Process {
   child: Mutex<Option<async_process::Child>>,
   logs: Arc<Mutex<LogBuffer>>,
   finished: AtomicBool,
+
+  // TODO: is it necessary to abort these handles?
+  #[allow(unused)]
   pipe_handles: Mutex<Vec<JoinHandle<()>>>,
 }
 

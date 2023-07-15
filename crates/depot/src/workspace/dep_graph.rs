@@ -1,8 +1,7 @@
-use std::{fmt::Debug, hash::Hash};
+use std::hash::Hash;
 
 use bimap::BiHashMap;
 use petgraph::{
-  dot::{Config, Dot},
   graph::DiGraph,
   prelude::NodeIndex,
   visit::{DfsPostOrder, Walker},

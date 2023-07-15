@@ -1,4 +1,4 @@
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 
 use crate::workspace::{Command, CoreCommand, Workspace, WorkspaceCommand};
 
