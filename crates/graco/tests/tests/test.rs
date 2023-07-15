@@ -24,6 +24,7 @@ test("add", () => expect(add(1, 2)).toBe(100))
 #[test]
 fn workspace() {
   let ws = workspace_single_lib();
+  ws.graco("init -- --no-frozen-lockfile");
   ws.graco("test");
 }
 

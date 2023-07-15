@@ -1,5 +1,5 @@
 use crate::workspace::{Command, CoreCommand, Workspace, WorkspaceCommand};
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 
 /// Initialize a workspace
 #[derive(clap::Parser, Default, Debug)]
@@ -7,6 +7,10 @@ pub struct InitArgs {
   /// If true, then don't attempt to download packages from the web
   #[arg(long, action)]
   pub offline: bool,
+
+  /// Additional arguments to pass to vitest
+  #[arg(last = true)]
+  pub pnpm_args: Option<String>,
 }
 
 #[derive(Debug)]
@@ -40,6 +44,15 @@ impl WorkspaceCommand for InitCommand {
 
     if self.args.offline {
       cmd.arg("--offline");
+    }
+
+    let pnpm_args = match &self.args.pnpm_args {
+      Some(pnpm_args) => Some(shlex::split(pnpm_args).context("Failed to parse pnpm args")?),
+      None => None,
+    };
+
+    if let Some(pnpm_args) = pnpm_args {
+      cmd.args(pnpm_args);
     }
 
     let status = cmd.status().await?;

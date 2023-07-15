@@ -73,6 +73,9 @@ fn workspace_() {
   "graco": {"platform": "browser"}
 }"#,
   );
+
+  ws.graco("init -- --no-frozen-lockfile");
+
   ws.graco("build");
   assert!(ws.exists("packages/foo/dist/lib.js"));
   assert!(ws.exists("packages/bar/dist/lib.js"));
