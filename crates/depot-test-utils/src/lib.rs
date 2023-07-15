@@ -25,9 +25,9 @@ static SETUP: Once = Once::new();
 impl ProjectBuilder {
   pub fn new() -> Self {
     SETUP.call_once(|| {
-      let status = Command::new(graco_exe()).arg("setup").status().unwrap();
+      let status = Command::new(depot_exe()).arg("setup").status().unwrap();
       if !status.success() {
-        panic!("graco setup failed");
+        panic!("depot setup failed");
       }
     });
 
@@ -58,8 +58,8 @@ impl ProjectBuilder {
     self
   }
 
-  pub fn graco_in(&self, cmd: impl AsRef<str>, dir: impl AsRef<Path>) -> CommandOutput {
-    let mut process = Command::new(graco_exe());
+  pub fn depot_in(&self, cmd: impl AsRef<str>, dir: impl AsRef<Path>) -> CommandOutput {
+    let mut process = Command::new(depot_exe());
     process.current_dir(dir);
     process.args(shlex::split(cmd.as_ref()).unwrap());
 
@@ -73,8 +73,8 @@ impl ProjectBuilder {
     CommandOutput { stdout, stderr }
   }
 
-  pub fn graco(&self, cmd: impl AsRef<str>) -> CommandOutput {
-    self.graco_in(cmd, self.root())
+  pub fn depot(&self, cmd: impl AsRef<str>) -> CommandOutput {
+    self.depot_in(cmd, self.root())
   }
 
   pub fn read(&self, path: impl AsRef<Path>) -> String {
@@ -92,7 +92,7 @@ pub fn project() -> ProjectBuilder {
 
 pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
   let builder = ProjectBuilder::new();
-  builder.graco_in(
+  builder.depot_in(
     format!("new foo --target {target} --platform {platform}"),
     builder.root().parent().unwrap(),
   );
@@ -101,7 +101,7 @@ pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
 
 pub fn react_project_for(target: &str, platform: &str) -> ProjectBuilder {
   let builder = ProjectBuilder::new();
-  builder.graco_in(
+  builder.depot_in(
     format!("new foo --target {target} --platform {platform} --react"),
     builder.root().parent().unwrap(),
   );
@@ -110,16 +110,16 @@ pub fn react_project_for(target: &str, platform: &str) -> ProjectBuilder {
 
 pub fn workspace() -> ProjectBuilder {
   let builder = ProjectBuilder::new();
-  builder.graco_in("new foo --workspace", builder.root().parent().unwrap());
+  builder.depot_in("new foo --workspace", builder.root().parent().unwrap());
   builder
 }
 
 pub fn workspace_single_lib() -> ProjectBuilder {
   let ws = workspace();
-  ws.graco("new bar");
+  ws.depot("new bar");
   ws
 }
 
-pub fn graco_exe() -> PathBuf {
-  snapbox::cmd::cargo_bin("graco")
+pub fn depot_exe() -> PathBuf {
+  snapbox::cmd::cargo_bin("depot")
 }

@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
   workspace::{
-    package::{PackageGracoConfig, PackageName, Platform, Target},
+    package::{PackageDepotConfig, PackageName, Platform, Target},
     Workspace,
   },
   CommonArgs,
@@ -56,7 +56,7 @@ const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
 const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 const VITEST_SETUP: &str = include_str!("configs/setup.ts");
 
-/// Create a new Graco workspace
+/// Create a new Depot workspace
 #[derive(clap::Parser)]
 pub struct NewArgs {
   pub name: PackageName,
@@ -553,10 +553,10 @@ export default defineConfig(({{mode}}) => ({{
     manifest.version = Some(String::from("0.1.0"));
 
     let mut other: IndexMap<String, Value> = IndexMap::new();
-    let pkg_config = PackageGracoConfig {
+    let pkg_config = PackageDepotConfig {
       platform: *platform,
     };
-    other.insert("graco".into(), serde_json::to_value(&pkg_config)?);
+    other.insert("depot".into(), serde_json::to_value(&pkg_config)?);
 
     let mut files: FileVec = Vec::new();
 

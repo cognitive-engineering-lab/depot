@@ -1,5 +1,5 @@
 [package]
-name = "graco"
+name = "depot-js"
 version = "0.1.0"
 edition = "2021"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -39,5 +39,5 @@ bimap = "0.6"
 atomic_enum = "0.2"
 
 [dev-dependencies]
-graco-test-utils = { path = "../graco-test-utils" }
-maplit = "*"
+depot-test-utils = { path = "../depot-test-utils" }
+maplit = "1"

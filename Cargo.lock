@@ -416,6 +416,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "depot-js"
+version = "0.1.0"
+dependencies = [
+ "ansi-diff",
+ "ansi-to-tui",
+ "anyhow",
+ "async-process",
+ "async-trait",
+ "atomic_enum",
+ "bimap",
+ "cfg-if",
+ "clap",
+ "crossterm",
+ "curl",
+ "depot-test-utils",
+ "env_logger",
+ "futures",
+ "home",
+ "indexmap 1.9.3",
+ "indicatif",
+ "log",
+ "maplit",
+ "once_cell",
+ "package_json_schema",
+ "petgraph",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "shlex",
+ "textwrap",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
+name = "depot-test-utils"
+version = "0.1.0"
+dependencies = [
+ "either",
+ "shlex",
+ "snapbox",
+ "tempfile",
+]
+
+[[package]]
 name = "doc-comment"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -601,51 +646,6 @@ name = "gimli"
 version = "0.27.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c80984affa11d98d1b88b66ac8853f143217b399d3c74116778ff8fdb4ed2e"
-
-[[package]]
-name = "graco"
-version = "0.1.0"
-dependencies = [
- "ansi-diff",
- "ansi-to-tui",
- "anyhow",
- "async-process",
- "async-trait",
- "atomic_enum",
- "bimap",
- "cfg-if",
- "clap",
- "crossterm",
- "curl",
- "env_logger",
- "futures",
- "graco-test-utils",
- "home",
- "indexmap 1.9.3",
- "indicatif",
- "log",
- "maplit",
- "once_cell",
- "package_json_schema",
- "petgraph",
- "ratatui",
- "serde",
- "serde_json",
- "shlex",
- "textwrap",
- "tokio",
- "walkdir",
-]
-
-[[package]]
-name = "graco-test-utils"
-version = "0.1.0"
-dependencies = [
- "either",
- "shlex",
- "snapbox",
- "tempfile",
-]
 
 [[package]]
 name = "hashbrown"

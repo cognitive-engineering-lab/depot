@@ -11,10 +11,10 @@ use std::{
 use anyhow::{ensure, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 
-/// Setup Graco for use on this machine
+/// Setup Depot for use on this machine
 #[derive(clap::Parser)]
 pub struct SetupArgs {
-  /// Directory for global Graco configuration, defaults to $HOME/.graco
+  /// Directory for global Depot configuration, defaults to $HOME/.depot
   #[arg(short, long)]
   pub config_dir: Option<PathBuf>,
 }
@@ -36,7 +36,7 @@ impl GlobalConfig {
       Ok(val) => PathBuf::from(val),
       Err(_) => {
         let home_dir = home::home_dir().context("Could not find home directory")?;
-        home_dir.join(".graco")
+        home_dir.join(".depot")
       }
     })
   }
@@ -45,7 +45,7 @@ impl GlobalConfig {
     let root = Self::find_root()?;
     ensure!(
       root.exists(),
-      "Graco global config directory does not exist: {}",
+      "Depot global config directory does not exist: {}",
       root.display()
     );
     Ok(GlobalConfig { root })

@@ -1,19 +1,19 @@
-use graco_test_utils::{project, workspace_single_lib};
+use depot_test_utils::{project, workspace_single_lib};
 
 #[test]
 fn basic() {
   let p = project();
-  p.graco("build");
+  p.depot("build");
   assert!(p.exists("dist"));
-  p.graco("clean");
+  p.depot("clean");
   assert!(!p.exists("dist"));
 }
 
 #[test]
 fn workspace() {
   let ws = workspace_single_lib();
-  ws.graco("build");
+  ws.depot("build");
   assert!(ws.exists("packages/bar/dist"));
-  ws.graco("clean");
+  ws.depot("clean");
   assert!(!ws.exists("packages/bar/dist"));
 }

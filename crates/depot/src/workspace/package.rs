@@ -111,13 +111,13 @@ impl FromStr for PackageName {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct PackageGracoConfig {
+pub struct PackageDepotConfig {
   pub platform: Platform,
 }
 
 pub struct PackageManifest {
   pub manifest: PackageJson,
-  pub config: PackageGracoConfig,
+  pub config: PackageDepotConfig,
 }
 
 impl PackageManifest {
@@ -129,10 +129,10 @@ impl PackageManifest {
   }
 
   pub fn from_json(mut manifest: PackageJson, path: &Path) -> Result<Self> {
-    let error_msg = || format!("Missing \"graco\" key from manifest: `{}`", path.display());
+    let error_msg = || format!("Missing \"depot\" key from manifest: `{}`", path.display());
     let other = manifest.other.as_mut().with_context(error_msg)?;
-    let config_value = other.remove("graco").with_context(error_msg)?;
-    let config: PackageGracoConfig = serde_json::from_value(config_value)?;
+    let config_value = other.remove("depot").with_context(error_msg)?;
+    let config: PackageDepotConfig = serde_json::from_value(config_value)?;
     Ok(PackageManifest { manifest, config })
   }
 }

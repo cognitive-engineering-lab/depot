@@ -1,5 +1,5 @@
 [package]
-name = "graco-test-utils"
+name = "depot-test-utils"
 version = "0.1.0"
 edition = "2021"
 authors = ["Will Crichton <crichton.will@gmail.com>"]

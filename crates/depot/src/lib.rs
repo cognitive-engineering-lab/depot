@@ -1,5 +1,3 @@
-#![allow(warnings)]
-
 use self::commands::Command;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -39,7 +37,7 @@ struct Args {
   common: CommonArgs,
 }
 
-async fn run() -> Result<()> {
+pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
 
   let command = match command {
@@ -48,7 +46,7 @@ async fn run() -> Result<()> {
   };
 
   let global_config =
-    GlobalConfig::load().context("Graco has not been setup yet. Run `graco setup` to proceed.")?;
+    GlobalConfig::load().context("Depot has not been setup yet. Run `depot setup` to proceed.")?;
 
   let command = match command {
     Command::New(args) => return NewCommand::new(args, global_config).await.run().await,
@@ -71,18 +69,4 @@ async fn run() -> Result<()> {
   ws.run(command).await?;
 
   Ok(())
-}
-
-#[tokio::main]
-async fn main() {
-  env_logger::init();
-  if let Err(e) = run().await {
-    eprintln!("Graco failed with the error:\n");
-    if cfg!(debug_assertions) {
-      eprintln!("{e:?}");
-    } else {
-      eprintln!("{e}");
-    }
-    std::process::exit(1);
-  }
 }

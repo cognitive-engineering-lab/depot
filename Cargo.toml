@@ -1,5 +1,2 @@
 [workspace]
 members = ["crates/*"]
-
-# [patch.crates-io]
-# async-process = { path = "/tmp/async-process" }
