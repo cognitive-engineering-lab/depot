@@ -53,3 +53,45 @@ macro_rules! packages {
     }),*]
   }};
 }
+
+#[macro_export]
+macro_rules! shareable {
+  ($name:ident, $inner:ty) => {
+    #[derive(Clone)]
+    pub struct $name(std::sync::Arc<$inner>);
+
+    impl std::ops::Deref for $name {
+      type Target = $inner;
+
+      fn deref(&self) -> &Self::Target {
+        &self.0
+      }
+    }
+
+    impl std::fmt::Debug for $name {
+      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+      }
+    }
+
+    impl std::hash::Hash for $name {
+      fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
+        std::ptr::hash(&*self.0, hasher)
+      }
+    }
+
+    impl PartialEq for $name {
+      fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(&*self.0, &*other.0)
+      }
+    }
+
+    impl Eq for $name {}
+
+    impl $name {
+      pub fn new(inner: $inner) -> Self {
+        $name(Arc::new(inner))
+      }
+    }
+  };
+}

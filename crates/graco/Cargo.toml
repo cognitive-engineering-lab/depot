@@ -35,6 +35,8 @@ shlex = "1"
 walkdir = "2"
 ansi-diff = "1"
 indicatif = "0.17"
+bimap = "0.6"
+atomic_enum = "0.2"
 
 [dev-dependencies]
 graco-test-utils = { path = "../graco-test-utils" }

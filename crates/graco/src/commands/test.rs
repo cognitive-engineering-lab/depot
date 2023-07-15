@@ -1,34 +1,34 @@
 use std::borrow::Cow;
 
+use super::build::{BuildArgs, BuildCommand};
 use crate::workspace::{
   package::{Package, PackageName},
-  PackageCommand,
+  Command, CoreCommand, PackageCommand,
 };
 use anyhow::{Context, Result};
 
 /// Run tests via vitest
-#[derive(clap::Parser)]
-pub struct TestArgs {  
-  /// If true, rerun tests when source files change
-  #[arg(short, long, action)]
-  pub watch: bool,
-
-  /// Only run tests for a specific package
-  #[arg(short, long)]
-  pub package: Option<PackageName>,
-
+#[derive(clap::Parser, Default, Debug)]
+pub struct TestArgs {
   /// Additional arguments to pass to vitest
   #[arg(last = true)]
   pub vitest_args: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct TestCommand {
   args: TestArgs,
 }
 
+impl CoreCommand for TestCommand {
+  fn name(&self) -> String {
+    "test".into()
+  }
+}
+
 #[async_trait::async_trait]
 impl PackageCommand for TestCommand {
-  async fn run(&self, pkg: &Package) -> Result<()> {
+  async fn run_pkg(&self, pkg: &Package) -> Result<()> {
     if !pkg.root.join("tests").exists() {
       return Ok(());
     }
@@ -40,7 +40,11 @@ impl PackageCommand for TestCommand {
 
     pkg
       .exec("vitest", |cmd| {
-        let subcmd = if self.args.watch { "watch" } else { "run" };
+        let subcmd = if pkg.workspace().watch() {
+          "watch"
+        } else {
+          "run"
+        };
         cmd.arg(subcmd);
 
         cmd.arg("--passWithNoTests");
@@ -52,13 +56,17 @@ impl PackageCommand for TestCommand {
       .await
   }
 
-  fn only_run(&self) -> Cow<'_, Option<PackageName>> {
-    Cow::Borrowed(&self.args.package)
+  fn deps(&self) -> Vec<Command> {
+    vec![BuildCommand::new(BuildArgs::default()).kind()]
   }
 }
 
 impl TestCommand {
   pub fn new(args: TestArgs) -> Self {
     TestCommand { args }
+  }
+
+  pub fn kind(self) -> Command {
+    Command::package(self)
   }
 }

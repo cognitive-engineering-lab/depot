@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 
-use crate::workspace::{package::Package, PackageCommand};
+use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
 
 /// Automatically format source files with prettier
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct FmtArgs {
   /// If true, don't write to files and instead fail if they aren't formatted
   #[arg(short, long, action)]
@@ -14,6 +14,7 @@ pub struct FmtArgs {
   pub prettier_args: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct FmtCommand {
   #[allow(unused)]
   args: FmtArgs,
@@ -23,11 +24,21 @@ impl FmtCommand {
   pub fn new(args: FmtArgs) -> Self {
     FmtCommand { args }
   }
+
+  pub fn kind(self) -> Command {
+    Command::package(self)
+  }
+}
+
+impl CoreCommand for FmtCommand {
+  fn name(&self) -> String {
+    "fmt".into()
+  }
 }
 
 #[async_trait::async_trait]
 impl PackageCommand for FmtCommand {
-  async fn run(&self, pkg: &Package) -> Result<()> {    
+  async fn run_pkg(&self, pkg: &Package) -> Result<()> {
     let extra = match &self.args.prettier_args {
       Some(args) => shlex::split(args).context("Failed to parse prettier args")?,
       None => Vec::new(),

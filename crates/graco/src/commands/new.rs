@@ -11,9 +11,12 @@ use std::{
   process::Command,
 };
 
-use crate::workspace::{
-  package::{PackageGracoConfig, PackageName, Platform, Target},
-  Workspace,
+use crate::{
+  workspace::{
+    package::{PackageGracoConfig, PackageName, Platform, Target},
+    Workspace,
+  },
+  CommonArgs,
 };
 
 use super::setup::GlobalConfig;
@@ -76,7 +79,7 @@ pub struct NewArgs {
 
   /// If true, then don't attempt to download packages from the web
   #[arg(long, action)]
-  pub offline: bool
+  pub offline: bool,
 }
 
 pub struct NewCommand {
@@ -104,7 +107,9 @@ type FileVec = Vec<(PathBuf, Cow<'static, str>)>;
 
 impl NewCommand {
   pub async fn new(args: NewArgs, global_config: GlobalConfig) -> Self {
-    let ws_opt = Workspace::load(global_config.clone(), None).await.ok();
+    let ws_opt = Workspace::load(global_config.clone(), None, CommonArgs::default())
+      .await
+      .ok();
     Self {
       args,
       ws_opt,
@@ -476,10 +481,10 @@ export default defineConfig(({{mode}}) => ({{
     let mut ws_dependencies: Vec<&str> = vec![
       // Building
       "vite",
-      
+
       // Testing
       "vitest",
-      
+
       // Types
       "typescript",
       "@types/node",
@@ -629,11 +634,7 @@ export default defineConfig(({{mode}}) => ({{
           None => files.extend(self.make_typedoc_config()?),
         }
 
-        let filename = if self.args.react {
-          "lib.tsx"
-        } else {
-          "lib.ts"
-        };
+        let filename = if self.args.react { "lib.tsx" } else { "lib.ts" };
 
         (filename, LIB)
       }
@@ -686,7 +687,14 @@ export default defineConfig(({{mode}}) => ({{
 
     let _ws = match self.ws_opt.take() {
       Some(ws) => ws,
-      None => Workspace::load(self.global_config, Some(root.to_owned())).await?,
+      None => {
+        Workspace::load(
+          self.global_config,
+          Some(root.to_owned()),
+          CommonArgs::default(),
+        )
+        .await?
+      }
     };
 
     Ok(())

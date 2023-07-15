@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 use self::commands::Command;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -11,22 +13,34 @@ use commands::{
   setup::{GlobalConfig, SetupCommand},
   test::TestCommand,
 };
-use workspace::Workspace;
+use workspace::{package::PackageName, Workspace};
 
 mod commands;
 mod logger;
 mod utils;
 mod workspace;
 
+#[derive(clap::Parser, Default)]
+pub struct CommonArgs {
+  #[clap(short, long)]
+  only: Option<PackageName>,
+
+  #[clap(short, long, action)]
+  watch: bool,
+}
+
 #[derive(clap::Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
   #[command(subcommand)]
   command: Command,
+
+  #[command(flatten)]
+  common: CommonArgs,
 }
 
 async fn run() -> Result<()> {
-  let Args { command } = Args::parse();
+  let Args { command, common } = Args::parse();
 
   let command = match command {
     Command::Setup(args) => return SetupCommand::new(args).run(),
@@ -41,54 +55,21 @@ async fn run() -> Result<()> {
     command => command,
   };
 
-  let ws = Workspace::load(global_config, None).await?;
+  let ws = Workspace::load(global_config, None, common).await?;
 
   // TODO: merge all tasks into a single task graph like Cargo
-  match command {
-    Command::Init(args) => {
-      let init_cmd = InitCommand::new(args);
-      ws.run_ws(&init_cmd).await?;
-    }
-
-    Command::Build(args) => {
-      let init_cmd = InitCommand::new(InitArgs {});
-      ws.run_ws(&init_cmd).await?;
-
-      let build_cmd = BuildCommand::new(args);
-      ws.run_pkgs(&build_cmd).await?;
-    }
-
-    Command::Test(args) => {
-      let init_cmd = InitCommand::new(InitArgs {});
-      ws.run_ws(&init_cmd).await?;
-
-      let build_cmd = BuildCommand::new(BuildArgs {
-        package: args.package.clone(),
-        ..Default::default()
-      });
-      ws.run_pkgs(&build_cmd).await?;
-
-      let test_cmd = TestCommand::new(args);
-      ws.run_pkgs(&test_cmd).await?;
-    }
-
-    Command::Fmt(args) => {
-      let fmt_cmd = FmtCommand::new(args);
-      ws.run_pkgs(&fmt_cmd).await?;
-    }
-
-    Command::Clean(args) => {
-      let clean_cmd = CleanCommand::new(args);
-      ws.run_both(&clean_cmd).await?;
-    }
-
-    Command::Doc(args) => {
-      let doc_cmd = DocCommand::new(args);
-      ws.run_ws(&doc_cmd).await?;
-    }
-
+  let command = match command {
+    Command::Init(args) => InitCommand::new(args).kind(),
+    Command::Build(args) => BuildCommand::new(args).kind(),
+    Command::Test(args) => TestCommand::new(args).kind(),
+    Command::Fmt(args) => FmtCommand::new(args).kind(),
+    Command::Clean(args) => CleanCommand::new(args).kind(),
+    Command::Doc(args) => DocCommand::new(args).kind(),
     Command::Setup(..) | Command::New(..) => unreachable!(),
   };
+
+  ws.run(command).await?;
+
   Ok(())
 }
 

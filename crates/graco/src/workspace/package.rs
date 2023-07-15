@@ -3,8 +3,8 @@ use anyhow::{bail, ensure, Context, Error, Result};
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
-  fmt::Display,
-  fs,
+  fmt, fs,
+  hash::{Hash, Hasher},
   ops::Deref,
   path::{Path, PathBuf},
   str::FromStr,
@@ -12,9 +12,9 @@ use std::{
 };
 use walkdir::WalkDir;
 
-use crate::workspace::process::Process;
+use crate::{shareable, workspace::process::Process};
 
-use super::Workspace;
+use super::{dep_graph::DepGraph, Workspace};
 
 #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum Platform {
@@ -76,7 +76,7 @@ impl PackageName {
   }
 }
 
-impl Display for PackageName {
+impl fmt::Display for PackageName {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match &self.scope {
       Some(scope) => write!(f, "@{}/{}", scope, self.name),
@@ -134,17 +134,6 @@ impl PackageManifest {
   }
 }
 
-#[derive(Clone)]
-pub struct Package(Arc<PackageInner>);
-
-impl Deref for Package {
-  type Target = PackageInner;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
 pub type PackageIndex = usize;
 
 pub struct PackageInner {
@@ -161,6 +150,8 @@ pub struct PackageInner {
   ws: OnceCell<Workspace>,
   processes: RwLock<Vec<Arc<Process>>>,
 }
+
+shareable!(Package, PackageInner);
 
 impl Package {
   fn find_source_file(root: &Path, base: &str) -> Option<PathBuf> {
@@ -302,9 +293,24 @@ impl PackageInner {
   }
 }
 
+pub type PackageGraph = DepGraph<Package>;
+
+pub fn build_package_graph(packages: &[Package]) -> PackageGraph {
+  DepGraph::build(packages.to_vec(), |pkg| {
+    pkg
+      .all_dependencies()
+      .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
+      .cloned()
+      .collect()
+  })
+}
+
 #[cfg(test)]
 mod test {
   use super::*;
+  use maplit::hashset;
+  use petgraph::prelude::NodeIndex;
+  use std::collections::HashSet;
 
   #[test]
   fn test_package_name() {
@@ -331,5 +337,31 @@ mod test {
 
     let s = "@what/is/this";
     assert!(PackageName::from_str(s).is_err());
+  }
+
+  #[test]
+  fn test_package_graph() {
+    let pkgs = crate::packages! [
+      {"name": "a", "dependencies": {"b": "0.1.0"}},
+      {"name": "b", "dependencies": {"c": "0.1.0"}},
+      {"name": "c"}
+    ];
+
+    let [a, b, c] = &pkgs;
+
+    let dg = build_package_graph(&pkgs);
+    let deps_for = |p| dg.all_deps_for(p).collect::<HashSet<_>>();
+    assert_eq!(deps_for(a), hashset! {b, c});
+    assert_eq!(deps_for(b), hashset! {c});
+    assert_eq!(deps_for(c), hashset! {});
+
+    let imm_deps_for = |p| dg.immediate_deps_for(p).collect::<HashSet<_>>();
+    assert_eq!(imm_deps_for(a), hashset! {b});
+    assert_eq!(imm_deps_for(b), hashset! {c});
+    assert_eq!(imm_deps_for(c), hashset! {});
+
+    assert!(dg.is_dependent_on(a, b));
+    assert!(dg.is_dependent_on(a, c));
+    assert!(!dg.is_dependent_on(b, a));
   }
 }

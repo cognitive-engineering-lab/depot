@@ -4,36 +4,40 @@ use anyhow::Result;
 
 use futures::{future::try_join_all, FutureExt};
 
+use super::init::{InitArgs, InitCommand};
 use crate::workspace::{
   package::{Package, PackageName, Target},
-  PackageCommand,
+  Command, CoreCommand, PackageCommand,
 };
 
 /// Check and build packages
-#[derive(clap::Parser, Default)]
+#[derive(clap::Parser, Default, Debug)]
 pub struct BuildArgs {
-  /// Watch for changes and rebuild
-  #[arg(short, long)]
-  pub watch: bool,
-
   /// Build in release mode
   #[arg(short, long)]
   pub release: bool,
 
-  /// Only build a specific package
-  #[arg(short, long)]
-  pub package: Option<PackageName>,
+  /// If true, then don't attempt to download packages from the web
+  #[arg(long, action)]
+  pub offline: bool,
 }
 
+#[derive(Debug)]
 pub struct BuildCommand {
   args: BuildArgs,
 }
 
 const BUILD_SCRIPT: &str = "build.mjs";
 
+impl CoreCommand for BuildCommand {
+  fn name(&self) -> String {
+    "build".into()
+  }
+}
+
 #[async_trait::async_trait]
 impl PackageCommand for BuildCommand {
-  async fn run(&self, pkg: &Package) -> Result<()> {
+  async fn run_pkg(&self, pkg: &Package) -> Result<()> {
     let mut processes = Vec::new();
 
     if pkg.target.is_script() || pkg.target.is_site() {
@@ -51,12 +55,12 @@ impl PackageCommand for BuildCommand {
     Ok(())
   }
 
-  fn only_run(&self) -> Cow<'_, Option<PackageName>> {
-    Cow::Borrowed(&self.args.package)
+  fn deps(&self) -> Vec<Command> {
+    vec![InitCommand::new(InitArgs::default()).kind()]
   }
 
   fn ignore_dependencies(&self) -> bool {
-    self.args.watch
+    false
   }
 }
 
@@ -65,11 +69,15 @@ impl BuildCommand {
     BuildCommand { args }
   }
 
+  pub fn kind(self) -> Command {
+    Command::package(self)
+  }
+
   async fn tsc(&self, pkg: &Package) -> Result<()> {
     pkg
       .exec("tsc", |cmd| {
         cmd.arg("--pretty");
-        if self.args.watch {
+        if pkg.workspace().watch() {
           cmd.arg("--watch");
         }
         if pkg.target.is_lib() && !self.args.release {
@@ -91,11 +99,15 @@ impl BuildCommand {
     pkg
       .exec("vite", |cmd| match pkg.target {
         Target::Site => {
-          cmd.arg(if self.args.watch { "dev" } else { "build" });
+          cmd.arg(if pkg.workspace().watch() {
+            "dev"
+          } else {
+            "build"
+          });
         }
         _ => {
           cmd.arg("build");
-          if self.args.watch {
+          if pkg.workspace().watch() {
             cmd.arg("--watch");
           }
           if !self.args.release {
@@ -111,7 +123,7 @@ impl BuildCommand {
     pkg
       .exec("pnpm", |cmd| {
         cmd.args(["exec", "node", BUILD_SCRIPT]);
-        if self.args.watch {
+        if pkg.workspace().watch() {
           cmd.arg("--watch");
         }
         if self.args.release {

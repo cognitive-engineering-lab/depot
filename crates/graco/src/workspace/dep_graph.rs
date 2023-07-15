@@ -1,90 +1,91 @@
+use std::{fmt::Debug, hash::Hash};
+
+use bimap::BiHashMap;
 use petgraph::{
-  data::{Element, FromElements},
   dot::{Config, Dot},
   graph::DiGraph,
   prelude::NodeIndex,
   visit::{DfsPostOrder, Walker},
 };
 
-use super::package::{Package, PackageIndex};
-
-pub struct DepGraph {
-  graph: DiGraph<String, ()>,
+pub struct DepGraph<T> {
+  graph: DiGraph<(), ()>,
+  nodes: BiHashMap<T, NodeIndex>,
+  roots: Vec<T>,
 }
 
-impl DepGraph {
-  pub fn build(packages: &[Package]) -> Self {
-    let edges = packages.iter().flat_map(|pkg| {
-      pkg
-        .all_dependencies()
-        .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
-        .map(move |dep| Element::Edge {
-          source: pkg.index,
-          target: dep.index,
-          weight: (),
-        })
-    });
+impl<T: Debug + Hash + PartialEq + Eq + Clone> DepGraph<T> {
+  pub fn build(roots: Vec<T>, compute_deps: impl Fn(T) -> Vec<T>) -> Self {
+    let mut graph = DiGraph::new();
+    let mut nodes = BiHashMap::new();
+    macro_rules! add_node {
+      ($node:expr) => {
+        match nodes.get_by_left($node) {
+          Some(idx) => *idx,
+          None => {
+            let idx = graph.add_node(());
+            nodes.insert($node.clone(), idx);
+            idx
+          }
+        }
+      };
+    }
+    let mut stack = vec![];
 
-    let graph = DiGraph::<String, ()>::from_elements(
-      packages
-        .iter()
-        .map(|pkg| Element::Node {
-          weight: pkg.name.to_string(),
-        })
-        .chain(edges),
-    );
+    for root in &roots {
+      let idx = add_node!(root);
+      stack.push((idx, root.clone()));
+    }
 
-    log::debug!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+    while let Some((idx, el)) = stack.pop() {
+      for dep in compute_deps(el) {
+        let dep_idx = add_node!(&dep);
+        stack.push((dep_idx, dep));
+        graph.add_edge(idx, dep_idx, ());
+      }
+    }
 
-    DepGraph { graph }
+    // println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+
+    DepGraph {
+      roots,
+      graph,
+      nodes,
+    }
   }
 
-  pub fn is_dependent_on(&self, pkg: PackageIndex, dep: PackageIndex) -> bool {
-    self.all_deps_for(pkg).any(|dep2| dep == dep2)
+  fn index(&self, el: &T) -> NodeIndex {
+    *self.nodes.get_by_left(el).unwrap()
   }
 
-  pub fn immediate_deps_for(&self, index: PackageIndex) -> impl Iterator<Item = PackageIndex> + '_ {
+  fn value(&self, index: NodeIndex) -> &T {
+    self.nodes.get_by_right(&index).unwrap()
+  }
+
+  pub fn nodes(&self) -> impl Iterator<Item = &T> {
+    self.nodes.iter().map(|(node, _)| node)
+  }
+
+  pub fn is_dependent_on(&self, el: &T, dep: &T) -> bool {
+    self.all_deps_for(el).any(|dep2| dep == dep2)
+  }
+
+  pub fn immediate_deps_for<'a>(&'a self, el: &T) -> impl Iterator<Item = &'a T> + 'a {
     self
       .graph
-      .neighbors_directed(NodeIndex::new(index), petgraph::Direction::Outgoing)
-      .map(|node| node.index())
+      .neighbors_directed(self.index(el), petgraph::Direction::Outgoing)
+      .map(|node| self.value(node))
   }
 
-  pub fn all_deps_for(&self, index: PackageIndex) -> impl Iterator<Item = PackageIndex> + '_ {
-    DfsPostOrder::new(&self.graph, NodeIndex::new(index))
+  pub fn all_deps_for<'a>(&'a self, el: &T) -> impl Iterator<Item = &'a T> + 'a {
+    let index = self.index(el);
+    DfsPostOrder::new(&self.graph, index)
       .iter(&self.graph)
-      .map(|node| node.index())
       .filter(move |dep| *dep != index)
+      .map(|idx| self.value(idx))
   }
-}
 
-#[cfg(test)]
-mod test {
-  use super::*;
-  use maplit::hashset;
-  use std::collections::HashSet;
-
-  #[test]
-  fn test_dep_graph() {
-    let pkgs = crate::packages! [
-      {"name": "a", "dependencies": {"b": "0.1.0"}},
-      {"name": "b", "dependencies": {"c": "0.1.0"}},
-      {"name": "c"}
-    ];
-
-    let dg = DepGraph::build(&pkgs);
-    let deps_for = |n| dg.all_deps_for(n).collect::<HashSet<_>>();
-    assert_eq!(deps_for(0), hashset! {1, 2});
-    assert_eq!(deps_for(1), hashset! {2});
-    assert_eq!(deps_for(2), hashset! {});
-
-    let imm_deps_for = |n| dg.immediate_deps_for(n).collect::<HashSet<_>>();
-    assert_eq!(imm_deps_for(0), hashset! {1});
-    assert_eq!(imm_deps_for(1), hashset! {2});
-    assert_eq!(imm_deps_for(2), hashset! {});
-
-    assert!(dg.is_dependent_on(0, 1));
-    assert!(dg.is_dependent_on(0, 2));
-    assert!(!dg.is_dependent_on(1, 0));
+  pub fn roots(&self) -> impl Iterator<Item = &T> {
+    self.roots.iter()
   }
 }
