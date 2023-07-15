@@ -1,20 +1,60 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  pull_request:
+    branches: [main]
+    types: [labeled,closed]
 
 jobs:
-  publish:
-    runs-on: ubuntu-20.04
-    steps: 
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+  build-artifacts:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          
+    steps:
+      - uses: actions/checkout@v3
+      - uses: houseabsolute/actions-rust-cross@v0
         with:
-          toolchain: stable
-      - run: npm install -g pnpm
-      - run: pnpm commit-check
-      - uses: JS-DevTools/npm-publish@v1
+          target: ${{ matrix.platform.target }}
+          args: --locked --release
+          strip: true
+      - run: tar -czf ${{ matrix.target }}.tar.gz target/${{ matrix.target }}/release/depot
+      - uses: actions/upload-artifact@v2
         with:
-          token: ${{ secrets.NPM_TOKEN }}
+          name: ${{ matrix.target }}
+          path: ${{ matrix.target }}.tar.gz
+
+  publish-crates:
+    steps:
+      - uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-workspaces
+      - uses: actions/checkout@v3
+      - run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - run: cargo ws publish --from-git --yes
+      - uses: christophebedard/tag-version-commit@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version_regex: 'v([0-9]+\.[0-9]+\.[0-9]+)'
+          version_tag_prefix: 'v'
+
+  publish-artifacts:
+    needs: publish-crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            x86_64-unknown-linux-gnu/x86_64-unknown-linux-gnu.tar.gz
+            x86_64-apple-darwin/x86_64-apple-darwin.tar.gz
+            aarch64-apple-darwin/aarch64-apple-darwin.tar.gz

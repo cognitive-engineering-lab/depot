@@ -6,13 +6,21 @@ on:
       - "**"
     tags-ignore:
       - "v*"
-        
+  pull_request:
+    branches:
+      - "**"
+
 jobs:
-  ci:
+  tests:
     runs-on: ubuntu-latest
+    env:
+      RUST_BACKTRACE: 1
+      RUST_LIB_BACKTRACE: 1
+      TOKIO_WORKER_THREADS: 1
     steps:
-      - uses: actions/checkout@v2.3.1
-      - name: Check library
-        run: |
-          sudo npm install -g pnpm
-          pnpm commit-check
+      - uses: actions/checkout@v3
+      - name: Test library
+        run: cargo test --features dev -- --test-threads=1
+      - name: Lint library
+        run: cargo clippy -- -D warnings
+      
