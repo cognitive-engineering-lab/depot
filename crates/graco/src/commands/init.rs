@@ -38,26 +38,22 @@ impl CoreCommand for InitCommand {
 #[async_trait::async_trait]
 impl WorkspaceCommand for InitCommand {
   async fn run_ws(&self, ws: &Workspace) -> Result<()> {
-    let mut cmd = async_process::Command::new(ws.global_config.bindir().join("pnpm"));
-    cmd.current_dir(&ws.root);
-    cmd.arg("install");
-
-    if self.args.offline {
-      cmd.arg("--offline");
-    }
-
     let pnpm_args = match &self.args.pnpm_args {
       Some(pnpm_args) => Some(shlex::split(pnpm_args).context("Failed to parse pnpm args")?),
       None => None,
     };
 
-    if let Some(pnpm_args) = pnpm_args {
-      cmd.args(pnpm_args);
-    }
+    ws.exec("pnpm", |cmd| {
+      cmd.arg("install");
 
-    let status = cmd.status().await?;
-    ensure!(status.success(), "pnpm install failed");
+      if self.args.offline {
+        cmd.arg("--offline");
+      }
 
-    Ok(())
+      if let Some(pnpm_args) = pnpm_args {
+        cmd.args(pnpm_args);
+      }
+    })
+    .await
   }
 }

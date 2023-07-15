@@ -29,7 +29,7 @@ pub fn remove_dir_all_if_exists(dir: impl AsRef<Path>) -> Result<()> {
   if !dir.exists() {
     return Ok(());
   }
-  Ok(fs::remove_dir_all(dir)?)
+  Ok(fs::remove_dir_all(dir).with_context(|| format!("Could not remove dir: {}", dir.display()))?)
 }
 
 #[macro_export]
@@ -65,12 +65,6 @@ macro_rules! shareable {
 
       fn deref(&self) -> &Self::Target {
         &self.0
-      }
-    }
-
-    impl std::fmt::Debug for $name {
-      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
       }
     }
 

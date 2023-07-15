@@ -4,6 +4,7 @@ use std::sync::{
   atomic::{AtomicBool, Ordering},
   Arc, Mutex, MutexGuard,
 };
+use tokio::task::JoinHandle;
 
 use anyhow::{bail, ensure, Context, Result};
 
@@ -27,6 +28,7 @@ pub struct Process {
   child: Mutex<Option<async_process::Child>>,
   logs: Arc<Mutex<LogBuffer>>,
   finished: AtomicBool,
+  pipe_handles: Mutex<Vec<JoinHandle<()>>>,
 }
 
 impl Process {
@@ -39,23 +41,26 @@ impl Process {
       .spawn()
       .with_context(|| format!("Failed to spawn process: `{}`", script))?;
 
-    let logs = Arc::new(Mutex::new(RingBuffer::new()));
-    tokio::spawn(Self::pipe_stdio(
-      child.stdout.take().unwrap(),
-      logs.clone(),
-      OutputChannel::Stdout,
-    ));
-    tokio::spawn(Self::pipe_stdio(
-      child.stderr.take().unwrap(),
-      logs.clone(),
-      OutputChannel::Stderr,
-    ));
+    let logs: Arc<Mutex<RingBuffer<LogLine>>> = Arc::new(Mutex::new(RingBuffer::new()));
+    let pipe_handles = vec![
+      tokio::spawn(Self::pipe_stdio(
+        child.stdout.take().unwrap(),
+        logs.clone(),
+        OutputChannel::Stdout,
+      )),
+      tokio::spawn(Self::pipe_stdio(
+        child.stderr.take().unwrap(),
+        logs.clone(),
+        OutputChannel::Stderr,
+      )),
+    ];
 
     Ok(Process {
       script,
       child: Mutex::new(Some(child)),
       logs,
       finished: AtomicBool::new(false),
+      pipe_handles: Mutex::new(pipe_handles),
     })
   }
 
@@ -86,6 +91,7 @@ impl Process {
   pub fn stdout(&self) -> MutexGuard<'_, LogBuffer> {
     self.logs.lock().unwrap()
   }
+
   pub fn finished(&self) -> bool {
     self.finished.load(Ordering::SeqCst)
   }

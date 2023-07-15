@@ -10,7 +10,7 @@ use futures::StreamExt;
 use ratatui::{
   layout::{Constraint, Direction, Layout},
   style::{Modifier, Style},
-  text::{Span, Spans, Text},
+  text::{Line, Span, Spans, Text},
   widgets::{Block, Borders, Paragraph, Tabs, Widget},
 };
 use std::{
@@ -80,7 +80,7 @@ impl FullscreenRenderer {
       // TODO: distinguish stdout from stderr
       match line.line.into_text() {
         Ok(text) => spans.extend(text.lines),
-        Err(e) => spans.push(Spans::from(Span::raw(format!(
+        Err(e) => spans.push(Line::from(Span::raw(format!(
           "failed to parse line with error: {e:?}"
         )))),
       }
@@ -265,9 +265,32 @@ impl InlineRenderer {
       }
     }
 
+    let ws_processes = ws.processes();
+    if !ws_processes.is_empty() {
+      // TODO: this repeats a lot of code with the block below
+      for (j, process) in ws_processes.iter().enumerate() {
+        let last_process = j == ws_processes.len() - 1;
+        writeln!(&mut output, "ws/{}", process.script())?;
+
+        let stdout = process.stdout();
+        for line in stdout.iter() {
+          meta!("│ ");
+          // TODO: distinguish stdout from stderr
+          writeln!(&mut output, "{}", line.line)?;
+        }
+        let status = if process.finished() {
+          "finished"
+        } else {
+          "running..."
+        };
+
+        meta!("└─ {status}\n");
+      }
+    }
+
     for pkg in ws.package_display_order() {
-      let processes = pkg.processes();
-      if processes.is_empty() {
+      let pkg_processes = pkg.processes();
+      if pkg_processes.is_empty() {
         continue;
       }
 
@@ -275,8 +298,8 @@ impl InlineRenderer {
         writeln!(&mut output, "{}", pkg.name)?;
       }
 
-      for (j, process) in processes.iter().enumerate() {
-        let last_process = j == processes.len() - 1;
+      for (j, process) in pkg_processes.iter().enumerate() {
+        let last_process = j == pkg_processes.len() - 1;
         if ws.monorepo {
           if last_process {
             meta!("└─ ");

@@ -34,16 +34,18 @@ impl CoreCommand for DocCommand {
 #[async_trait::async_trait]
 impl WorkspaceCommand for DocCommand {
   async fn run_ws(&self, ws: &Workspace) -> Result<()> {
-    let mut cmd = async_process::Command::new(ws.global_config.bindir().join("pnpm"));
-    cmd.args(["exec", "typedoc"]);
-    cmd.current_dir(&ws.root);
+    let typedoc_args = match &self.args.typedoc_args {
+      Some(typedoc_args) => {
+        Some(shlex::split(typedoc_args).context("Failed to parse typedoc args")?)
+      }
+      None => None,
+    };
 
-    if let Some(typedoc_args) = &self.args.typedoc_args {
-      cmd.args(shlex::split(typedoc_args).context("Failed to parse typedoc args")?);
-    }
-
-    let status = cmd.status().await?;
-    ensure!(status.success(), "typedoc failed");
-    Ok(())
+    ws.exec("typedoc", |cmd| {
+      if let Some(typedoc_args) = typedoc_args {
+        cmd.args(typedoc_args);
+      }
+    })
+    .await
   }
 }

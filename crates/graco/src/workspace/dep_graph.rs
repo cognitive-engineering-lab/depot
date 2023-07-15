@@ -14,7 +14,7 @@ pub struct DepGraph<T> {
   roots: Vec<T>,
 }
 
-impl<T: Debug + Hash + PartialEq + Eq + Clone> DepGraph<T> {
+impl<T: Hash + PartialEq + Eq + Clone> DepGraph<T> {
   pub fn build(roots: Vec<T>, compute_deps: impl Fn(T) -> Vec<T>) -> Self {
     let mut graph = DiGraph::new();
     let mut nodes = BiHashMap::new();

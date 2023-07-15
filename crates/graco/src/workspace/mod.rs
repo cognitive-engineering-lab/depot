@@ -1,10 +1,11 @@
 use self::{
   dep_graph::DepGraph,
   package::{PackageGraph, PackageIndex, PackageName},
+  process::Process,
 };
 use crate::{commands::setup::GlobalConfig, shareable, utils, CommonArgs};
 
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use cfg_if::cfg_if;
 use futures::{
   stream::{self, TryStreamExt},
@@ -21,7 +22,7 @@ use std::{
   iter,
   ops::Deref,
   path::{Path, PathBuf},
-  sync::Arc,
+  sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 mod dep_graph;
@@ -48,6 +49,7 @@ pub struct WorkspaceInner {
   pub common: CommonArgs,
 
   package_display_order: Vec<PackageIndex>,
+  processes: RwLock<Vec<Arc<Process>>>,
 }
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
@@ -248,6 +250,7 @@ impl Workspace {
       global_config,
       pkg_graph,
       common,
+      processes: Default::default(),
     }));
 
     for pkg in &ws.packages {
@@ -276,6 +279,47 @@ impl WorkspaceInner {
 
   pub fn watch(&self) -> bool {
     self.common.watch
+  }
+
+  pub fn start_process(
+    &self,
+    script: &'static str,
+    configure: impl FnOnce(&mut async_process::Command),
+  ) -> Result<Arc<Process>> {
+    log::trace!("Starting process: {script}");
+
+    let ws_bindir = self.root.join("node_modules").join(".bin");
+    let script_path = if script == "pnpm" {
+      self.global_config.bindir().join("pnpm")
+    } else {
+      ws_bindir.join(script)
+    };
+    ensure!(
+      script_path.exists(),
+      "Executable is missing: {}",
+      script_path.display()
+    );
+
+    let mut cmd = async_process::Command::new(script_path);
+    cmd.current_dir(&self.root);
+
+    configure(&mut cmd);
+
+    Ok(Arc::new(Process::new(script.to_owned(), cmd)?))
+  }
+
+  pub async fn exec(
+    &self,
+    script: &'static str,
+    configure: impl FnOnce(&mut async_process::Command),
+  ) -> Result<()> {
+    let process = self.start_process(script, configure)?;
+    self.processes.write().unwrap().push(process.clone());
+    process.wait().await
+  }
+
+  pub fn processes(&self) -> RwLockReadGuard<'_, Vec<Arc<Process>>> {
+    self.processes.read().unwrap()
   }
 }
 

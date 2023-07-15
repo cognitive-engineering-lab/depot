@@ -1,9 +1,12 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 
+use cfg_if::cfg_if;
 use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
-  fmt, fs,
+  env,
+  fmt::{self, Debug},
+  fs,
   hash::{Hash, Hasher},
   ops::Deref,
   path::{Path, PathBuf},
@@ -221,28 +224,12 @@ impl Package {
     script: &'static str,
     configure: impl FnOnce(&mut async_process::Command),
   ) -> Result<()> {
-    let ws = self.workspace();
-    let pnpm_path = ws.global_config.bindir().join("pnpm");
-    ensure!(
-      pnpm_path.exists(),
-      "Trying to execute a command before Graco is setup"
-    );
-
-    let mut cmd = async_process::Command::new(&pnpm_path);
-    cmd.current_dir(&self.root);
-
-    if script != "pnpm" {
-      cmd.args(["exec", script]);
-    }
-
-    configure(&mut cmd);
-
-    let process = Arc::new(Process::new(script.to_owned(), cmd)?);
+    let process = self.workspace().start_process(script, |cmd| {
+      cmd.current_dir(&self.root);
+      configure(cmd);
+    })?;
     self.processes.write().unwrap().push(process.clone());
-
-    process.wait().await?;
-
-    Ok(())
+    process.wait().await
   }
 }
 
@@ -290,6 +277,12 @@ impl PackageInner {
         is_src_file.then(|| path.to_owned())
       })
       .collect()
+  }
+}
+
+impl Debug for Package {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.name)
   }
 }
 

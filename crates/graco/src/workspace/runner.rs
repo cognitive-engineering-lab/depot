@@ -30,7 +30,7 @@ enum TaskStatus {
   Finished,
 }
 
-type TaskFuture = BoxFuture<'static, (Result<()>, Task)>;
+type TaskFuture = Box<dyn FnOnce() -> BoxFuture<'static, (Result<()>, Task)>>;
 
 pub struct TaskInner {
   status: AtomicTaskStatus,
@@ -63,11 +63,13 @@ impl Task {
     let fut = mk_future(command.clone());
     (
       task,
-      async move {
-        let result = fut.await;
-        (result, task2)
-      }
-      .boxed(),
+      Box::new(move || {
+        async move {
+          let result = fut.await;
+          (result, task2)
+        }
+        .boxed()
+      }),
     )
   }
 }
@@ -121,14 +123,7 @@ impl Workspace {
     &self,
     cmd_graph: &CommandGraph,
   ) -> Result<(TaskGraph, HashMap<Task, TaskFuture>)> {
-    let mut futures: RefCell<
-      HashMap<
-        Task,
-        std::pin::Pin<
-          Box<dyn Future<Output = (std::result::Result<(), anyhow::Error>, Task)> + Send>,
-        >,
-      >,
-    > = RefCell::new(HashMap::new());
+    let mut futures = RefCell::new(HashMap::new());
     let mut task_pool = RefCell::new(HashMap::new());
 
     let pkg_roots = match &self.common.only {
@@ -173,7 +168,16 @@ impl Workspace {
       match &**cmd {
         CommandInner::Package(_) => pkg_tasks!().collect(),
         CommandInner::Workspace(_) => vec![ws_task!()],
-        CommandInner::Both(_) => pkg_tasks!().chain([ws_task!()]).collect(),
+        CommandInner::Both(_) => {
+          // TODO: this semantics makes avoids an issue where
+          // non-monorepos have race conditions, e.g. cleaning node_modules
+          // twice concurrently. But this solution is hacky
+          if self.monorepo {
+            pkg_tasks!().chain([ws_task!()]).collect()
+          } else {
+            pkg_tasks!().collect()
+          }
+        }
       }
     };
 
@@ -209,6 +213,7 @@ impl Workspace {
 
     let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit);
 
+    let mut running_futures = Vec::new();
     let result = loop {
       let finished = task_graph
         .nodes()
@@ -227,21 +232,19 @@ impl Workspace {
         if deps_finished {
           debug!("Starting task for: {}", task.name());
           task.status.store(TaskStatus::Running, Ordering::SeqCst);
+          running_futures.push(tokio::spawn((task_futures.remove(task).unwrap())()));
         }
       }
 
-      let running_tasks = task_graph
-        .nodes()
-        .filter(|task| task.status() == TaskStatus::Running)
-        .collect::<HashSet<_>>();
-      let running_futures = task_futures
-        .iter_mut()
-        .filter_map(|(task, future)| running_tasks.contains(task).then_some(future));
-      let one_output = futures::future::select_all(running_futures);
-      let ((result, completed_task), _, _) = tokio::select! { biased;
+      let one_output = futures::future::select_all(&mut running_futures);
+      let (result, idx, _) = tokio::select! { biased;
         _ = &mut runner_should_exit_fut => break Ok(()),
         output = one_output => output,
       };
+
+      running_futures.remove(idx);
+
+      let (result, completed_task) = result?;
 
       if result.is_err() {
         break result;
@@ -252,6 +255,14 @@ impl Workspace {
         .status
         .store(TaskStatus::Finished, Ordering::SeqCst);
     };
+
+    for fut in &mut running_futures {
+      fut.abort();
+    }
+
+    for fut in &mut running_futures {
+      let _ = fut.await;
+    }
 
     log::debug!("All tasks complete, waiting for log thread to exit");
     log_should_exit.notify_one();
