@@ -5,7 +5,7 @@ BASE_URL="https://github.com/cognitive-engineering-lab/depot/releases/latest/dow
 INSTALL_DIR=$HOME/.local/bin
 
 download() {
-  pushd $(mktemp -d)
+  cd $(mktemp -d)
   
   echo 'Downloading prebuilt binary from Github...'
   wget "${BASE_URL}/$1.tar.gz"
@@ -13,8 +13,6 @@ download() {
 
   mkdir -p $INSTALL_DIR
   mv depot $INSTALL_DIR/depot
-
-  popd
 }
 
 ARCH=$(uname -m)
