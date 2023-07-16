@@ -256,7 +256,29 @@ impl PackageInner {
       .unwrap_or_else(|_| panic!("Called set_workspace twice!"));
   }
 
-  pub fn source_files(&self) -> Vec<PathBuf> {
+  pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> {
+    // TODO: make this configurable
+    let asset_extensions = maplit::hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
+
+    WalkDir::new(self.root.join("src"))
+      .into_iter()
+      .filter_map(move |entry| {
+        let entry = entry.ok()?;
+        if !entry.file_type().is_file() {
+          return None;
+        }
+
+        let path = entry.path();
+        let Some(ext) = path.extension() else {
+          return None;
+        };
+        asset_extensions
+          .contains(ext.to_str().unwrap())
+          .then(|| path.to_owned())
+      })
+  }
+
+  pub fn source_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
     ["src", "tests"]
       .into_iter()
       .flat_map(|dir| WalkDir::new(self.root.join(dir)))
@@ -273,7 +295,6 @@ impl PackageInner {
         let is_src_file = ext == "ts" || ext == "tsx";
         is_src_file.then(|| path.to_owned())
       })
-      .collect()
   }
 }
 

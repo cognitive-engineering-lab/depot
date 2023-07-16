@@ -11,7 +11,7 @@ pub fn create_dir_if_missing(p: impl AsRef<Path>) -> Result<()> {
   if p.exists() {
     return Ok(());
   }
-  fs::create_dir(p).with_context(|| format!("Could not create directory: {}", p.display()))
+  fs::create_dir_all(p).with_context(|| format!("Could not create directory: {}", p.display()))
 }
 
 pub fn get_git_root(cwd: &Path) -> Option<PathBuf> {

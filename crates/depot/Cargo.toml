@@ -40,7 +40,7 @@ ansi-diff = "1"
 indicatif = "0.17"
 bimap = "0.6"
 atomic_enum = "0.2"
+maplit = "1"
 
 [dev-dependencies]
 depot-test-utils = { path = "../depot-test-utils" }
-maplit = "1"

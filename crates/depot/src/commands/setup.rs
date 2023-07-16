@@ -127,9 +127,6 @@ impl SetupCommand {
       Some(dir) => dir,
       None => GlobalConfig::find_root()?,
     };
-    if config_dir.exists() {
-      return Ok(());
-    }
     utils::create_dir_if_missing(&config_dir)?;
 
     let config = GlobalConfig { root: config_dir };

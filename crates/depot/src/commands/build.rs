@@ -1,11 +1,17 @@
+use std::fs;
+
 use anyhow::Result;
 
 use futures::{future::try_join_all, FutureExt};
+use log::debug;
 
 use super::init::{InitArgs, InitCommand};
-use crate::workspace::{
-  package::{Package, Target},
-  Command, CoreCommand, PackageCommand,
+use crate::{
+  utils,
+  workspace::{
+    package::{Package, Target},
+    Command, CoreCommand, PackageCommand,
+  },
 };
 
 /// Check and build packages
@@ -38,8 +44,9 @@ impl PackageCommand for BuildCommand {
   async fn run_pkg(&self, pkg: &Package) -> Result<()> {
     let mut processes = Vec::new();
 
-    if pkg.target.is_script() || pkg.target.is_site() {
-      processes.push(self.vite(pkg).boxed());
+    match pkg.target {
+      Target::Script | Target::Site => processes.push(self.vite(pkg).boxed()),
+      Target::Lib => processes.push(self.copy_assets(pkg).boxed()),
     }
 
     if pkg.root.join(BUILD_SCRIPT).exists() {
@@ -129,5 +136,20 @@ impl BuildCommand {
         }
       })
       .await
+  }
+
+  async fn copy_assets(&self, pkg: &Package) -> Result<()> {
+    let src_dir = pkg.root.join("src");
+    let dst_dir = pkg.root.join("dist");
+
+    for file in pkg.asset_files() {
+      let rel_path = file.strip_prefix(&src_dir)?;
+      let target_path = dst_dir.join(rel_path);
+      utils::create_dir_if_missing(target_path.parent().unwrap())?;
+      debug!("copying: {} -> {}", file.display(), target_path.display());
+      fs::copy(file, target_path)?;
+    }
+
+    Ok(())
   }
 }

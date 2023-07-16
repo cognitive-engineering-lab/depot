@@ -371,6 +371,10 @@ minify: false,"#
     );
     config.push(("test", test_config.into()));
 
+    if platform.is_node() {
+      config.push(("resolve", "{conditions: [\"node\"]}".into()));
+    }
+
     let imports_str = imports
       .into_iter()
       .map(|(l, r)| format!("import {l} from \"{r}\";\n"))

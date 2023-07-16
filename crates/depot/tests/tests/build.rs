@@ -3,10 +3,12 @@ use depot_test_utils::{project, project_for, react_project_for, workspace};
 #[test]
 fn basic_lib_browser() {
   let p = project_for("lib", "browser");
+  p.file("src/nested/foobar.css", ".red { color: red; }");
   p.depot("build");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.d.ts"));
   assert!(p.exists("dist/lib.js.map"));
+  assert!(p.exists("dist/nested/foobar.css"));
 }
 
 #[test]
