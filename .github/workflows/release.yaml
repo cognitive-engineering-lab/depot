@@ -7,7 +7,6 @@ on:
 
 jobs:
   build-artifacts:
-    runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
 
     strategy:
@@ -20,6 +19,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
           
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -39,7 +39,7 @@ jobs:
 
   publish-crates:
     needs: build-artifacts
-    run-on: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Install cargo-workspaces
         uses: baptiste0928/cargo-install@v2
