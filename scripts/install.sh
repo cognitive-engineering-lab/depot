@@ -23,16 +23,16 @@ OS=$(uname)
 pick_target() {
   echo "Selecting target for $ARCH / $OS..."
 
-  if [[ "$OS" == "Linux" ]]; then
-    if [[ "$ARCH" == "x86_64" ]]; then
+  if [ "$OS" = "Linux" ]; then
+    if [ "$ARCH" = "x86_64" ]; then
       download "x86_64-unknown-linux-gnu"
       return
     fi
-  elif [[ "$OS" == "Darwin" ]]; then
-    if [[ "$ARCH" == "arm64" ]]; then
+  elif [ "$OS" = "Darwin" ]; then
+    if [ "$ARCH" = "arm64" ]; then
       download "aarch64-apple-darwin"
       return
-    elif [[ "$ARCH" == "x86_64" ]]; then
+    elif [ "$ARCH" = "x86_64" ]; then
       download "x86_64-apple-darwin"
       return
     fi
