@@ -37,11 +37,7 @@ impl GlobalConfig {
       Ok(val) => PathBuf::from(val),
       Err(_) => {
         let home_dir = home::home_dir().context("Could not find home directory")?;
-        if home_dir.display().to_string() == "/" {
-          PathBuf::from("/usr/local")
-        } else {
-          home_dir.join(".local")
-        }
+        home_dir.join(".local")
       }
     })
   }
