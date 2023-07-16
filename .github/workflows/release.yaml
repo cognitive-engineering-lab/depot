@@ -30,12 +30,14 @@ jobs:
           args: --locked --release
           strip: true
       - name: Tar artifacts
-        run: tar -czf ${{ matrix.target }}.tar.gz target/${{ matrix.target }}/release/depot
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf ${{ matrix.target }}.tar.gz depot
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.target }}
-          path: ${{ matrix.target }}.tar.gz
+          path: target/${{ matrix.target }}/release/${{ matrix.target }}.tar.gz
 
   publish-crates:
     needs: build-artifacts
