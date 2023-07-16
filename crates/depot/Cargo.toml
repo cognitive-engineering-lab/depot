@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.2.7"
+version = "0.2.8"
 description = "A Javascript devtool orchestrator"
 edition = "2021"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -25,7 +25,6 @@ ratatui = "0.21"
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
 ansi-to-tui = "3" # This must match tui
 home = "0.5"
-curl = "0.4"
 petgraph = { version = "0.6", default-features = false }
 futures = { version = "0.3", default-features = false, features = ["std"] }
 async-trait = "0.1"
@@ -41,6 +40,7 @@ indicatif = "0.17"
 bimap = "0.6"
 atomic_enum = "0.2"
 maplit = "1"
+reqwest = {version = "0.11", features = ["stream"]}
 
 [dev-dependencies]
 depot-test-utils = { path = "../depot-test-utils" }
