@@ -56,7 +56,7 @@ impl GlobalConfig {
   }
 }
 
-const PNPM_VERSION: &str = "7.29.1";
+const PNPM_VERSION: &str = "8.6.7";
 
 fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
   let mut curl = curl::easy::Easy::new();
