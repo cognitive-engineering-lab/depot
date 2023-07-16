@@ -493,11 +493,11 @@ export default defineConfig(({{mode}}) => ({{
       "eslint",
       "@typescript-eslint/eslint-plugin",
       "@typescript-eslint/parser",
-      "eslint-plugin-prettier",
+      "eslint-plugin-prettier@^4",
 
       // Formatting
-      "prettier",
-      "@trivago/prettier-plugin-sort-imports",
+      "prettier@^2",
+      "@trivago/prettier-plugin-sort-imports@^4.1",
 
       // Documentation generation
       "typedoc"

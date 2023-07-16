@@ -102,7 +102,6 @@ impl Workspace {
           .await
       } else {
         InlineRenderer::new()
-          .unwrap()
           .render_loop(&ws, &log_should_exit)
           .await
       };

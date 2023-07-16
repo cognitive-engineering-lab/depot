@@ -187,7 +187,7 @@ impl Renderer for FullscreenRenderer {
     )?;
     terminal.show_cursor()?;
 
-    let inline_renderer = InlineRenderer::new()?;
+    let inline_renderer = InlineRenderer::new();
     inline_renderer.complete(ws)?;
 
     Ok(())
@@ -248,10 +248,11 @@ pub struct InlineRenderer {
 }
 
 impl InlineRenderer {
-  pub fn new() -> Result<Self> {
-    let (w, h) = crossterm::terminal::size()?;
+  pub fn new() -> Self {
+    // TODO: do we need a different rendering strategy if there's no tty?
+    let (w, h) = crossterm::terminal::size().unwrap_or((80, 40));
     let diff = Mutex::new(ansi_diff::Diff::new((w as u32, h as u32)));
-    Ok(InlineRenderer { diff })
+    InlineRenderer { diff }
   }
 
   fn build_output(ws: &Workspace) -> Result<String> {
