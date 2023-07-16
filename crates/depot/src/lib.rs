@@ -41,7 +41,7 @@ pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
 
   let command = match command {
-    Command::Setup(args) => return SetupCommand::new(args).run(),
+    Command::Setup(args) => return SetupCommand::new(args).run().await,
     command => command,
   };
 

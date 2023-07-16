@@ -9,6 +9,7 @@ use std::{
 };
 
 use anyhow::{ensure, Context, Result};
+use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 
 /// Setup Depot for use on this machine
@@ -58,17 +59,11 @@ impl GlobalConfig {
 
 const PNPM_VERSION: &str = "8.6.7";
 
-fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
-  let mut curl = curl::easy::Easy::new();
-  curl.url(url)?;
-  curl.follow_location(true)?;
-
-  curl.nobody(true)?;
-  curl.perform()?;
-  let total_size = curl.content_length_download()? as u64;
-
-  curl.nobody(false)?;
-  curl.progress(true)?;
+async fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
+  let res = reqwest::get(url).await?;
+  let total_size = res
+    .content_length()
+    .context("Failed to get content length")?;
 
   log::debug!("Starting download...");
   let bar = ProgressBar::new(total_size);
@@ -80,20 +75,22 @@ fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
     .progress_chars("#>-"),
   );
 
-  let mut transfer = curl.transfer();
-  transfer.progress_function(|_, current, _, _| {
-    bar.set_position(current as u64);
-    true
-  })?;
-  transfer.write_function(|data| dst.write(data).map_err(|_| curl::easy::WriteError::Pause))?;
+  let mut stream = res.bytes_stream();
+  let mut downloaded: u64 = 0;
+  while let Some(chunk) = stream.next().await {
+    let chunk = chunk?;
+    dst.write_all(&chunk)?;
+    let new = (downloaded + (chunk.len() as u64)).min(total_size);
+    downloaded = new;
+    bar.set_position(new);
+  }
 
-  transfer.perform()?;
   bar.finish();
 
   Ok(())
 }
 
-fn download_pnpm(dst: &Path) -> Result<()> {
+async fn download_pnpm(dst: &Path) -> Result<()> {
   let version = PNPM_VERSION;
   let platform = match env::consts::OS {
     "macos" | "ios" => "macos",
@@ -109,7 +106,7 @@ fn download_pnpm(dst: &Path) -> Result<()> {
     format!("https://github.com/pnpm/pnpm/releases/download/v{version}/pnpm-{platform}-{arch}");
 
   let mut file = File::create(dst).context("Could not save pnpm binary to file")?;
-  download_file(&pnpm_url, BufWriter::new(&mut file))?;
+  download_file(&pnpm_url, BufWriter::new(&mut file)).await?;
 
   #[cfg(unix)]
   file.set_permissions(Permissions::from_mode(0o555))?;
@@ -122,7 +119,7 @@ impl SetupCommand {
     SetupCommand { args }
   }
 
-  pub fn run(self) -> Result<()> {
+  pub async fn run(self) -> Result<()> {
     let config_dir = match self.args.config_dir {
       Some(dir) => dir,
       None => GlobalConfig::find_root()?,
@@ -136,7 +133,7 @@ impl SetupCommand {
     let pnpm_path = bindir.join("pnpm");
     if !pnpm_path.exists() {
       println!("Downloading pnpm from Github...");
-      download_pnpm(&pnpm_path)?;
+      download_pnpm(&pnpm_path).await?;
     }
 
     println!("Setup complete!");
