@@ -50,3 +50,9 @@ jobs:
       - name: Dry run of crate publish
         run: cargo publish -p depot-js --dry-run
 
+  check-pr-name:
+    if: contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that PR name is a release number
+        run: echo "${{ github.event.pull_request.title }}" |  grep -q -E "^v[0-9]+\.[0-9]+\.[0-9]+$"
