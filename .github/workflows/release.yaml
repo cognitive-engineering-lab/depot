@@ -21,27 +21,38 @@ jobs:
             target: aarch64-apple-darwin
           
     steps:
-      - uses: actions/checkout@v3
-      - uses: houseabsolute/actions-rust-cross@v0
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Crosss-compile
+        uses: houseabsolute/actions-rust-cross@v0
         with:
-          target: ${{ matrix.platform.target }}
+          target: ${{ matrix.target }}
           args: --locked --release
           strip: true
-      - run: tar -czf ${{ matrix.target }}.tar.gz target/${{ matrix.target }}/release/depot
-      - uses: actions/upload-artifact@v2
+      - name: Tar artifacts
+        run: tar -czf ${{ matrix.target }}.tar.gz target/${{ matrix.target }}/release/depot
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.target }}
           path: ${{ matrix.target }}.tar.gz
 
   publish-crates:
+    needs: build-artifacts
+    run-on: ubuntu-latest
     steps:
-      - uses: baptiste0928/cargo-install@v2
+      - name: Install cargo-workspaces
+        uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-workspaces
-      - uses: actions/checkout@v3
-      - run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
-      - run: cargo ws publish --from-git --yes
-      - uses: christophebedard/tag-version-commit@v1
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Login to crates.io
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: Publish crates
+        run: cargo ws publish --from-git --yes
+      - name: Add a tag for the merged commit
+        uses: christophebedard/tag-version-commit@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version_regex: 'v([0-9]+\.[0-9]+\.[0-9]+)'
@@ -51,8 +62,10 @@ jobs:
     needs: publish-crates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v2
-      - uses: softprops/action-gh-release@v1
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: Publish artifacts
+        uses: softprops/action-gh-release@v1
         with:
           files: |
             x86_64-unknown-linux-gnu/x86_64-unknown-linux-gnu.tar.gz
