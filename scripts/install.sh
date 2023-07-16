@@ -4,7 +4,7 @@ set -e
 BASE_URL="https://github.com/cognitive-engineering-lab/depot/releases/latest/download"
 INSTALL_DIR=$HOME/.local/bin
 
-function download() {
+function download {
   pushd $(mktemp -d)
   
   wget "${BASE_URL}/$1.tar.gz"
@@ -18,7 +18,7 @@ function download() {
 
 ARCH=$(uname -m)
 
-function pick_target() {
+function pick_target {
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     if [[ "$ARCH" == "x86_64" ]]; then
       download "x86_64-unknown-linux-gnu"
