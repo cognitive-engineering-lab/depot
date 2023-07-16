@@ -19,6 +19,8 @@ download() {
 ARCH=$(uname -m)
 
 pick_target() {
+  echo "Selecting target for $ARCH / $OSTYPE..."
+  
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     if [[ "$ARCH" == "x86_64" ]]; then
       download "x86_64-unknown-linux-gnu"
