@@ -10,6 +10,11 @@ jobs:
   test-artifacts:
     if: contains(github.event.pull_request.labels.*.name, 'release')    
 
+    env:
+      RUST_BACKTRACE: 1
+      RUST_LIB_BACKTRACE: 1
+      TOKIO_WORKER_THREADS: 1
+
     strategy:
       matrix:
         include:
@@ -25,8 +30,10 @@ jobs:
     
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: houseabsolute/actions-rust-cross@v0
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Cross-compile
+        uses: houseabsolute/actions-rust-cross@v0
         with:
           command: ${{ matrix.command }}
           target: ${{ matrix.target }}
