@@ -18,26 +18,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            command: test
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            command: test
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            command: build
+          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-apple-darwin
+          - target: aarch64-apple-darwin
     
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Cross-compile
-        uses: houseabsolute/actions-rust-cross@v0
+      - name: Install cross
+        uses: baptiste0928/cargo-install@v2
         with:
-          command: ${{ matrix.command }}
-          target: ${{ matrix.target }}
-          args: --locked
+          crate: cross
+          git: https://github.com/cross-rs/cross
+      - name: Cross-compile
+        run: cross test --locked --target ${{ matrix.target }}
 
   publish-dry-run:
     if: contains(github.event.pull_request.labels.*.name, 'release')

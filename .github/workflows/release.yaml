@@ -12,23 +12,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: macos-latest
             target: x86_64-apple-darwin
-          - os: macos-latest
             target: aarch64-apple-darwin
           
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Crosss-compile
-        uses: houseabsolute/actions-rust-cross@v0
+      - name: Install cross
+        uses: baptiste0928/cargo-install@v2
         with:
-          target: ${{ matrix.target }}
-          args: --locked --release
-          strip: true
+          crate: cross
+          git: https://github.com/cross-rs/cross
+      - name: Cross-compile
+        run: cross build --locked --release --target ${{ matrix.target }}
       - name: Tar artifacts
         run: |
           cd target/${{ matrix.target }}/release
