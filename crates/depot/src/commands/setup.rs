@@ -37,7 +37,7 @@ impl GlobalConfig {
       Ok(val) => PathBuf::from(val),
       Err(_) => {
         let home_dir = home::home_dir().context("Could not find home directory")?;
-        home_dir.join(".depot")
+        home_dir.join(".local")
       }
     })
   }

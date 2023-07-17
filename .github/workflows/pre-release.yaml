@@ -13,31 +13,34 @@ jobs:
     env:
       RUST_BACKTRACE: 1
       RUST_LIB_BACKTRACE: 1
-      TOKIO_WORKER_THREADS: 1
+      TOKIO_WORKER_THREADS: 1      
 
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            command: test
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            command: test
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            command: build
+            - target: x86_64-unknown-linux-gnu
+              os: ubuntu-latest
+              command: test
+            - target: x86_64-apple-darwin
+              os: macos-latest
+              command: test
+            - target: aarch64-apple-darwin
+              os: macos-latest
+              command: build
     
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Cross-compile
-        uses: houseabsolute/actions-rust-cross@v0
+      - name: Install cross
+        uses: baptiste0928/cargo-install@v2
         with:
-          command: ${{ matrix.command }}
-          target: ${{ matrix.target }}
-          args: --locked
+          crate: cross
+          git: https://github.com/cross-rs/cross
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+      - name: Cross-compile
+        run: cross ${{ matrix.command }} --locked --target ${{ matrix.target }}
 
   publish-dry-run:
     if: contains(github.event.pull_request.labels.*.name, 'release')
