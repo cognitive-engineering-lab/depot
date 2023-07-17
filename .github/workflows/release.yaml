@@ -28,6 +28,8 @@ jobs:
         with:
           crate: cross
           git: https://github.com/cross-rs/cross
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
       - name: Compile binary
         run: cross build --locked --release --target ${{ matrix.target }}
       - name: Tar artifacts
