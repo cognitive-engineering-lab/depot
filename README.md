@@ -3,7 +3,7 @@
 Depot (formerly Graco) is a tool for orchestrating other Javascript devtools. As an analogy:
 * Depot is like [Cargo], but for Javascript.
 * Depot is like [create-react-app], but for people who like software engineering.
-* Depot is like the `"scripts'` field of package.json, but with more power and flexibility.
+* Depot is like the `"scripts"` field of package.json, but with more power and flexibility.
 
 Depot works on Javascript workspaces that have been created by Depot, specifically those that match the [model JS workspace]. Depot supports the following commands:
 
