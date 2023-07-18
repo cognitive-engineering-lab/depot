@@ -58,8 +58,7 @@ impl FullscreenRenderer {
   fn build_tabs(ws: &Workspace, selected: usize) -> Option<Tabs> {
     ws.monorepo.then(|| {
       let titles = ws
-        .packages
-        .iter()
+        .package_display_order()
         .enumerate()
         .map(|(i, pkg)| {
           let pkg_name = pkg.name.to_string();
@@ -67,7 +66,7 @@ impl FullscreenRenderer {
           if i == selected {
             style = style.add_modifier(Modifier::BOLD);
           }
-          Line::from(vec![Span::styled(pkg_name, style)])
+          Span::styled(pkg_name, style)
         })
         .collect::<Vec<_>>();
       Tabs::new(titles)

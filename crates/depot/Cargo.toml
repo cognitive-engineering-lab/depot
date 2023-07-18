@@ -23,7 +23,9 @@ ratatui = "0.21"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
-ansi-to-tui = "3" # This must match tui
+# This dep will cause problems on `cargo update` until this issue is resolved:
+# https://github.com/uttarayan21/ansi-to-tui/issues/32
+ansi-to-tui = "= 3.0.0" # This must match tui
 home = "0.5"
 petgraph = { version = "0.6", default-features = false }
 futures = { version = "0.3", default-features = false, features = ["std"] }

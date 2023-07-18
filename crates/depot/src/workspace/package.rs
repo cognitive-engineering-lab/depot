@@ -216,17 +216,28 @@ impl Package {
     Self::from_parts(root, manifest, index, entry_point, target)
   }
 
-  pub async fn exec(
+  pub fn start_process(
     &self,
     script: &'static str,
     configure: impl FnOnce(&mut async_process::Command),
-  ) -> Result<()> {
+  ) -> Result<Arc<Process>> {
     let process = self.workspace().start_process(script, |cmd| {
       cmd.current_dir(&self.root);
       configure(cmd);
     })?;
     self.processes.write().unwrap().push(process.clone());
-    process.wait().await
+    Ok(process)
+  }
+
+  pub async fn exec(
+    &self,
+    script: &'static str,
+    configure: impl FnOnce(&mut async_process::Command),
+  ) -> Result<()> {
+    self
+      .start_process(script, configure)?
+      .wait_for_success()
+      .await
   }
 }
 

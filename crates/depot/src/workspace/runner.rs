@@ -17,7 +17,7 @@ use crate::{
 
 use super::{
   build_command_graph, dep_graph::DepGraph, package::Package, Command, CommandGraph, CommandInner,
-  Workspace,
+  CommandRuntime, Workspace,
 };
 
 #[atomic_enum::atomic_enum]
@@ -89,13 +89,14 @@ impl Workspace {
     &self,
     log_should_exit: &Arc<Notify>,
     runner_should_exit: &Arc<Notify>,
+    runtime: Option<CommandRuntime>,
   ) -> impl Future {
     let ws = self.clone();
     let log_should_exit = Arc::clone(log_should_exit);
     let runner_should_exit = Arc::clone(runner_should_exit);
-    let watch = self.common.watch;
+    let use_fullscreen_renderer = matches!(runtime, Some(CommandRuntime::RunForever));
     tokio::spawn(async move {
-      let result = if watch {
+      let result = if use_fullscreen_renderer {
         FullscreenRenderer::new()
           .unwrap()
           .render_loop(&ws, &log_should_exit)
@@ -185,7 +186,8 @@ impl Workspace {
           .immediate_deps_for(&task.command)
           .flat_map(|dep| tasks_for(dep))
           .collect::<Vec<_>>();
-        if let Some(pkg) = &task.pkg {
+        let runtime = task.command.runtime();
+        if let (Some(pkg), Some(CommandRuntime::WaitForDependencies)) = (&task.pkg, runtime) {
           deps.extend(self.pkg_graph.immediate_deps_for(pkg).map(|pkg| {
             let name = task_name(&task.command, &Some(pkg.clone()));
             task_pool.borrow()[&name].clone()
@@ -208,7 +210,8 @@ impl Workspace {
     let runner_should_exit_fut = runner_should_exit.notified();
     tokio::pin!(runner_should_exit_fut);
 
-    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit);
+    let runtime = root.runtime();
+    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit, runtime);
 
     let mut running_futures = Vec::new();
     let result = loop {

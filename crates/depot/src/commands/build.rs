@@ -1,6 +1,6 @@
 use std::fs;
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
 
 use futures::{future::try_join_all, FutureExt};
 use log::debug;
@@ -10,7 +10,7 @@ use crate::{
   utils,
   workspace::{
     package::{Package, Target},
-    Command, CoreCommand, PackageCommand,
+    Command, CommandRuntime, CoreCommand, PackageCommand,
   },
 };
 
@@ -21,9 +21,17 @@ pub struct BuildArgs {
   #[arg(short, long)]
   pub release: bool,
 
-  /// If true, then don't attempt to download packages from the web
+  /// Don't attempt to download packages from the web
   #[arg(long, action)]
   pub offline: bool,
+
+  /// Rebuild when files change
+  #[clap(short, long, action)]
+  pub watch: bool,
+
+  /// Fail if eslint finds a lint issue
+  #[clap(short, long, action)]
+  pub lint_fail: bool,
 }
 
 #[derive(Debug)]
@@ -64,8 +72,12 @@ impl PackageCommand for BuildCommand {
     vec![InitCommand::new(InitArgs::default()).kind()]
   }
 
-  fn ignore_dependencies(&self) -> bool {
-    false
+  fn runtime(&self) -> CommandRuntime {
+    if self.args.watch {
+      CommandRuntime::RunForever
+    } else {
+      CommandRuntime::WaitForDependencies
+    }
   }
 }
 
@@ -82,7 +94,7 @@ impl BuildCommand {
     pkg
       .exec("tsc", |cmd| {
         cmd.arg("--pretty");
-        if pkg.workspace().watch() {
+        if self.args.watch {
           cmd.arg("--watch");
         }
         if pkg.target.is_lib() && !self.args.release {
@@ -93,26 +105,26 @@ impl BuildCommand {
   }
 
   async fn eslint(&self, pkg: &Package) -> Result<()> {
-    pkg
-      .exec("eslint", |_| {
-        // TODO: watch mode
-      })
-      .await
+    let process = pkg.start_process("eslint", |cmd| {
+      cmd.args(pkg.source_files());
+      // TODO: watch mode
+    })?;
+
+    let status = process.wait().await?;
+    ensure!(!self.args.lint_fail || status.success(), "eslint failed");
+
+    Ok(())
   }
 
   async fn vite(&self, pkg: &Package) -> Result<()> {
     pkg
       .exec("vite", |cmd| match pkg.target {
         Target::Site => {
-          cmd.arg(if pkg.workspace().watch() {
-            "dev"
-          } else {
-            "build"
-          });
+          cmd.arg(if self.args.watch { "dev" } else { "build" });
         }
         _ => {
           cmd.arg("build");
-          if pkg.workspace().watch() {
+          if self.args.watch {
             cmd.arg("--watch");
           }
           if !self.args.release {
@@ -128,7 +140,7 @@ impl BuildCommand {
     pkg
       .exec("pnpm", |cmd| {
         cmd.args(["exec", "node", BUILD_SCRIPT]);
-        if pkg.workspace().watch() {
+        if self.args.watch {
           cmd.arg("--watch");
         }
         if self.args.release {

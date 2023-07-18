@@ -31,8 +31,7 @@ let App = () => {
 ReactDOM.createRoot(document.getElementById("root")!).render(<App />);
 "#;
 
-const BASIC_INDEX: &str = r#"
-let root = document.getElementById("root")!;
+const BASIC_INDEX: &str = r#"let root = document.getElementById("root")!;
 root.innerHTML = "<h1>Hello world!</h1>";
 "#;
 

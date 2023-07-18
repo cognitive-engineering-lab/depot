@@ -1,4 +1,4 @@
-use async_process::Stdio;
+use async_process::{ExitStatus, Stdio};
 use futures::{io::BufReader, AsyncBufReadExt, AsyncRead, StreamExt};
 use std::sync::{
   atomic::{AtomicBool, Ordering},
@@ -99,14 +99,21 @@ impl Process {
     self.finished.load(Ordering::SeqCst)
   }
 
-  pub async fn wait(&self) -> Result<()> {
+  pub async fn wait(&self) -> Result<ExitStatus> {
     let mut child = self.child.lock().unwrap().take().unwrap();
 
-    let status = child
+    let status_res = child
       .status()
       .await
-      .with_context(|| format!("Process `{}` failed", self.script))?;
+      .with_context(|| format!("Process `{}` failed", self.script));
 
+    self.finished.store(true, Ordering::SeqCst);
+
+    status_res
+  }
+
+  pub async fn wait_for_success(&self) -> Result<()> {
+    let status = self.wait().await?;
     match status.code() {
       Some(code) => ensure!(
         status.success(),
@@ -115,9 +122,6 @@ impl Process {
       ),
       None => bail!("Process `{}` exited due to signal", self.script),
     }
-
-    self.finished.store(true, Ordering::SeqCst);
-
     Ok(())
   }
 }

@@ -1,5 +1,6 @@
 #![allow(clippy::new_without_default)]
 
+use anyhow::{ensure, Result};
 use std::{
   fs,
   path::{Path, PathBuf},
@@ -58,7 +59,11 @@ impl ProjectBuilder {
     self
   }
 
-  pub fn depot_in(&self, cmd: impl AsRef<str>, dir: impl AsRef<Path>) -> CommandOutput {
+  pub fn maybe_depot_in(
+    &self,
+    cmd: impl AsRef<str>,
+    dir: impl AsRef<Path>,
+  ) -> Result<CommandOutput> {
     let mut process = Command::new(depot_exe());
     process.current_dir(dir);
     process.args(shlex::split(cmd.as_ref()).unwrap());
@@ -66,15 +71,24 @@ impl ProjectBuilder {
     let output = process.output().unwrap();
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
-    if !output.status.success() {
-      panic!("{stdout}\n{stderr}");
-    }
+    ensure!(
+      output.status.success(),
+      "process failed:\n{stdout}\n{stderr}"
+    );
 
-    CommandOutput { stdout, stderr }
+    Ok(CommandOutput { stdout, stderr })
+  }
+
+  pub fn depot_in(&self, cmd: impl AsRef<str>, dir: impl AsRef<Path>) -> CommandOutput {
+    self.maybe_depot_in(cmd, dir).unwrap()
+  }
+
+  pub fn maybe_depot(&self, cmd: impl AsRef<str>) -> Result<CommandOutput> {
+    self.maybe_depot_in(cmd, self.root())
   }
 
   pub fn depot(&self, cmd: impl AsRef<str>) -> CommandOutput {
-    self.depot_in(cmd, self.root())
+    self.maybe_depot(cmd).unwrap()
   }
 
   pub fn read(&self, path: impl AsRef<Path>) -> String {

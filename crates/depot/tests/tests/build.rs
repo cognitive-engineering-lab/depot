@@ -4,7 +4,7 @@ use depot_test_utils::{project, project_for, react_project_for, workspace};
 fn basic_lib_browser() {
   let p = project_for("lib", "browser");
   p.file("src/nested/foobar.css", ".red { color: red; }");
-  p.depot("build");
+  p.depot("build --lint-fail");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.d.ts"));
   assert!(p.exists("dist/lib.js.map"));
@@ -14,7 +14,7 @@ fn basic_lib_browser() {
 #[test]
 fn basic_lib_browser_react() {
   let p = react_project_for("lib", "browser");
-  p.depot("build");
+  p.depot("build --lint-fail");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.d.ts"));
   assert!(p.exists("dist/lib.js.map"));
@@ -23,7 +23,7 @@ fn basic_lib_browser_react() {
 #[test]
 fn basic_lib_node() {
   let p = project_for("lib", "node");
-  p.depot("build");
+  p.depot("build --lint-fail");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.js.map"));
 }
@@ -31,7 +31,7 @@ fn basic_lib_node() {
 #[test]
 fn basic_script_browser() {
   let p = project_for("script", "browser");
-  p.depot("build");
+  p.depot("build --lint-fail");
   assert!(p.exists("dist/foo.iife.js"));
   assert!(p.exists("dist/foo.iife.js.map"));
 }
@@ -39,7 +39,7 @@ fn basic_script_browser() {
 #[test]
 fn basic_script_node() {
   let p = project_for("script", "node");
-  p.depot("build");
+  p.depot("build --lint-fail");
   assert!(p.exists("dist/foo.js"));
   assert!(p.exists("dist/foo.js.map"));
 }
@@ -47,7 +47,7 @@ fn basic_script_node() {
 #[test]
 fn basic_site_browser() {
   let project = project_for("site", "browser");
-  project.depot("build");
+  project.depot("build --lint-fail");
   assert!(project.exists("dist/index.html"));
 }
 
@@ -81,4 +81,12 @@ fn workspace_() {
   ws.depot("build");
   assert!(ws.exists("packages/foo/dist/lib.js"));
   assert!(ws.exists("packages/bar/dist/lib.js"));
+}
+
+#[test]
+fn lint() {
+  let p = project();
+  p.file("src/foo.ts", "export let x      = 1;");
+  p.depot("build");
+  assert!(p.maybe_depot("build --lint-fail").is_err());
 }

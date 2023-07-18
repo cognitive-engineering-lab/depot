@@ -1,0 +1,6 @@
+[config]
+skip_core_tasks = true
+default_to_workspace = false
+
+[tasks.watch]
+script = "cargo watch -x 'install --path crates/depot --debug --locked --offline'"

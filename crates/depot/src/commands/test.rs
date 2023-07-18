@@ -1,10 +1,14 @@
 use super::build::{BuildArgs, BuildCommand};
-use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
+use crate::workspace::{package::Package, Command, CommandRuntime, CoreCommand, PackageCommand};
 use anyhow::{Context, Result};
 
 /// Run tests via vitest
 #[derive(clap::Parser, Default, Debug)]
 pub struct TestArgs {
+  /// If true, then rerun tests when files change
+  #[clap(short, long, action)]
+  watch: bool,
+
   /// Additional arguments to pass to vitest
   #[arg(last = true)]
   pub vitest_args: Option<String>,
@@ -35,11 +39,7 @@ impl PackageCommand for TestCommand {
 
     pkg
       .exec("vitest", |cmd| {
-        let subcmd = if pkg.workspace().watch() {
-          "watch"
-        } else {
-          "run"
-        };
+        let subcmd = if self.args.watch { "watch" } else { "run" };
         cmd.arg(subcmd);
 
         cmd.arg("--passWithNoTests");
@@ -53,6 +53,14 @@ impl PackageCommand for TestCommand {
 
   fn deps(&self) -> Vec<Command> {
     vec![BuildCommand::new(BuildArgs::default()).kind()]
+  }
+
+  fn runtime(&self) -> CommandRuntime {
+    if self.args.watch {
+      CommandRuntime::RunForever
+    } else {
+      CommandRuntime::WaitForDependencies
+    }
   }
 }
 

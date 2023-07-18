@@ -114,6 +114,14 @@ impl Command {
       CommandInner::Package(_) => panic!("run_ws on package command"),
     }
   }
+
+  pub fn runtime(&self) -> Option<CommandRuntime> {
+    match &**self {
+      CommandInner::Package(cmd) => Some(cmd.runtime()),
+      CommandInner::Both(cmd) => Some(cmd.runtime()),
+      CommandInner::Workspace(_) => None,
+    }
+  }
 }
 
 impl fmt::Debug for CommandInner {
@@ -146,6 +154,12 @@ pub trait CoreCommand {
   fn name(&self) -> String;
 }
 
+pub enum CommandRuntime {
+  WaitForDependencies,
+  RunImmediately,
+  RunForever,
+}
+
 #[async_trait::async_trait]
 pub trait PackageCommand: CoreCommand + Debug + Send + Sync + 'static {
   async fn run_pkg(&self, package: &Package) -> Result<()>;
@@ -154,8 +168,8 @@ pub trait PackageCommand: CoreCommand + Debug + Send + Sync + 'static {
     Vec::new()
   }
 
-  fn ignore_dependencies(&self) -> bool {
-    true
+  fn runtime(&self) -> CommandRuntime {
+    CommandRuntime::RunImmediately
   }
 }
 
@@ -275,10 +289,6 @@ impl WorkspaceInner {
       .with_context(|| format!("Could not find package with name: {name}"))
   }
 
-  pub fn watch(&self) -> bool {
-    self.common.watch
-  }
-
   pub fn start_process(
     &self,
     script: &'static str,
@@ -313,7 +323,7 @@ impl WorkspaceInner {
   ) -> Result<()> {
     let process = self.start_process(script, configure)?;
     self.processes.write().unwrap().push(process.clone());
-    process.wait().await
+    process.wait_for_success().await
   }
 
   pub fn processes(&self) -> RwLockReadGuard<'_, Vec<Arc<Process>>> {

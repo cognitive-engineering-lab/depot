@@ -24,10 +24,26 @@ A few benefits of using Depot:
 
 ## Installation
 
-Run the following script to install the `depot` binary:
+The [install script](https://github.com/cognitive-engineering-lab/depot/blob/main/scripts/install.sh) will download a prebuilt binary if possible. Run the script as follows:
 
 ```
 curl https://raw.githubusercontent.com/cognitive-engineering-lab/depot/main/scripts/install.sh | sh
+```
+
+Alternatively, you can follow one of these installation methods:
+
+### From crates.io
+
+```
+cargo install depot-js --locked
+```
+
+### From source
+
+```
+git clone https://github.com/cognitive-engineering-lab/depot
+cd depot
+cargo install --path crates/depot --locked
 ```
 
 ## Usage
@@ -43,7 +59,7 @@ You can specify `--target <lib|site|script>` to indicate that the package is a l
 You can also create a workspace and a package within that workspace, like this:
 
 ```
-depot new -w my-workspace
+depot new --workspace my-workspace
 cd my-workspace
 depot new my-lib
 ```
@@ -57,7 +73,7 @@ depot build
 This generates a `<package>/dist` directory containing the built files. You can run in watch mode by passing `-w` like this:
 
 ```
-depot -w build
+depot build -w
 ```
 
 Additional documentation about each command will be created soon once the Depot design is finalized.
