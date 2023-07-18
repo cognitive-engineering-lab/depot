@@ -19,13 +19,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"
 env_logger = { version = "0.10", default-features = false }
-ratatui = "0.21"
+ratatui = "0.22"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
 # This dep will cause problems on `cargo update` until this issue is resolved:
 # https://github.com/uttarayan21/ansi-to-tui/issues/32
-ansi-to-tui = "= 3.0.0" # This must match tui
+ansi-to-tui = "3.1" # This must match tui
 home = "0.5"
 petgraph = { version = "0.6", default-features = false }
 futures = { version = "0.3", default-features = false, features = ["std"] }

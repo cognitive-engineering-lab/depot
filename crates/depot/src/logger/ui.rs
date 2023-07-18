@@ -11,7 +11,7 @@ use ratatui::{
   layout::{Constraint, Direction, Layout},
   style::{Modifier, Style},
   text::{Line, Span, Text},
-  widgets::{Block, Borders, Paragraph, Tabs, Widget},
+  widgets::{Block, Borders, Paragraph, Tabs, Widget, Wrap},
 };
 use std::{
   io::{Stdout, Write},
@@ -84,12 +84,13 @@ impl FullscreenRenderer {
         )))),
       }
     }
-    let text = Paragraph::new(Text::from(spans));
-    text.block(
-      Block::default()
-        .title(process.script())
-        .borders(Borders::ALL),
-    )
+    Paragraph::new(Text::from(spans))
+      .block(
+        Block::default()
+          .title(process.script())
+          .borders(Borders::ALL),
+      )
+      .wrap(Wrap { trim: false })
   }
 
   fn build_package_pane(processes: &[Arc<Process>]) -> Vec<impl Widget + '_> {

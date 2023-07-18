@@ -49,9 +49,9 @@ dependencies = [
 
 [[package]]
 name = "ansi-to-tui"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f3d156989cd98fb225b1a83e82e133e95a151774a420c884f6a65c5f6fb1ee2"
+checksum = "0b0e348dcd256ba06d44d5deabc88a7c0e80ee7303158253ca069bcd9e9b7f57"
 dependencies = [
  "nom",
  "ratatui",
@@ -300,9 +300,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "4.3.14"
+version = "4.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98330784c494e49850cb23b8e2afcca13587d2500b2e3f1f78ae20248059c9be"
+checksum = "8f644d0dac522c8b05ddc39aaaccc5b136d5dc4ff216610c5641e3be5becf56c"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -311,9 +311,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.3.14"
+version = "4.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e182eb5f2562a67dda37e2c57af64d720a9e010c5e860ed87c056586aeafa52e"
+checksum = "af410122b9778e024f9e0fb35682cc09cc3f85cad5e8d3ba8f47a9702df6e73d"
 dependencies = [
  "anstream",
  "anstyle",
@@ -850,6 +850,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c785eefb63ebd0e33416dfcb8d6da0bf27ce752843a45632a67bf10d4d4b5c4"
+
+[[package]]
 name = "instant"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1081,6 +1087,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1150,13 +1162,15 @@ dependencies = [
 
 [[package]]
 name = "ratatui"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce841e0486e7c2412c3740168ede33adeba8e154a15107b879d8162d77c7174e"
+checksum = "8285baa38bdc9f879d92c0e37cb562ef38aa3aeefca22b3200186bc39242d3d5"
 dependencies = [
- "bitflags 1.3.2",
+ "bitflags 2.3.3",
  "cassowary",
  "crossterm",
+ "indoc",
+ "paste",
  "unicode-segmentation",
  "unicode-width",
 ]
@@ -1408,9 +1422,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b824b6e687aff278cdbf3b36f07aa52d4bd4099699324d5da86a2ebce3aa00b3"
+checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
 dependencies = [
  "libc",
  "signal-hook-registry",

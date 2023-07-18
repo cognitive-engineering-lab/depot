@@ -57,11 +57,11 @@ impl PackageCommand for BuildCommand {
       Target::Lib => processes.push(self.copy_assets(pkg).boxed()),
     }
 
+    processes.extend([self.tsc(pkg).boxed(), self.eslint(pkg).boxed()]);
+
     if pkg.root.join(BUILD_SCRIPT).exists() {
       processes.push(self.build_script(pkg).boxed());
     }
-
-    processes.extend([self.tsc(pkg).boxed(), self.eslint(pkg).boxed()]);
 
     try_join_all(processes).await?;
 
@@ -107,6 +107,7 @@ impl BuildCommand {
   async fn eslint(&self, pkg: &Package) -> Result<()> {
     let process = pkg.start_process("eslint", |cmd| {
       cmd.args(pkg.source_files());
+      cmd.arg("--color");
       // TODO: watch mode
     })?;
 
@@ -118,18 +119,21 @@ impl BuildCommand {
 
   async fn vite(&self, pkg: &Package) -> Result<()> {
     pkg
-      .exec("vite", |cmd| match pkg.target {
-        Target::Site => {
-          cmd.arg(if self.args.watch { "dev" } else { "build" });
-        }
-        _ => {
-          cmd.arg("build");
-          if self.args.watch {
-            cmd.arg("--watch");
+      .exec("vite", |cmd| {
+        cmd.env("FORCE_COLOR", "1");
+        match pkg.target {
+          Target::Site => {
+            cmd.arg(if self.args.watch { "dev" } else { "build" });
           }
-          if !self.args.release {
-            cmd.args(["--sourcemap", "true"]);
-            cmd.args(["--minify", "false"]);
+          _ => {
+            cmd.arg("build");
+            if self.args.watch {
+              cmd.arg("--watch");
+            }
+            if !self.args.release {
+              cmd.args(["--sourcemap", "true"]);
+              cmd.args(["--minify", "false"]);
+            }
           }
         }
       })
