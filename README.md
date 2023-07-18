@@ -1,5 +1,7 @@
 # Depot: A Javascript devtool orchestrator
 
+<img width="1233" alt="Screen Shot 2023-07-18 at 11 26 06 AM" src="https://github.com/cognitive-engineering-lab/depot/assets/663326/49cb46f9-bc88-46f5-9a1c-71ee6f1ffdea">
+
 Depot (formerly Graco) is a tool for orchestrating other Javascript devtools. As an analogy:
 * Depot is like [Cargo], but for Javascript.
 * Depot is like [create-react-app], but for people who like software engineering.
