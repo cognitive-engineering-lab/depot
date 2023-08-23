@@ -1,6 +1,5 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 
-use once_cell::sync::OnceCell;
 use package_json_schema::PackageJson;
 use std::{
   fmt::{self, Debug},
@@ -8,7 +7,7 @@ use std::{
   hash::Hash,
   path::{Path, PathBuf},
   str::FromStr,
-  sync::{Arc, RwLock, RwLockReadGuard},
+  sync::{Arc, OnceLock, RwLock, RwLockReadGuard},
 };
 use walkdir::WalkDir;
 
@@ -147,7 +146,7 @@ pub struct PackageInner {
   pub index: PackageIndex,
 
   // Internals
-  ws: OnceCell<Workspace>,
+  ws: OnceLock<Workspace>,
   processes: RwLock<Vec<Arc<Process>>>,
 }
 
@@ -188,7 +187,7 @@ impl Package {
       platform,
       name,
       index,
-      ws: OnceCell::default(),
+      ws: OnceLock::default(),
       processes: Default::default(),
     }))
   }

@@ -1,9 +1,9 @@
-use std::fs;
+use std::{fs, path::Path, time::Duration};
 
-use anyhow::{ensure, Result};
-
+use anyhow::{anyhow, ensure, Result};
 use futures::{future::try_join_all, FutureExt};
 use log::debug;
+use notify::RecursiveMode;
 
 use super::init::{InitArgs, InitCommand};
 use crate::{
@@ -158,12 +158,38 @@ impl BuildCommand {
     let src_dir = pkg.root.join("src");
     let dst_dir = pkg.root.join("dist");
 
-    for file in pkg.asset_files() {
+    let copy = |file: &Path| -> Result<()> {
       let rel_path = file.strip_prefix(&src_dir)?;
       let target_path = dst_dir.join(rel_path);
       utils::create_dir_if_missing(target_path.parent().unwrap())?;
       debug!("copying: {} -> {}", file.display(), target_path.display());
       fs::copy(file, target_path)?;
+      Ok(())
+    };
+
+    for file in pkg.asset_files() {
+      copy(&file)?;
+    }
+
+    if self.args.watch {
+      let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+      let timeout = Duration::from_secs(1);
+      let mut debouncer = notify_debouncer_mini::new_debouncer(timeout, None, move |events| {
+        let _ = tx.send(events);
+      })?;
+
+      for file in pkg.asset_files() {
+        debouncer
+          .watcher()
+          .watch(&file, RecursiveMode::NonRecursive)?;
+      }
+
+      while let Some(events) = rx.recv().await {
+        let events = events.map_err(|e| anyhow!("File watch errors: {e:?}"))?;
+        for event in events {
+          copy(&event.path)?;
+        }
+      }
     }
 
     Ok(())
