@@ -1,10 +1,14 @@
-use async_process::{ExitStatus, Stdio};
-use futures::{io::BufReader, AsyncBufReadExt, AsyncRead, StreamExt};
-use std::sync::{
-  atomic::{AtomicBool, Ordering},
-  Arc, Mutex, MutexGuard,
+use std::{
+  process::{ExitStatus, Stdio},
+  sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, MutexGuard,
+  },
 };
-use tokio::task::JoinHandle;
+use tokio::{
+  io::{AsyncBufReadExt, AsyncRead, BufReader},
+  task::JoinHandle,
+};
 
 use anyhow::{bail, ensure, Context, Result};
 
@@ -25,7 +29,7 @@ pub type LogBuffer = RingBuffer<LogLine>;
 
 pub struct Process {
   script: String,
-  child: Mutex<Option<async_process::Child>>,
+  child: Mutex<Option<tokio::process::Child>>,
   logs: Arc<Mutex<LogBuffer>>,
   finished: AtomicBool,
 
@@ -35,7 +39,7 @@ pub struct Process {
 }
 
 impl Process {
-  pub fn new(script: String, mut cmd: async_process::Command) -> Result<Self> {
+  pub fn new(script: String, mut cmd: tokio::process::Command) -> Result<Self> {
     cmd.kill_on_drop(true);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -73,9 +77,8 @@ impl Process {
     channel: OutputChannel,
   ) {
     let mut lines = BufReader::new(stdio).lines();
-    while let Some(line) = lines.next().await {
+    while let Some(line) = lines.next_line().await.unwrap() {
       let mut buffer = buffer.lock().unwrap();
-      let line = line.unwrap();
       let line = match line.strip_prefix("\u{1b}c") {
         Some(rest) => {
           buffer.clear();
@@ -103,7 +106,7 @@ impl Process {
     let mut child = self.child.lock().unwrap().take().unwrap();
 
     let status_res = child
-      .status()
+      .wait()
       .await
       .with_context(|| format!("Process `{}` failed", self.script));
 

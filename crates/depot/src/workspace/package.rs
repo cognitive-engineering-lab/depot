@@ -218,7 +218,7 @@ impl Package {
   pub fn start_process(
     &self,
     script: &'static str,
-    configure: impl FnOnce(&mut async_process::Command),
+    configure: impl FnOnce(&mut tokio::process::Command),
   ) -> Result<Arc<Process>> {
     let process = self.workspace().start_process(script, |cmd| {
       cmd.current_dir(&self.root);
@@ -231,7 +231,7 @@ impl Package {
   pub async fn exec(
     &self,
     script: &'static str,
-    configure: impl FnOnce(&mut async_process::Command),
+    configure: impl FnOnce(&mut tokio::process::Command),
   ) -> Result<()> {
     self
       .start_process(script, configure)?

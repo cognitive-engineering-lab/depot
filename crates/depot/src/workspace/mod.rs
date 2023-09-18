@@ -283,7 +283,7 @@ impl WorkspaceInner {
   pub fn start_process(
     &self,
     script: &'static str,
-    configure: impl FnOnce(&mut async_process::Command),
+    configure: impl FnOnce(&mut tokio::process::Command),
   ) -> Result<Arc<Process>> {
     log::trace!("Starting process: {script}");
 
@@ -299,7 +299,7 @@ impl WorkspaceInner {
       script_path.display()
     );
 
-    let mut cmd = async_process::Command::new(script_path);
+    let mut cmd = tokio::process::Command::new(script_path);
     cmd.current_dir(&self.root);
 
     configure(&mut cmd);
@@ -310,7 +310,7 @@ impl WorkspaceInner {
   pub async fn exec(
     &self,
     script: &'static str,
-    configure: impl FnOnce(&mut async_process::Command),
+    configure: impl FnOnce(&mut tokio::process::Command),
   ) -> Result<()> {
     let process = self.start_process(script, configure)?;
     self.processes.write().unwrap().push(process.clone());
