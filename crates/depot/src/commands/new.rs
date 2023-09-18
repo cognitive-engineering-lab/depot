@@ -161,7 +161,7 @@ impl NewCommand {
         // See: https://stackoverflow.com/a/57653497
         // TODO: pretty sure this is not ideal... need to figure out
         //   a better fix
-        "skipLibCheck": true
+        "skipLibCheck": true,
       },
     });
 
@@ -207,6 +207,18 @@ impl NewCommand {
             }),
           );
         }
+      }
+      
+      if self.args.platform.is_browser() {
+        // Allows special Vite things like importing files with ?raw
+        json_merge(
+          &mut config,
+          json!({
+            "compilerOptions": {
+              "types": ["vite/client"]
+            }
+          }),
+        );
       }
     }
 

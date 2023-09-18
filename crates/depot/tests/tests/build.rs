@@ -90,3 +90,11 @@ fn lint() {
   p.depot("build");
   assert!(p.maybe_depot("build --lint-fail").is_err());
 }
+
+#[test]
+fn vite_imports() {
+  let p = project();
+  p.file("src/foo.txt", "Hello world");
+  p.file("src/lib.ts", r#"import _contents from "./foo.txt?raw";"#);
+  p.depot("build");
+}
