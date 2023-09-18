@@ -162,6 +162,10 @@ impl NewCommand {
         // TODO: pretty sure this is not ideal... need to figure out
         //   a better fix
         "skipLibCheck": true,
+
+        // Enables several useful static checks
+        // See: https://www.typescriptlang.org/tsconfig#strict
+        "strict": true,
       },
     });
 
@@ -586,6 +590,8 @@ export default defineConfig(({{mode}}) => ({{
       dev_dependencies.extend([
         "react",
         "react-dom",
+        "@types/react",
+        "@types/react-dom",
         "@vitejs/plugin-react",
         "@testing-library/react",
       ]);

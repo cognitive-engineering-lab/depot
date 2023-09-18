@@ -98,3 +98,10 @@ fn vite_imports() {
   p.file("src/lib.ts", r#"import _contents from "./foo.txt?raw";"#);
   p.depot("build");
 }
+
+#[test]
+fn react_import() {
+  let p = react_project_for("lib", "browser");
+  p.file("src/lib.tsx", r#"import ReactDOM from "react-dom";"#);
+  p.depot("build");
+}
