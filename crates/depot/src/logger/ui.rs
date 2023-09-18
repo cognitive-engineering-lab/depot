@@ -107,7 +107,7 @@ impl FullscreenRenderer {
       let constraints = if tabs.is_some() {
         vec![Constraint::Min(0), Constraint::Length(2)]
       } else {
-        vec![]
+        vec![Constraint::Min(0)]
       };
       let canvas = Layout::default()
         .direction(Direction::Vertical)
