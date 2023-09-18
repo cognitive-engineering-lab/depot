@@ -112,24 +112,19 @@ pub fn project() -> ProjectBuilder {
   project_for("lib", "browser")
 }
 
-pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
+pub fn custom_project_for(target: &str, platform: &str, flags: &str) -> ProjectBuilder {
   let builder = ProjectBuilder::new();
   builder.depot_in(
-    new_cmd(format!("new foo --target {target} --platform {platform}")),
+    new_cmd(format!(
+      "new foo --target {target} --platform {platform} {flags}"
+    )),
     builder.root().parent().unwrap(),
   );
   builder
 }
 
-pub fn react_project_for(target: &str, platform: &str) -> ProjectBuilder {
-  let builder = ProjectBuilder::new();
-  builder.depot_in(
-    new_cmd(format!(
-      "new foo --target {target} --platform {platform} --react"
-    )),
-    builder.root().parent().unwrap(),
-  );
-  builder
+pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
+  custom_project_for(target, platform, "")
 }
 
 pub fn workspace() -> ProjectBuilder {

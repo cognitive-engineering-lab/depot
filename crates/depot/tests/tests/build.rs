@@ -1,4 +1,4 @@
-use depot_test_utils::{project, project_for, react_project_for, workspace};
+use depot_test_utils::{custom_project_for, project, project_for, workspace};
 
 #[test]
 fn basic_lib_browser() {
@@ -13,7 +13,7 @@ fn basic_lib_browser() {
 
 #[test]
 fn basic_lib_browser_react() {
-  let p = react_project_for("lib", "browser");
+  let p = custom_project_for("lib", "browser", "--react");
   p.depot("build --lint-fail");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.d.ts"));
@@ -47,6 +47,13 @@ fn basic_script_node() {
 #[test]
 fn basic_site_browser() {
   let project = project_for("site", "browser");
+  project.depot("build --lint-fail");
+  assert!(project.exists("dist/index.html"));
+}
+
+#[test]
+fn basic_site_browser_sass() {
+  let project = custom_project_for("site", "browser", "--sass");
   project.depot("build --lint-fail");
   assert!(project.exists("dist/index.html"));
 }
@@ -101,7 +108,7 @@ fn vite_imports() {
 
 #[test]
 fn react_import() {
-  let p = react_project_for("lib", "browser");
-  p.file("src/lib.tsx", r#"import ReactDOM from "react-dom";"#);
+  let p = custom_project_for("lib", "browser", "--react");
+  p.file("src/lib.tsx", r#"import ReactDOM from "react-dom/client";"#);
   p.depot("build");
 }

@@ -1,17 +1,18 @@
-use anyhow::{ensure, Context, Result};
+use anyhow::{ensure, Result};
 use indexmap::{indexmap, IndexMap};
 use package_json_schema as pj;
 use serde_json::{json, Value};
 use std::{
   borrow::Cow,
   env,
-  fs::{self, OpenOptions},
+  fs::OpenOptions,
   io::{BufReader, Seek, Write},
   path::{Path, PathBuf},
   process::Command,
 };
 
 use crate::{
+  utils,
   workspace::{
     package::{PackageDepotConfig, PackageName, Platform, Target},
     Workspace,
@@ -51,6 +52,9 @@ import { add } from "../src/lib";
 test("add", () => expect(add(2, 2)).toBe(4));
 "#;
 
+const CSS: &str = r#"@import "normalize.css/normalize.css";
+"#;
+
 const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
 const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 const VITEST_SETUP: &str = include_str!("configs/setup.ts");
@@ -72,11 +76,15 @@ pub struct NewArgs {
   #[arg(short, long, value_enum, default_value_t = Platform::Browser)]
   pub platform: Platform,
 
-  /// If true, then add React as a project dependency
+  /// Add React as a project dependency
   #[arg(long, action)]
   pub react: bool,
 
-  /// If true, then don't attempt to download packages from the web
+  /// Add Sass as a project dependency
+  #[arg(long, action)]
+  pub sass: bool,
+
+  /// Don't attempt to download packages from the web
   #[arg(long, action)]
   pub offline: bool,
 }
@@ -117,7 +125,7 @@ impl NewCommand {
   }
 
   fn new_workspace(self, root: &Path) -> Result<()> {
-    fs::create_dir(root.join("packages"))?;
+    utils::create_dir(root.join("packages"))?;
 
     let manifest = json!({"private": true});
     let mut files: FileVec = vec![
@@ -134,7 +142,7 @@ impl NewCommand {
     files.extend(self.make_gitignore());
 
     for (rel_path, contents) in files {
-      fs::write(root.join(rel_path), contents.as_bytes())?;
+      utils::write(root.join(rel_path), contents.as_bytes())?;
     }
 
     self.install_ws_dependencies(root, true)?;
@@ -535,23 +543,24 @@ export default defineConfig(({{mode}}) => ({{
     })
   }
 
-  fn make_index_html(entry_point: &str) -> String {
+  fn make_index_html(js_entry_point: &str, css_entry_point: &str) -> String {
     format!(
       r#"<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="/styles/{css_entry_point}" rel="stylesheet" type="text/css" />
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/{entry_point}"></script>
+    <script type="module" src="/src/{js_entry_point}"></script>
   </body>
 </html>"#
     )
   }
 
-  async fn new_package(mut self, root: &Path) -> Result<()> {
+  fn new_package(self, root: &Path) -> Result<()> {
     let NewArgs {
       name,
       target,
@@ -560,12 +569,10 @@ export default defineConfig(({{mode}}) => ({{
     } = &self.args;
 
     let src_dir = root.join("src");
-    fs::create_dir(&src_dir)
-      .with_context(|| format!("Failed to create source directory: {}", src_dir.display()))?;
+    utils::create_dir(&src_dir)?;
 
     let tests_dir = root.join("tests");
-    fs::create_dir(&tests_dir)
-      .with_context(|| format!("Failed to create tests directory: {}", tests_dir.display()))?;
+    utils::create_dir(&tests_dir)?;
 
     let mut manifest = pj::PackageJson::builder().build();
     manifest.name = Some(name.to_string());
@@ -597,6 +604,10 @@ export default defineConfig(({{mode}}) => ({{
       ]);
     }
 
+    if self.args.sass {
+      dev_dependencies.push("sass");
+    }
+
     let (src_path, src_contents) = match target {
       Target::Site => {
         ensure!(
@@ -604,15 +615,29 @@ export default defineConfig(({{mode}}) => ({{
           "Must have platform=browser when target=site"
         );
 
-        let (src_path, src_contents) = if self.args.react {
+        let (js_path, js_contents) = if self.args.react {
           ("index.tsx", REACT_INDEX)
         } else {
           ("index.ts", BASIC_INDEX)
         };
 
-        files.push(("index.html".into(), Self::make_index_html(src_path).into()));
+        dev_dependencies.push("normalize.css");
 
-        (src_path, src_contents)
+        let css_path = if self.args.sass {
+          "index.scss"
+        } else {
+          "index.css"
+        };
+
+        files.push((
+          "index.html".into(),
+          Self::make_index_html(js_path, css_path).into(),
+        ));
+
+        utils::create_dir(root.join("styles"))?;
+        files.push((format!("styles/{css_path}").into(), CSS.into()));
+
+        (js_path, js_contents)
       }
       Target::Script => {
         if platform.is_node() {
@@ -680,7 +705,7 @@ export default defineConfig(({{mode}}) => ({{
     }
 
     for (rel_path, contents) in files {
-      fs::write(root.join(rel_path), contents.as_bytes())?;
+      utils::write(root.join(rel_path), contents.as_bytes())?;
     }
 
     if !peer_dependencies.is_empty() {
@@ -706,22 +731,10 @@ export default defineConfig(({{mode}}) => ({{
       None => self.install_ws_dependencies(root, false)?,
     }
 
-    let _ws = match self.ws_opt.take() {
-      Some(ws) => ws,
-      None => {
-        Workspace::load(
-          self.global_config,
-          Some(root.to_owned()),
-          CommonArgs::default(),
-        )
-        .await?
-      }
-    };
-
     Ok(())
   }
 
-  pub async fn run(self) -> Result<()> {
+  pub fn run(self) -> Result<()> {
     ensure!(
       !(self.ws_opt.is_some() && self.args.workspace),
       "Cannot create a new workspace inside an existing workspace"
@@ -733,13 +746,12 @@ export default defineConfig(({{mode}}) => ({{
       None => env::current_dir()?,
     };
     let root = parent_dir.join(&name.name);
-    fs::create_dir(&root)
-      .with_context(|| format!("Failed to create root directory: {}", root.display()))?;
+    utils::create_dir(&root)?;
 
     if self.args.workspace {
       self.new_workspace(&root)
     } else {
-      self.new_package(&root).await
+      self.new_package(&root)
     }
   }
 }
