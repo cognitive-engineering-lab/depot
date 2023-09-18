@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{vec_deque, VecDeque};
 
 pub struct RingBuffer<T> {
   data: VecDeque<T>,
@@ -30,9 +30,8 @@ impl<T> RingBuffer<T> {
     self.data.push_back(log);
   }
 
-  pub fn iter(&self) -> impl Iterator<Item = &T> + '_ {
-    let (first, second) = self.data.as_slices();
-    first.iter().chain(second.iter())
+  pub fn iter(&self) -> vec_deque::Iter<'_, T> {
+    self.data.iter()
   }
 
   pub fn clear(&mut self) {

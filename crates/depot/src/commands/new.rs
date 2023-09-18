@@ -208,7 +208,7 @@ impl NewCommand {
           );
         }
       }
-      
+
       if self.args.platform.is_browser() {
         // Allows special Vite things like importing files with ?raw
         json_merge(
