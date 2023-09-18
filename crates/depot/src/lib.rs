@@ -47,7 +47,7 @@ pub async fn run() -> Result<()> {
     GlobalConfig::load().context("Depot has not been setup yet. Run `depot setup` to proceed.")?;
 
   let command = match command {
-    Command::New(args) => return NewCommand::new(args, global_config).await.run().await,
+    Command::New(args) => return NewCommand::new(args, global_config).await.run(),
     command => command,
   };
 

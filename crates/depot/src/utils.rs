@@ -6,6 +6,16 @@ use std::{
   process::Command,
 };
 
+pub fn create_dir(path: impl AsRef<Path>) -> Result<()> {
+  let path = path.as_ref();
+  fs::create_dir(path).with_context(|| format!("Could not create directory: {}", path.display()))
+}
+
+pub fn write(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> Result<()> {
+  let path = path.as_ref();
+  fs::write(path, contents).with_context(|| format!("Could not write to file: {}", path.display()))
+}
+
 pub fn create_dir_if_missing(p: impl AsRef<Path>) -> Result<()> {
   let p = p.as_ref();
   if p.exists() {

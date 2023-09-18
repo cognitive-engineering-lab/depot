@@ -9,9 +9,10 @@ use crossterm::{
 use futures::StreamExt;
 use ratatui::{
   layout::{Constraint, Direction, Layout},
+  prelude::Rect,
   style::{Modifier, Style},
   text::{Line, Span, Text},
-  widgets::{Block, Borders, Paragraph, Tabs, Widget, Wrap},
+  widgets::{Block, Borders, Paragraph, Tabs, Wrap},
 };
 use std::{
   io::{Stdout, Write},
@@ -34,6 +35,7 @@ const TICK_RATE: Duration = Duration::from_millis(33);
 
 pub type TerminalBackend = ratatui::backend::CrosstermBackend<Stdout>;
 pub type Terminal = ratatui::Terminal<TerminalBackend>;
+type Frame<'a> = ratatui::Frame<'a, TerminalBackend>;
 
 impl FullscreenRenderer {
   pub fn new() -> Result<Self> {
@@ -73,9 +75,12 @@ impl FullscreenRenderer {
     })
   }
 
-  fn build_process_pane(process: &Process) -> impl Widget + '_ {
+  fn render_process_pane(f: &mut Frame, process: &Process, slot: Rect) {
     let mut spans = Vec::new();
-    for line in process.stdout().iter() {
+    let height = slot.bottom() as usize;
+    let stdout = process.stdout();
+    let last_lines = stdout.iter().rev().take(height).rev();
+    for line in last_lines {
       // TODO: distinguish stdout from stderr
       match line.line.into_text() {
         Ok(text) => spans.extend(text.lines),
@@ -84,30 +89,35 @@ impl FullscreenRenderer {
         )))),
       }
     }
-    Paragraph::new(Text::from(spans))
+    let p = Paragraph::new(Text::from(spans))
       .block(
         Block::default()
           .title(process.script())
           .borders(Borders::ALL),
       )
-      .wrap(Wrap { trim: false })
+      .wrap(Wrap { trim: false });
+    f.render_widget(p, slot);
   }
+}
 
-  fn build_package_pane(processes: &[Arc<Process>]) -> Vec<impl Widget + '_> {
-    processes
-      .iter()
-      .map(|process| Self::build_process_pane(process))
-      .collect::<Vec<_>>()
-  }
+#[async_trait::async_trait]
+impl Renderer for FullscreenRenderer {
+  fn render(&self, ws: &Workspace) -> Result<()> {
+    let n = ws.packages.len() as isize;
+    let selected_unbounded = self.selected.load(Ordering::SeqCst);
+    let selected = ((n + selected_unbounded % n) % n) as usize;
+    let pkg = ws.package_display_order().nth(selected).unwrap();
+    let processes = pkg.processes();
 
-  fn render_widgets(&self, tabs: Option<Tabs>, package_pane: Vec<impl Widget>) -> Result<()> {
+    let tabs = Self::build_tabs(ws, selected);
+
     let mut terminal = self.terminal.lock().unwrap();
     terminal.draw(|f| {
       let size = f.size();
       let constraints = if tabs.is_some() {
         vec![Constraint::Min(0), Constraint::Length(2)]
       } else {
-        vec![]
+        vec![Constraint::Min(0)]
       };
       let canvas = Layout::default()
         .direction(Direction::Vertical)
@@ -122,34 +132,21 @@ impl FullscreenRenderer {
         .direction(Direction::Vertical)
         .constraints([Constraint::Ratio(7, 10), Constraint::Ratio(3, 10)])
         .split(canvas[0]);
-      let log_slots = log_halves.iter().flat_map(|half| {
-        Layout::default()
-          .direction(Direction::Horizontal)
-          .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
-          .split(*half)
-          .to_vec()
-      });
+      let log_slots = log_halves
+        .iter()
+        .flat_map(|half| {
+          Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+            .split(*half)
+            .to_vec()
+        })
+        .collect::<Vec<_>>();
 
-      for (process, slot) in package_pane.into_iter().zip(log_slots) {
-        f.render_widget(process, slot);
+      for (process, slot) in processes.iter().zip(log_slots) {
+        Self::render_process_pane(f, process, slot);
       }
     })?;
-    Ok(())
-  }
-}
-
-#[async_trait::async_trait]
-impl Renderer for FullscreenRenderer {
-  fn render(&self, ws: &Workspace) -> Result<()> {
-    let n = ws.packages.len() as isize;
-    let selected_unbounded = self.selected.load(Ordering::SeqCst);
-    let selected = ((n + selected_unbounded % n) % n) as usize;
-    let pkg = ws.package_display_order().nth(selected).unwrap();
-    let processes = pkg.processes();
-
-    let tabs = Self::build_tabs(ws, selected);
-    let package = Self::build_package_pane(&processes);
-    self.render_widgets(tabs, package)?;
 
     Ok(())
   }

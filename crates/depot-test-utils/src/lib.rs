@@ -2,7 +2,7 @@
 
 use anyhow::{ensure, Result};
 use std::{
-  fs,
+  env, fs,
   path::{Path, PathBuf},
   process::Command,
   sync::Once,
@@ -19,6 +19,14 @@ pub struct ProjectBuilder {
 pub struct CommandOutput {
   stdout: String,
   stderr: String,
+}
+
+fn new_cmd(s: impl AsRef<str>) -> String {
+  if env::var("OFFLINE").is_ok() {
+    format!("{} --offline", s.as_ref())
+  } else {
+    s.as_ref().to_string()
+  }
 }
 
 static SETUP: Once = Once::new();
@@ -39,7 +47,7 @@ impl ProjectBuilder {
   }
 
   pub fn persist(mut self) -> Self {
-    println!("Persisted: {}", self.root().display());
+    eprintln!("Persisted: {}", self.root().display());
     self.tmpdir = Either::Right(self.tmpdir.unwrap_left().into_path());
     self
   }
@@ -104,33 +112,33 @@ pub fn project() -> ProjectBuilder {
   project_for("lib", "browser")
 }
 
-pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
+pub fn custom_project_for(target: &str, platform: &str, flags: &str) -> ProjectBuilder {
   let builder = ProjectBuilder::new();
   builder.depot_in(
-    format!("new foo --target {target} --platform {platform}"),
+    new_cmd(format!(
+      "new foo --target {target} --platform {platform} {flags}"
+    )),
     builder.root().parent().unwrap(),
   );
   builder
 }
 
-pub fn react_project_for(target: &str, platform: &str) -> ProjectBuilder {
-  let builder = ProjectBuilder::new();
-  builder.depot_in(
-    format!("new foo --target {target} --platform {platform} --react"),
-    builder.root().parent().unwrap(),
-  );
-  builder
+pub fn project_for(target: &str, platform: &str) -> ProjectBuilder {
+  custom_project_for(target, platform, "")
 }
 
 pub fn workspace() -> ProjectBuilder {
   let builder = ProjectBuilder::new();
-  builder.depot_in("new foo --workspace", builder.root().parent().unwrap());
+  builder.depot_in(
+    new_cmd("new foo --workspace"),
+    builder.root().parent().unwrap(),
+  );
   builder
 }
 
 pub fn workspace_single_lib() -> ProjectBuilder {
   let ws = workspace();
-  ws.depot("new bar");
+  ws.depot(new_cmd("new bar"));
   ws
 }
 

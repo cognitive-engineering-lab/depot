@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.2.11"
+version = "0.2.12"
 description = "A Javascript devtool orchestrator"
 edition = "2021"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -47,8 +47,7 @@ notify-debouncer-mini = { version = "0.3.0", default-features = false }
 ## Async
 futures = { version = "0.3", default-features = false, features = ["std"] }
 async-trait = "0.1"
-async-process = "1"
-tokio = { version = "1", default-features = false, features = ["sync", "macros", "time", "rt-multi-thread"] }
+tokio = { version = "1", default-features = false, features = ["sync", "macros", "time", "rt-multi-thread", "process"] }
 atomic_enum = "0.2"
 # We use rustls to avoid issues linking w/ libssl when cross-compiling
 reqwest = {version = "0.11", default-features = false, features = ["stream", "rustls-tls"]}
