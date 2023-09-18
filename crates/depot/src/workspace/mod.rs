@@ -18,7 +18,6 @@ use std::{
   env,
   fmt::{self, Debug},
   iter,
-  ops::Deref,
   path::{Path, PathBuf},
   sync::{Arc, RwLock, RwLockReadGuard},
 };
@@ -27,16 +26,6 @@ mod dep_graph;
 pub mod package;
 pub mod process;
 mod runner;
-
-#[derive(Clone)]
-pub struct Workspace(Arc<WorkspaceInner>);
-
-impl Deref for Workspace {
-  type Target = WorkspaceInner;
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
 
 pub struct WorkspaceInner {
   pub root: PathBuf,
@@ -49,6 +38,8 @@ pub struct WorkspaceInner {
   package_display_order: Vec<PackageIndex>,
   processes: RwLock<Vec<Arc<Process>>>,
 }
+
+shareable!(Workspace, WorkspaceInner);
 
 fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
   let rel_path_to_cwd = cwd.strip_prefix(max_ancestor).unwrap_or_else(|_| {
@@ -254,7 +245,7 @@ impl Workspace {
       order
     };
 
-    let ws = Workspace(Arc::new(WorkspaceInner {
+    let ws = Workspace::new(WorkspaceInner {
       root,
       packages,
       package_display_order,
@@ -263,7 +254,7 @@ impl Workspace {
       pkg_graph,
       common,
       processes: Default::default(),
-    }));
+    });
 
     for pkg in &ws.packages {
       pkg.set_workspace(&ws);
