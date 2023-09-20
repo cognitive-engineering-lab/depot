@@ -37,7 +37,7 @@ pick_target() {
   fi
 
   echo 'Prebuilt binary not available, installing from source. This may take a few minutes.'
-  cargo install depot-js
+  cargo install depot-js --locked
 }
 
 pick_target
