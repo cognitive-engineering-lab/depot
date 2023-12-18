@@ -124,11 +124,6 @@ impl Workspace {
     let futures = RefCell::new(HashMap::new());
     let task_pool = RefCell::new(HashMap::new());
 
-    let pkg_roots = match &self.common.only {
-      Some(name) => vec![self.find_package_by_name(name)?.clone()],
-      None => self.packages.clone(),
-    };
-
     let tasks_for = |cmd: &Command| -> Vec<Task> {
       macro_rules! add_task {
         ($pkg:expr, $task:expr) => {{
@@ -147,7 +142,7 @@ impl Workspace {
 
       macro_rules! pkg_tasks {
         () => {{
-          pkg_roots.iter().flat_map(|pkg| {
+          self.roots.iter().flat_map(|pkg| {
             self.pkg_graph.all_deps_for(pkg).chain([pkg]).map(|pkg| {
               let pkg = pkg.clone();
               add_task!(Some(pkg.clone()), move |cmd| cmd.run_pkg(pkg))
@@ -180,11 +175,11 @@ impl Workspace {
     };
 
     let task_graph = DepGraph::build(
-      cmd_graph.roots().flat_map(|root| tasks_for(root)).collect(),
+      cmd_graph.roots().flat_map(tasks_for).collect(),
       |task: Task| {
         let mut deps = cmd_graph
           .immediate_deps_for(&task.command)
-          .flat_map(|dep| tasks_for(dep))
+          .flat_map(tasks_for)
           .collect::<Vec<_>>();
         let runtime = task.command.runtime();
         if let (Some(pkg), Some(CommandRuntime::WaitForDependencies)) = (&task.pkg, runtime) {

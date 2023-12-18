@@ -1,3 +1,5 @@
+#![allow(clippy::format_collect)]
+
 use self::commands::Command;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -22,7 +24,7 @@ mod workspace;
 pub struct CommonArgs {
   /// Only run the command for a given package and its dependencies
   #[clap(short, long)]
-  only: Option<PackageName>,
+  package: Option<PackageName>,
 }
 
 #[derive(clap::Parser)]
