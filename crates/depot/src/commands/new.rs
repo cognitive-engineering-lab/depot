@@ -577,6 +577,7 @@ export default defineConfig(({{mode}}) => ({{
     let mut manifest = pj::PackageJson::builder().build();
     manifest.name = Some(name.to_string());
     manifest.version = Some(String::from("0.1.0"));
+    manifest.type_ = Some(pj::Type::Module);
 
     let mut other: IndexMap<String, Value> = IndexMap::new();
     let pkg_config = PackageDepotConfig {
@@ -654,8 +655,7 @@ export default defineConfig(({{mode}}) => ({{
         (filename, MAIN)
       }
       Target::Lib => {
-        manifest.main = Some(String::from("dist/lib.js"));
-        manifest.type_ = Some(pj::Type::Module);
+        manifest.main = Some(String::from("dist/lib.js"));        
         manifest.files = Some(vec![String::from("dist")]);
 
         if self.args.react {
