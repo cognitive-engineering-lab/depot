@@ -50,6 +50,10 @@ impl CoreCommand for BuildCommand {
 #[async_trait::async_trait]
 impl PackageCommand for BuildCommand {
   async fn run_pkg(&self, pkg: &Package) -> Result<()> {
+    if pkg.root.join(BUILD_SCRIPT).exists() {
+      self.build_script(pkg).await?;
+    }
+
     let mut processes = Vec::new();
 
     match pkg.target {
@@ -58,10 +62,6 @@ impl PackageCommand for BuildCommand {
     }
 
     processes.extend([self.tsc(pkg).boxed(), self.eslint(pkg).boxed()]);
-
-    if pkg.root.join(BUILD_SCRIPT).exists() {
-      processes.push(self.build_script(pkg).boxed());
-    }
 
     try_join_all(processes).await?;
 
@@ -121,19 +121,17 @@ impl BuildCommand {
     pkg
       .exec("vite", |cmd| {
         cmd.env("FORCE_COLOR", "1");
-        match pkg.target {
-          Target::Site => {
-            cmd.arg(if self.args.watch { "dev" } else { "build" });
+        let no_server = pkg.manifest.config.no_server.unwrap_or(false);
+        if pkg.target.is_site() && self.args.watch && !no_server {
+          cmd.arg("dev");
+        } else {
+          cmd.arg("build");
+          if self.args.watch {
+            cmd.arg("--watch");
           }
-          _ => {
-            cmd.arg("build");
-            if self.args.watch {
-              cmd.arg("--watch");
-            }
-            if !self.args.release {
-              cmd.args(["--sourcemap", "true"]);
-              cmd.args(["--minify", "false"]);
-            }
+          if !self.args.release {
+            cmd.args(["--sourcemap", "true"]);
+            cmd.args(["--minify", "false"]);
           }
         }
       })
