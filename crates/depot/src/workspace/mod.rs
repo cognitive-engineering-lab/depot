@@ -1,6 +1,6 @@
 use self::{
   dep_graph::DepGraph,
-  package::{PackageGraph, PackageIndex, PackageName},
+  package::{PackageGraph, PackageIndex},
   process::Process,
 };
 use crate::{commands::setup::GlobalConfig, shareable, utils, CommonArgs};
@@ -35,6 +35,7 @@ pub struct WorkspaceInner {
   pub pkg_graph: PackageGraph,
   pub common: CommonArgs,
 
+  roots: Vec<Package>,
   package_display_order: Vec<PackageIndex>,
   processes: RwLock<Vec<Arc<Process>>>,
 }
@@ -217,10 +218,21 @@ impl Workspace {
       .try_collect()
       .await?;
 
-    let pkg_graph = package::build_package_graph(&packages);
+    let roots = match &common.package {
+      Some(name) => {
+        let pkg = packages
+          .iter()
+          .find(|pkg| &pkg.name == name)
+          .with_context(|| format!("Could not find package with name: {name}"))?;
+        vec![pkg.clone()]
+      }
+      None => packages.clone(),
+    };
+
+    let pkg_graph = package::build_package_graph(&packages, &roots);
 
     let package_display_order = {
-      let mut order = packages.iter().map(|pkg| pkg.index).collect::<Vec<_>>();
+      let mut order = pkg_graph.nodes().map(|pkg| pkg.index).collect::<Vec<_>>();
 
       order.sort_by(|n1, n2| {
         if pkg_graph.is_dependent_on(&packages[*n2], &packages[*n1]) {
@@ -253,6 +265,7 @@ impl Workspace {
       global_config,
       pkg_graph,
       common,
+      roots,
       processes: Default::default(),
     });
 
@@ -270,14 +283,6 @@ impl WorkspaceInner {
       .package_display_order
       .iter()
       .map(|idx| &self.packages[*idx])
-  }
-
-  pub fn find_package_by_name(&self, name: &PackageName) -> Result<&Package> {
-    self
-      .packages
-      .iter()
-      .find(|pkg| &pkg.name == name)
-      .with_context(|| format!("Could not find package with name: {name}"))
   }
 
   pub fn start_process(

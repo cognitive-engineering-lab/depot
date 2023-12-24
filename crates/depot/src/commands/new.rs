@@ -569,10 +569,10 @@ export default defineConfig(({{mode}}) => ({{
     } = &self.args;
 
     let src_dir = root.join("src");
-    utils::create_dir(&src_dir)?;
+    utils::create_dir(src_dir)?;
 
     let tests_dir = root.join("tests");
-    utils::create_dir(&tests_dir)?;
+    utils::create_dir(tests_dir)?;
 
     let mut manifest = pj::PackageJson::builder().build();
     manifest.name = Some(name.to_string());
@@ -582,7 +582,7 @@ export default defineConfig(({{mode}}) => ({{
     let pkg_config = PackageDepotConfig {
       platform: *platform,
     };
-    other.insert("depot".into(), serde_json::to_value(&pkg_config)?);
+    other.insert("depot".into(), serde_json::to_value(pkg_config)?);
 
     let mut files: FileVec = Vec::new();
 
