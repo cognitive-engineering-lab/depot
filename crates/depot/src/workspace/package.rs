@@ -107,8 +107,10 @@ impl FromStr for PackageName {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct PackageDepotConfig {
-  pub platform: Platform,
+  pub platform: Platform,  
+  pub no_server: Option<bool>,
 }
 
 pub struct PackageManifest {
@@ -362,7 +364,7 @@ mod test {
 
   #[test]
   fn test_package_graph() {
-    let pkgs = crate::packages! [
+    let pkgs = crate::test_packages! [
       {"name": "a", "dependencies": {"b": "0.1.0"}},
       {"name": "b", "dependencies": {"c": "0.1.0"}},
       {"name": "c"}
