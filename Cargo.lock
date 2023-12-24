@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "depot-js"
-version = "0.2.12"
+version = "0.2.13"
 dependencies = [
  "ansi-diff",
  "ansi-to-tui",
