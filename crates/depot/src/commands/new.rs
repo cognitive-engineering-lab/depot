@@ -582,6 +582,7 @@ export default defineConfig(({{mode}}) => ({{
     let mut other: IndexMap<String, Value> = IndexMap::new();
     let pkg_config = PackageDepotConfig {
       platform: *platform,
+      no_server: None,
     };
     other.insert("depot".into(), serde_json::to_value(pkg_config)?);
 

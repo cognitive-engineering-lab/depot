@@ -103,7 +103,7 @@ impl FullscreenRenderer {
 #[async_trait::async_trait]
 impl Renderer for FullscreenRenderer {
   fn render(&self, ws: &Workspace) -> Result<()> {
-    let n = ws.packages.len() as isize;
+    let n = ws.pkg_graph.nodes().count() as isize;
     let selected_unbounded = self.selected.load(Ordering::SeqCst);
     let selected = ((n + selected_unbounded % n) % n) as usize;
     let pkg = ws.package_display_order().nth(selected).unwrap();
