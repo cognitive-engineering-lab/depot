@@ -43,7 +43,7 @@ pub fn remove_dir_all_if_exists(dir: impl AsRef<Path>) -> Result<()> {
 }
 
 #[macro_export]
-macro_rules! packages {
+macro_rules! test_packages {
   ($($manifest:tt),*) => {{
     use $crate::workspace::package::{Package, PackageManifest, Target, Platform, PackageDepotConfig};
     let index = std::cell::Cell::new(0);
@@ -53,7 +53,8 @@ macro_rules! packages {
       let other = manifest.other.as_mut().unwrap();
       if !other.contains_key("depot") {
         other.insert(String::from("depot"), serde_json::to_value(PackageDepotConfig {
-          platform: Platform::Browser
+          platform: Platform::Browser,
+          no_server: None
         }).unwrap());
       }
       let manifest = PackageManifest::from_json(manifest, std::path::Path::new("dummy.rs")).expect("Manifest failed to convert to Depot format");

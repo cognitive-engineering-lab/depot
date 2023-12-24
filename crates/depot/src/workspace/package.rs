@@ -364,7 +364,7 @@ mod test {
 
   #[test]
   fn test_package_graph() {
-    let pkgs = crate::packages! [
+    let pkgs = crate::test_packages! [
       {"name": "a", "dependencies": {"b": "0.1.0"}},
       {"name": "b", "dependencies": {"c": "0.1.0"}},
       {"name": "c"}

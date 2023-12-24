@@ -40,8 +40,8 @@ fn basic_script_browser() {
 fn basic_script_node() {
   let p = project_for("script", "node");
   p.depot("build --lint-fail");
-  assert!(p.exists("dist/foo.js"));
-  assert!(p.exists("dist/foo.js.map"));
+  assert!(p.exists("dist/foo.cjs"));
+  assert!(p.exists("dist/foo.cjs.map"));
 }
 
 #[test]

@@ -127,7 +127,15 @@ impl NewCommand {
   fn new_workspace(self, root: &Path) -> Result<()> {
     utils::create_dir(root.join("packages"))?;
 
-    let manifest = json!({"private": true});
+    let manifest = json!({
+      "private": true,
+      // STUPID HACK: see note on same code in new_package
+      "pnpm": {
+        "overrides": {
+          "rollup": "npm:@rollup/wasm-node"
+        }
+      }
+    });
     let mut files: FileVec = vec![
       (
         "package.json".into(),
@@ -586,6 +594,20 @@ export default defineConfig(({{mode}}) => ({{
     };
     other.insert("depot".into(), serde_json::to_value(pkg_config)?);
 
+    // STUPID HACK:
+    // - This npm bug (and I guess pnpm bug) causes platform-specific rollup packages to not be installed:
+    //   https://github.com/npm/cli/issues/4828
+    // - A stupid patch is to use the Wasm build of Rollup:
+    //   https://github.com/vitejs/vite/issues/15167
+    other.insert(
+      "pnpm".into(),
+      json!({
+        "overrides": {
+          "rollup": "npm:@rollup/wasm-node"
+        }
+      }),
+    );
+
     let mut files: FileVec = Vec::new();
 
     let mut peer_dependencies: Vec<&str> = Vec::new();
@@ -644,7 +666,7 @@ export default defineConfig(({{mode}}) => ({{
       Target::Script => {
         if platform.is_node() {
           manifest.bin = Some(pj::Binary::Object(indexmap! {
-            name.name.clone() => "dist/main.js".into()
+            name.name.clone() => format!("dist/{}.cjs", self.args.name)
           }));
           dev_dependencies.push("vite");
         }
@@ -656,7 +678,7 @@ export default defineConfig(({{mode}}) => ({{
         (filename, MAIN)
       }
       Target::Lib => {
-        manifest.main = Some(String::from("dist/lib.js"));        
+        manifest.main = Some(String::from("dist/lib.js"));
         manifest.files = Some(vec![String::from("dist")]);
 
         if self.args.react {
