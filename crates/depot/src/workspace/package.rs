@@ -109,7 +109,8 @@ impl FromStr for PackageName {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct PackageDepotConfig {
-  pub platform: Platform,  
+  pub platform: Platform,
+  #[serde(skip_serializing_if = "Option::is_none")]
   pub no_server: Option<bool>,
 }
 
