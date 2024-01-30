@@ -338,6 +338,10 @@ impl NewCommand {
     }
     imports.push(("{ defineConfig }", "vite"));
 
+    if platform.is_node() {
+      imports.push(("{ builtinModules }", "module"));
+    }
+
     let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
 
     match target {
@@ -364,13 +368,20 @@ minify: false,"#
           ),
         };
 
-        let rollup_config = r#"rollupOptions: {
-  external: Object.keys(manifest.dependencies || {})
-}"#;
+        let mut external = "Object.keys(manifest.dependencies || {})".to_string();
+        if platform.is_node() {
+          external.push_str(".concat(builtinModules)");
+        }
+
+        let rollup_config = format!(
+          r#"rollupOptions: {{
+  external: {external}
+}}"#
+        );
         let full_obj = format!(
           "{{\n{}\n{}\n}}",
           textwrap::indent(&build_config, "  "),
-          textwrap::indent(rollup_config, "  ")
+          textwrap::indent(&rollup_config, "  ")
         );
         config.push(("build", full_obj.into()));
       }
@@ -417,7 +428,7 @@ minify: false,"#
     let mut src = format!(
       r#"{imports_str}
 let manifest = JSON.parse(fs.readFileSync("package.json", "utf-8"));
-export default defineConfig(({{mode}}) => ({{
+export default defineConfig(({{ mode }}) => ({{
 {config_str}}}));
 "#
     );
@@ -599,14 +610,16 @@ export default defineConfig(({{mode}}) => ({{
     //   https://github.com/npm/cli/issues/4828
     // - A stupid patch is to use the Wasm build of Rollup:
     //   https://github.com/vitejs/vite/issues/15167
-    other.insert(
-      "pnpm".into(),
-      json!({
-        "overrides": {
-          "rollup": "npm:@rollup/wasm-node"
-        }
-      }),
-    );
+    if self.ws_opt.is_none() {
+      other.insert(
+        "pnpm".into(),
+        json!({
+          "overrides": {
+            "rollup": "npm:@rollup/wasm-node"
+          }
+        }),
+      );
+    }
 
     let mut files: FileVec = Vec::new();
 

@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use depot_test_utils::{custom_project_for, project, project_for, workspace};
 
 #[test]
@@ -91,11 +93,27 @@ fn workspace_() {
 }
 
 #[test]
-fn lint() {
+fn lint_basic() {
   let p = project();
   p.file("src/foo.ts", "export let x      = 1;");
   p.depot("build");
   assert!(p.maybe_depot("build --lint-fail").is_err());
+}
+
+#[test]
+fn lint_gitignore() {
+  let p = project();
+  p.file("src/foo.ts", "export let x      = 1;");
+  p.file(".gitignore", "foo.ts");
+  let mut git = Command::new("git");
+  assert!(git
+    .current_dir(p.root())
+    .arg("init")
+    .status()
+    .unwrap()
+    .success());
+  p.depot("build");
+  assert!(p.maybe_depot("build --lint-fail").is_ok());
 }
 
 #[test]

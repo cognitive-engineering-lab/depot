@@ -130,8 +130,17 @@ impl BuildCommand {
             cmd.arg("--watch");
           }
           if !self.args.release {
-            cmd.args(["--sourcemap", "true"]);
-            cmd.args(["--minify", "false"]);
+            cmd.args([
+              "--sourcemap",
+              "true",
+              "--minify",
+              "false",
+              "--mode",
+              "development",
+            ]);
+            cmd.env("NODE_ENV", "development");
+          } else {
+            cmd.env("NODE_ENV", "production");
           }
         }
       })

@@ -1,5 +1,6 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 
+use ignore::Walk;
 use package_json_schema::PackageJson;
 use std::{
   fmt::{self, Debug},
@@ -9,7 +10,6 @@ use std::{
   str::FromStr,
   sync::{Arc, OnceLock, RwLock, RwLockReadGuard},
 };
-use walkdir::WalkDir;
 
 use crate::{shareable, workspace::process::Process};
 
@@ -109,7 +109,8 @@ impl FromStr for PackageName {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct PackageDepotConfig {
-  pub platform: Platform,  
+  pub platform: Platform,
+  #[serde(skip_serializing_if = "Option::is_none")]
   pub no_server: Option<bool>,
 }
 
@@ -268,44 +269,37 @@ impl PackageInner {
       .unwrap_or_else(|_| panic!("Called set_workspace twice!"));
   }
 
+  fn iter_files(&self, rel_path: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
+    Walk::new(self.root.join(rel_path)).filter_map(|entry| {
+      let entry = entry.ok()?;
+      let is_file = match entry.file_type() {
+        Some(file_type) => file_type.is_file(),
+        None => false,
+      };
+      is_file.then(|| entry.into_path())
+    })
+  }
+
   pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> {
     // TODO: make this configurable
     let asset_extensions = maplit::hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
 
-    WalkDir::new(self.root.join("src"))
-      .into_iter()
-      .filter_map(move |entry| {
-        let entry = entry.ok()?;
-        if !entry.file_type().is_file() {
-          return None;
-        }
-
-        let path = entry.path();
-        let Some(ext) = path.extension() else {
-          return None;
-        };
-        asset_extensions
-          .contains(ext.to_str().unwrap())
-          .then(|| path.to_owned())
-      })
+    self.iter_files("src").filter_map(move |path| {
+      let ext = path.extension()?;
+      asset_extensions
+        .contains(ext.to_str().unwrap())
+        .then_some(path)
+    })
   }
 
   pub fn source_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
     ["src", "tests"]
       .into_iter()
-      .flat_map(|dir| WalkDir::new(self.root.join(dir)))
-      .filter_map(|entry| {
-        let entry = entry.ok()?;
-        if !entry.file_type().is_file() {
-          return None;
-        }
-
-        let path = entry.path();
-        let Some(ext) = path.extension() else {
-          return None;
-        };
+      .flat_map(|dir| self.iter_files(dir))
+      .filter_map(|path| {
+        let ext = path.extension()?;
         let is_src_file = ext == "ts" || ext == "tsx";
-        is_src_file.then(|| path.to_owned())
+        is_src_file.then_some(path)
       })
   }
 }
