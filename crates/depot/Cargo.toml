@@ -39,11 +39,11 @@ home = "0.5"
 petgraph = { version = "0.6", default-features = false }
 cfg-if = "1"
 textwrap = "0.16"
-walkdir = "2"
 bimap = "0.6"
 maplit = "1"
 notify = { version = "6.0.1", default-features = false, features = ["macos_kqueue"] }
 notify-debouncer-mini = { version = "0.3.0", default-features = false }
+ignore = "0.4.22"
 
 ## Async
 futures = { version = "0.3", default-features = false, features = ["std"] }
