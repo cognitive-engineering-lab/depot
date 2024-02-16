@@ -32,15 +32,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Install cross
-        uses: baptiste0928/cargo-install@v2
-        with:
-          crate: cross
-          git: https://github.com/cross-rs/cross
       - name: Add target
         run: rustup target add ${{ matrix.target }}
       - name: Cross-compile
-        run: cross ${{ matrix.command }} --locked --target ${{ matrix.target }}
+        run: cargo ${{ matrix.command }} --locked --target ${{ matrix.target }}
 
   publish-dry-run:
     if: contains(github.event.pull_request.labels.*.name, 'release')
