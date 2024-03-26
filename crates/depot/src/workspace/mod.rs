@@ -294,7 +294,7 @@ impl WorkspaceInner {
 
     let ws_bindir = self.root.join("node_modules").join(".bin");
     let script_path = if script == "pnpm" {
-      self.global_config.bindir().join("pnpm")
+      self.global_config.pnpm_path().to_owned()
     } else {
       ws_bindir.join(script)
     };

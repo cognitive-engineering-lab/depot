@@ -8,7 +8,7 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -27,9 +27,10 @@ pub struct SetupCommand {
 #[derive(Clone)]
 pub struct GlobalConfig {
   root: PathBuf,
+  pnpm_path: PathBuf,
 }
 
-const HOME_ENV_VAR: &str = "GRACO_HOME";
+const HOME_ENV_VAR: &str = "DEPOT_HOME";
 
 impl GlobalConfig {
   fn find_root() -> Result<PathBuf> {
@@ -49,11 +50,23 @@ impl GlobalConfig {
       "Depot global config directory does not exist: {}",
       root.display()
     );
-    Ok(GlobalConfig { root })
+
+    let pnpm_in_root = root.join(".bin").join("pnpm");
+    let pnpm_path = if pnpm_in_root.exists() {
+      pnpm_in_root
+    } else {
+      let pnpm_fs_opt = pathsearch::find_executable_in_path("pnpm");
+      match pnpm_fs_opt {
+        Some(path) => path,
+        None => bail!("pnpm is not installed"),
+      }
+    };
+
+    Ok(GlobalConfig { root, pnpm_path })
   }
 
-  pub fn bindir(&self) -> PathBuf {
-    self.root.join("bin")
+  pub fn pnpm_path(&self) -> &Path {
+    &self.pnpm_path
   }
 }
 
@@ -126,8 +139,11 @@ impl SetupCommand {
     };
     utils::create_dir_if_missing(&config_dir)?;
 
-    let config = GlobalConfig { root: config_dir };
-    let bindir = config.bindir();
+    let config = GlobalConfig {
+      root: config_dir,
+      pnpm_path: PathBuf::new(),
+    };
+    let bindir = config.root.join(".bin");
     utils::create_dir_if_missing(&bindir)?;
 
     let pnpm_path = bindir.join("pnpm");
