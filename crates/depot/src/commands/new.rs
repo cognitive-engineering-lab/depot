@@ -87,6 +87,10 @@ pub struct NewArgs {
   /// Don't attempt to download packages from the web
   #[arg(long, action)]
   pub offline: bool,
+
+  /// Prefer local pnpm cache if available
+  #[arg(long, action)]
+  pub prefer_offline: bool,
 }
 
 pub struct NewCommand {
@@ -517,6 +521,10 @@ export default defineConfig(({{ mode }}) => ({{
 
     if self.args.offline {
       cmd.arg("--offline");
+    }
+
+    if self.args.prefer_offline {
+      cmd.arg("--prefer-offline");
     }
 
     let status = cmd.status()?;

@@ -2,7 +2,7 @@
 
 use anyhow::{ensure, Result};
 use std::{
-  env, fs,
+  fs,
   path::{Path, PathBuf},
   process::Command,
   sync::Once,
@@ -22,11 +22,7 @@ pub struct CommandOutput {
 }
 
 fn new_cmd(s: impl AsRef<str>) -> String {
-  if env::var("OFFLINE").is_ok() {
-    format!("{} --offline", s.as_ref())
-  } else {
-    s.as_ref().to_string()
-  }
+  format!("{} --prefer-offline", s.as_ref())
 }
 
 static SETUP: Once = Once::new();
