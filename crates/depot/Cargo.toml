@@ -56,6 +56,7 @@ reqwest = {version = "0.11", default-features = false, features = ["stream", "ru
 ## Dev
 log = "0.4"
 env_logger = { version = "0.10", default-features = false }
+pathsearch = "0.2.0"
 
 [dev-dependencies]
 depot-test-utils = { path = "../depot-test-utils" }
