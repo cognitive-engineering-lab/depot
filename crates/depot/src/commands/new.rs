@@ -87,6 +87,10 @@ pub struct NewArgs {
   /// Don't attempt to download packages from the web
   #[arg(long, action)]
   pub offline: bool,
+
+  /// Prefer local pnpm cache if available
+  #[arg(long, action)]
+  pub prefer_offline: bool,
 }
 
 pub struct NewCommand {
@@ -213,6 +217,9 @@ impl NewCommand {
             json!({
               "compilerOptions": {
                 "outDir": "dist"
+              },
+              "typedocOptions": {
+                "entryPoints": ["./src/lib.ts"]
               }
             }),
           );
@@ -509,12 +516,15 @@ export default defineConfig(({{ mode }}) => ({{
   }
 
   fn run_pnpm(&self, f: impl Fn(&mut Command)) -> Result<()> {
-    let pnpm_path = self.global_config.bindir().join("pnpm");
-    let mut cmd = Command::new(pnpm_path);
+    let mut cmd = Command::new(self.global_config.pnpm_path());
     f(&mut cmd);
 
     if self.args.offline {
       cmd.arg("--offline");
+    }
+
+    if self.args.prefer_offline {
+      cmd.arg("--prefer-offline");
     }
 
     let status = cmd.status()?;
@@ -708,8 +718,6 @@ export default defineConfig(({{ mode }}) => ({{
         }));
 
         files.push(("tests/add.test.ts".into(), TEST.into()));
-
-        other.insert("typedoc".into(), json!({"entryPoint": "./src/lib.ts"}));
 
         match &self.ws_opt {
           Some(ws) => self.update_typedoc_config(ws)?,
