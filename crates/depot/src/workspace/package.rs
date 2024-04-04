@@ -34,10 +34,13 @@ impl Platform {
   }
 }
 
-#[derive(Copy, Clone, clap::ValueEnum)]
+#[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum Target {
+  #[serde(rename = "lib")]
   Lib,
+  #[serde(rename = "site")]
   Site,
+  #[serde(rename = "script")]
   Script,
 }
 
@@ -111,6 +114,8 @@ impl FromStr for PackageName {
 pub struct PackageDepotConfig {
   pub platform: Platform,
   #[serde(skip_serializing_if = "Option::is_none")]
+  pub target: Option<Target>,
+  #[serde(skip_serializing_if = "Option::is_none")]
   pub no_server: Option<bool>,
 }
 
@@ -145,7 +150,6 @@ pub struct PackageInner {
   pub platform: Platform,
   pub target: Target,
   pub name: PackageName,
-  pub entry_point: PathBuf,
   pub index: PackageIndex,
 
   // Internals
@@ -171,7 +175,6 @@ impl Package {
     root: PathBuf,
     manifest: PackageManifest,
     index: PackageIndex,
-    entry_point: PathBuf,
     target: Target,
   ) -> Result<Self> {
     let platform = manifest.config.platform;
@@ -185,7 +188,6 @@ impl Package {
     Ok(Package::new(PackageInner {
       root: root.to_owned(),
       manifest,
-      entry_point,
       target,
       platform,
       name,
@@ -195,27 +197,31 @@ impl Package {
     }))
   }
 
+  fn infer_target(root: &Path, manifest: &PackageManifest) -> Result<Target> {
+    if let Some(target) = manifest.config.target {
+      Ok(target)
+    } else if Self::find_source_file(root, "lib").is_some() {
+      Ok(Target::Lib)
+    } else if Self::find_source_file(root, "main").is_some() {
+      Ok(Target::Script)
+    } else if Self::find_source_file(root, "index").is_some() {
+      Ok(Target::Site)
+    } else {
+      bail!(
+        "Could not infer target. Consider adding a \"target\" entry under \"depot\" to: {}",
+        root.join("package.json").display()
+      )
+    }
+  }
+
   pub fn load(root: &Path, index: PackageIndex) -> Result<Self> {
     let root = root
       .canonicalize()
       .with_context(|| format!("Could not find package root: `{}`", root.display()))?;
     let manifest_path = root.join("package.json");
     let manifest = PackageManifest::load(&manifest_path)?;
-
-    let (entry_point, target) = if let Some(entry_point) = Package::find_source_file(&root, "lib") {
-      (entry_point, Target::Lib)
-    } else if let Some(entry_point) = Package::find_source_file(&root, "main") {
-      (entry_point, Target::Script)
-    } else if let Some(entry_point) = Package::find_source_file(&root, "index") {
-      (entry_point, Target::Site)
-    } else {
-      bail!(
-        "Could not find entry point to package in directory: `{}`",
-        root.display()
-      )
-    };
-
-    Self::from_parts(root, manifest, index, entry_point, target)
+    let target = Self::infer_target(&root, &manifest)?;
+    Self::from_parts(root, manifest, index, target)
   }
 
   pub fn start_process(

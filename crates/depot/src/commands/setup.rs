@@ -51,7 +51,7 @@ impl GlobalConfig {
       root.display()
     );
 
-    let pnpm_in_root = root.join(".bin").join("pnpm");
+    let pnpm_in_root = root.join("bin").join("pnpm");
     let pnpm_path = if pnpm_in_root.exists() {
       pnpm_in_root
     } else {
@@ -143,7 +143,7 @@ impl SetupCommand {
       root: config_dir,
       pnpm_path: PathBuf::new(),
     };
-    let bindir = config.root.join(".bin");
+    let bindir = config.root.join("bin");
     utils::create_dir_if_missing(&bindir)?;
 
     let pnpm_path = bindir.join("pnpm");
