@@ -21,7 +21,9 @@ OS=$(uname)
 pick_target() {
   echo "Selecting target for $ARCH / $OS..."
 
-  if [ "$OS" = "Linux" ]; then
+  if [ -n "$1" ]; then
+    cargo install depot-js --git https://github.com/cognitive-engineering-lab/depot/ --rev $1
+  elif [ "$OS" = "Linux" ]; then
     if [ "$ARCH" = "x86_64" ]; then
       download "x86_64-unknown-linux-gnu"
       return
@@ -40,7 +42,7 @@ pick_target() {
   cargo install depot-js --locked
 }
 
-pick_target
+pick_target $1
 echo 'The depot binary is installed. Running `depot setup`...'
 
 PATH=$PATH:$INSTALL_DIR
