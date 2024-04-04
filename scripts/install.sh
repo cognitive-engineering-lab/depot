@@ -22,7 +22,7 @@ pick_target() {
   echo "Selecting target for $ARCH / $OS..."
 
   if [ -n "$1" ]; then
-    cargo install depot-js --git https://github.com/cognitive-engineering-lab/depot/ --rev $1
+    cargo install depot-js --locked --git https://github.com/cognitive-engineering-lab/depot/ --rev $1
   elif [ "$OS" = "Linux" ]; then
     if [ "$ARCH" = "x86_64" ]; then
       download "x86_64-unknown-linux-gnu"
