@@ -7,6 +7,7 @@ use petgraph::{
   visit::{DfsPostOrder, Walker},
 };
 
+/// Generic data structure for representing dependencies between objects.
 pub struct DepGraph<T> {
   graph: DiGraph<(), ()>,
   nodes: BiHashMap<T, NodeIndex>,
@@ -14,6 +15,8 @@ pub struct DepGraph<T> {
 }
 
 impl<T: Hash + PartialEq + Eq + Clone> DepGraph<T> {
+  /// Creates a [`DepGraph`] starting with a set of `roots`, and then finds the dependencies
+  /// by iteratively calling `compute_deps` for node.
   pub fn build(roots: Vec<T>, compute_deps: impl Fn(T) -> Vec<T>) -> Self {
     let mut graph = DiGraph::new();
     let mut nodes = BiHashMap::new();
@@ -44,8 +47,6 @@ impl<T: Hash + PartialEq + Eq + Clone> DepGraph<T> {
       }
     }
 
-    // println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
-
     DepGraph {
       roots,
       graph,
@@ -60,7 +61,7 @@ impl<T: Hash + PartialEq + Eq + Clone> DepGraph<T> {
   fn value(&self, index: NodeIndex) -> &T {
     self.nodes.get_by_right(&index).unwrap()
   }
-
+  
   pub fn nodes(&self) -> impl Iterator<Item = &T> {
     self.nodes.iter().map(|(node, _)| node)
   }
@@ -86,5 +87,50 @@ impl<T: Hash + PartialEq + Eq + Clone> DepGraph<T> {
 
   pub fn roots(&self) -> impl Iterator<Item = &T> {
     self.roots.iter()
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+  use maplit::hashset;
+  use std::collections::HashSet;
+
+  #[test]
+  fn dep_graph() {
+    let dg = DepGraph::build(vec![0, 1], |i| match i {
+      0 => vec![2],
+      1 => vec![2],
+      2 => vec![3],
+      3 => vec![],
+      _ => unreachable!(),
+    });
+
+    let z_idx = dg.index(&0);
+    assert_eq!(*dg.value(z_idx), 0);
+
+    assert_eq!(
+      dg.nodes().copied().collect::<HashSet<_>>(),
+      hashset! { 0, 1, 2, 3 }
+    );
+
+    assert!(dg.is_dependent_on(&0, &2));
+    assert!(dg.is_dependent_on(&0, &3));
+    assert!(!dg.is_dependent_on(&0, &1));
+
+    assert_eq!(
+      dg.immediate_deps_for(&0).copied().collect::<HashSet<_>>(),
+      hashset! { 2 }
+    );
+
+    assert_eq!(
+      dg.all_deps_for(&0).copied().collect::<HashSet<_>>(),
+      hashset! { 2, 3 }
+    );
+
+    assert_eq!(
+      dg.roots().copied().collect::<HashSet<_>>(),
+      hashset! { 0, 1 }
+    )
   }
 }

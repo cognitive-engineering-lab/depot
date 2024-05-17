@@ -14,12 +14,14 @@ use anyhow::{bail, ensure, Context, Result};
 
 use crate::logger::ringbuffer::RingBuffer;
 
+/// Indicates the provenance of a given [`LogLine`].
 #[derive(Copy, Clone)]
 pub enum OutputChannel {
   Stdout,
   Stderr,
 }
 
+/// A string emitted by a shell command on a given [`OutputChannel`].
 pub struct LogLine {
   pub line: String,
   pub channel: OutputChannel,
@@ -27,6 +29,9 @@ pub struct LogLine {
 
 pub type LogBuffer = RingBuffer<LogLine>;
 
+/// Encapsulates shell commands.
+///
+/// Wrapper around [`tokio::process::Command`] that deals with I/O.
 pub struct Process {
   script: String,
   child: Mutex<Option<tokio::process::Child>>,
@@ -125,6 +130,44 @@ impl Process {
       ),
       None => bail!("Process `{}` exited due to signal", self.script),
     }
+    Ok(())
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use tokio::process::Command;
+
+  use super::*;
+
+  #[tokio::test]
+  async fn process_ok() -> Result<()> {
+    let mut cmd = Command::new("echo");
+    cmd.arg("Hello world");
+
+    let process = Process::new("echo".to_string(), cmd)?;
+    assert_eq!(process.script(), "echo");
+
+    let status = process.wait().await?;
+    assert!(status.success());
+
+    let stdout = process
+      .stdout()
+      .iter()
+      .map(|line| line.line.clone())
+      .collect::<Vec<_>>()
+      .join("\n");
+    assert_eq!(stdout, "Hello world");
+
+    Ok(())
+  }
+
+  #[tokio::test]
+  async fn process_fail() -> Result<()> {
+    let cmd = Command::new("false");
+    let process = Process::new("false".to_string(), cmd)?;
+    let status = process.wait().await?;
+    assert!(!status.success());
     Ok(())
   }
 }

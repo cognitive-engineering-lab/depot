@@ -29,12 +29,27 @@ pub mod package;
 pub mod process;
 mod runner;
 
+/// Represents an entire Depot workspace. 
+/// 
+/// This is a central data structure that is held by many parts of the application,
+/// wrapped in an [`Arc`] by [`Workspace`].
 pub struct WorkspaceInner {
+  /// The root directory of the workspace containing `package.json`.
   pub root: PathBuf,
+
+  /// All the packages in the workspace.
   pub packages: Vec<Package>,
-  pub monorepo: bool,
-  pub global_config: GlobalConfig,
+
+  /// The dependencies between packages.
   pub pkg_graph: PackageGraph,
+
+  /// True if this workspace is structured as a monorepo with a `packages/` directory.
+  pub monorepo: bool,
+
+  /// Depot configuration read from disk.
+  pub global_config: GlobalConfig,
+
+  /// CLI arguments that apply to the whole workspace.
   pub common: CommonArgs,
 
   roots: Vec<Package>,
