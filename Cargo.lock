@@ -377,6 +377,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shlex",
+ "tempfile",
  "textwrap",
  "tokio",
 ]

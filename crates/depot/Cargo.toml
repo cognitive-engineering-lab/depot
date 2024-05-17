@@ -60,3 +60,4 @@ env_logger = { version = "0.10", default-features = false }
 
 [dev-dependencies]
 depot-test-utils = { path = "../depot-test-utils" }
+tempfile = "3.4"

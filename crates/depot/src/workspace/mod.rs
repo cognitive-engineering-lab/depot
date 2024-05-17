@@ -1,5 +1,6 @@
 use self::{
   dep_graph::DepGraph,
+  fingerprint::Fingerprints,
   package::{PackageGraph, PackageIndex},
   process::Process,
 };
@@ -23,6 +24,7 @@ use std::{
 };
 
 mod dep_graph;
+mod fingerprint;
 pub mod package;
 pub mod process;
 mod runner;
@@ -38,6 +40,7 @@ pub struct WorkspaceInner {
   roots: Vec<Package>,
   package_display_order: Vec<PackageIndex>,
   processes: RwLock<Vec<Arc<Process>>>,
+  fingerprints: RwLock<Fingerprints>,
 }
 
 shareable!(Workspace, WorkspaceInner);
@@ -69,23 +72,13 @@ fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
 pub enum CommandInner {
   Package(Box<dyn PackageCommand>),
   Workspace(Box<dyn WorkspaceCommand>),
-  Both(Box<dyn WorkspaceAndPackageCommand>),
 }
 
 impl CommandInner {
   pub fn deps(&self) -> Vec<Command> {
     match self {
       CommandInner::Package(cmd) => cmd.deps(),
-      CommandInner::Both(cmd) => cmd.deps(),
       CommandInner::Workspace(_) => Vec::new(),
-    }
-  }
-
-  pub fn name(&self) -> String {
-    match self {
-      CommandInner::Package(cmd) => cmd.name(),
-      CommandInner::Workspace(cmd) => cmd.name(),
-      CommandInner::Both(cmd) => cmd.name(),
     }
   }
 }
@@ -94,7 +87,6 @@ impl Command {
   pub async fn run_pkg(self, package: Package) -> Result<()> {
     match &*self {
       CommandInner::Package(cmd) => cmd.run_pkg(&package).await,
-      CommandInner::Both(cmd) => cmd.run_pkg(&package).await,
       CommandInner::Workspace(_) => panic!("run_pkg on workspace command"),
     }
   }
@@ -102,7 +94,6 @@ impl Command {
   pub async fn run_ws(self, ws: Workspace) -> Result<()> {
     match &*self {
       CommandInner::Workspace(cmd) => cmd.run_ws(&ws).await,
-      CommandInner::Both(cmd) => cmd.run_ws(&ws).await,
       CommandInner::Package(_) => panic!("run_ws on package command"),
     }
   }
@@ -110,7 +101,6 @@ impl Command {
   pub fn runtime(&self) -> Option<CommandRuntime> {
     match &**self {
       CommandInner::Package(cmd) => Some(cmd.runtime()),
-      CommandInner::Both(cmd) => Some(cmd.runtime()),
       CommandInner::Workspace(_) => None,
     }
   }
@@ -121,7 +111,6 @@ impl fmt::Debug for CommandInner {
     match self {
       CommandInner::Package(cmd) => write!(f, "{cmd:?}"),
       CommandInner::Workspace(cmd) => write!(f, "{cmd:?}"),
-      CommandInner::Both(cmd) => write!(f, "{cmd:?}"),
     }
   }
 }
@@ -135,10 +124,6 @@ impl Command {
 
   pub fn workspace(cmd: impl WorkspaceCommand + 'static) -> Self {
     Self::new(CommandInner::Workspace(Box::new(cmd)))
-  }
-
-  pub fn both(cmd: impl WorkspaceAndPackageCommand) -> Self {
-    Self::new(CommandInner::Both(Box::new(cmd)))
   }
 }
 
@@ -156,6 +141,10 @@ pub enum CommandRuntime {
 pub trait PackageCommand: CoreCommand + Debug + Send + Sync + 'static {
   async fn run_pkg(&self, package: &Package) -> Result<()>;
 
+  fn pkg_key(&self, package: &Package) -> String {
+    format!("{}-{}", self.name(), package.name)
+  }
+
   fn deps(&self) -> Vec<Command> {
     Vec::new()
   }
@@ -168,10 +157,15 @@ pub trait PackageCommand: CoreCommand + Debug + Send + Sync + 'static {
 #[async_trait::async_trait]
 pub trait WorkspaceCommand: CoreCommand + Debug + Send + Sync + 'static {
   async fn run_ws(&self, ws: &Workspace) -> Result<()>;
-}
 
-pub trait WorkspaceAndPackageCommand: WorkspaceCommand + PackageCommand {}
-impl<T: WorkspaceCommand + PackageCommand> WorkspaceAndPackageCommand for T {}
+  fn ws_key(&self) -> String {
+    self.name()
+  }
+
+  fn input_files(&self, _ws: &Workspace) -> Option<Vec<PathBuf>> {
+    None
+  }
+}
 
 impl Workspace {
   pub async fn load(
@@ -257,6 +251,8 @@ impl Workspace {
       order
     };
 
+    let fingerprints = RwLock::new(Fingerprints::load(&root)?);
+
     let ws = Workspace::new(WorkspaceInner {
       root,
       packages,
@@ -267,6 +263,7 @@ impl Workspace {
       common,
       roots,
       processes: Default::default(),
+      fingerprints,
     });
 
     for pkg in &ws.packages {
@@ -324,6 +321,10 @@ impl WorkspaceInner {
 
   pub fn processes(&self) -> RwLockReadGuard<'_, Vec<Arc<Process>>> {
     self.processes.read().unwrap()
+  }
+
+  pub fn all_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
+    self.packages.iter().flat_map(|pkg| pkg.all_files())
   }
 }
 

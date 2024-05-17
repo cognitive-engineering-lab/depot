@@ -70,7 +70,7 @@ impl GlobalConfig {
   }
 }
 
-const PNPM_VERSION: &str = "8.6.7";
+const PNPM_VERSION: &str = "9.1.1";
 
 async fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
   let res = reqwest::get(url).await?;

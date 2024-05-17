@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::workspace::{Command, CoreCommand, Workspace, WorkspaceCommand};
 use anyhow::{Context, Result};
 
@@ -55,5 +57,11 @@ impl WorkspaceCommand for InitCommand {
       }
     })
     .await
+  }
+
+  fn input_files(&self, ws: &Workspace) -> Option<Vec<PathBuf>> {
+    let mut files = vec![ws.root.join("package.json")];
+    files.extend(ws.packages.iter().map(|pkg| pkg.root.join("package.json")));
+    Some(files)
   }
 }
