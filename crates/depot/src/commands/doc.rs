@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 
 use crate::workspace::{Command, CoreCommand, Workspace, WorkspaceCommand};
@@ -47,5 +49,9 @@ impl WorkspaceCommand for DocCommand {
       }
     })
     .await
+  }
+
+  fn input_files(&self, ws: &Workspace) -> Option<Vec<PathBuf>> {
+    Some(ws.all_files().collect())
   }
 }

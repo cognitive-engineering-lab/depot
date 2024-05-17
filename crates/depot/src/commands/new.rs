@@ -290,9 +290,7 @@ impl NewCommand {
           "env": {"browser": true},
         }),
         Platform::Node => json!({
-          "env": {
-            "node": true,
-          },
+          "env": {"node": true},
         }),
       };
 
@@ -546,7 +544,7 @@ export default defineConfig(({{ mode }}) => ({{
       "@types/node",
 
       // Linting
-      "eslint",
+      "eslint@8",
       "@typescript-eslint/eslint-plugin",
       "@typescript-eslint/parser",
       "eslint-plugin-prettier@^4",

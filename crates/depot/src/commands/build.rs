@@ -138,9 +138,13 @@ impl BuildCommand {
               "--mode",
               "development",
             ]);
-            cmd.env("NODE_ENV", "development");
+
+            // TODO: running `NODE_ENV=development vite build` seems to
+            // break Vike.
+
+            // cmd.env("NODE_ENV", "development");
           } else {
-            cmd.env("NODE_ENV", "production");
+            // cmd.env("NODE_ENV", "production");
           }
         }
       })

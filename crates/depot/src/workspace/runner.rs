@@ -16,8 +16,8 @@ use crate::{
 };
 
 use super::{
-  build_command_graph, dep_graph::DepGraph, package::Package, Command, CommandGraph, CommandInner,
-  CommandRuntime, Workspace,
+  build_command_graph, dep_graph::DepGraph, Command, CommandGraph, CommandInner, CommandRuntime,
+  Workspace,
 };
 
 #[atomic_enum::atomic_enum]
@@ -31,50 +31,45 @@ enum TaskStatus {
 type TaskFuture = Box<dyn FnOnce() -> BoxFuture<'static, (Result<()>, Task)>>;
 
 pub struct TaskInner {
-  status: AtomicTaskStatus,
+  key: String,
   command: Command,
-  pkg: Option<Package>,
+  deps: Vec<String>,
+  status: AtomicTaskStatus,
+  can_skip: bool,
 }
 
 shareable!(Task, TaskInner);
 
-fn task_name(cmd: &Command, pkg: &Option<Package>) -> String {
-  let cmd_name = cmd.name();
-  match pkg {
-    Some(pkg) => format!("{cmd_name}:pkg({})", pkg.name),
-    None => format!("{cmd_name}:ws"),
-  }
-}
-
 impl Task {
   fn make<F: Future<Output = Result<()>> + Send + 'static>(
-    command: &Command,
-    pkg: Option<Package>,
-    mk_future: impl FnOnce(Command) -> F,
+    key: String,
+    command: Command,
+    fut: F,
+    deps: Vec<String>,
+    can_skip: bool,
   ) -> (Self, TaskFuture) {
     let task = Task::new(TaskInner {
+      key,
+      command,
+      deps,
+      can_skip,
       status: AtomicTaskStatus::new(TaskStatus::Pending),
-      pkg,
-      command: command.clone(),
     });
     let task2 = task.clone();
-    let fut = mk_future(command.clone());
-    (
-      task,
-      Box::new(move || {
-        async move {
-          let result = fut.await;
-          (result, task2)
-        }
-        .boxed()
-      }),
-    )
+    let boxed_fut = Box::new(move || {
+      async move {
+        let result = fut.await;
+        (result, task2)
+      }
+      .boxed()
+    });
+    (task, boxed_fut)
   }
 }
 
 impl TaskInner {
-  fn name(&self) -> String {
-    task_name(&self.command, &self.pkg)
+  fn key(&self) -> &str {
+    &self.key
   }
 
   fn status(&self) -> TaskStatus {
@@ -126,13 +121,20 @@ impl Workspace {
 
     let tasks_for = |cmd: &Command| -> Vec<Task> {
       macro_rules! add_task {
-        ($pkg:expr, $task:expr) => {{
-          let mut task_pool = task_pool.borrow_mut();
-          let pkg = $pkg;
+        ($key:expr, $task:expr, $deps:expr, $files:expr) => {{
           task_pool
-            .entry(task_name(cmd, &pkg))
+            .borrow_mut()
+            .entry($key.clone())
             .or_insert_with(|| {
-              let (task, future) = Task::make(cmd, pkg, $task);
+              let can_skip = match $files {
+                Some(files) => {
+                  let fingerprints = self.fingerprints.read().unwrap();
+                  fingerprints.can_skip(&$key, files)
+                }
+                None => false,
+              };
+
+              let (task, future) = Task::make($key, cmd.clone(), $task, $deps, can_skip);
               futures.borrow_mut().insert(task.clone(), future);
               task
             })
@@ -140,36 +142,30 @@ impl Workspace {
         }};
       }
 
-      macro_rules! pkg_tasks {
-        () => {{
-          self.roots.iter().flat_map(|pkg| {
+      match &**cmd {
+        CommandInner::Package(pkg_cmd) => self
+          .roots
+          .iter()
+          .flat_map(|pkg| {
             self.pkg_graph.all_deps_for(pkg).chain([pkg]).map(|pkg| {
               let pkg = pkg.clone();
-              add_task!(Some(pkg.clone()), move |cmd| cmd.run_pkg(pkg))
+              let key = pkg_cmd.pkg_key(&pkg);
+              let deps = self
+                .pkg_graph
+                .immediate_deps_for(&pkg)
+                .map(|pkg| pkg_cmd.pkg_key(pkg))
+                .collect();
+              let files = pkg.all_files().collect::<Vec<_>>();
+              add_task!(key, cmd.clone().run_pkg(pkg), deps, Some(files))
             })
           })
-        }};
-      }
-
-      macro_rules! ws_task {
-        () => {{
+          .collect(),
+        CommandInner::Workspace(ws_cmd) => {
           let this = self.clone();
-          add_task!(None, move |cmd| cmd.run_ws(this))
-        }};
-      }
-
-      match &**cmd {
-        CommandInner::Package(_) => pkg_tasks!().collect(),
-        CommandInner::Workspace(_) => vec![ws_task!()],
-        CommandInner::Both(_) => {
-          // TODO: this semantics makes avoids an issue where
-          // non-monorepos have race conditions, e.g. cleaning node_modules
-          // twice concurrently. But this solution is hacky
-          if self.monorepo {
-            pkg_tasks!().chain([ws_task!()]).collect()
-          } else {
-            pkg_tasks!().collect()
-          }
+          let key = ws_cmd.ws_key();
+          let deps = vec![];
+          let files = ws_cmd.input_files(self);
+          vec![add_task!(key, cmd.clone().run_ws(this), deps, files)]
         }
       }
     };
@@ -182,11 +178,8 @@ impl Workspace {
           .flat_map(tasks_for)
           .collect::<Vec<_>>();
         let runtime = task.command.runtime();
-        if let (Some(pkg), Some(CommandRuntime::WaitForDependencies)) = (&task.pkg, runtime) {
-          deps.extend(self.pkg_graph.immediate_deps_for(pkg).map(|pkg| {
-            let name = task_name(&task.command, &Some(pkg.clone()));
-            task_pool.borrow()[&name].clone()
-          }));
+        if let Some(CommandRuntime::WaitForDependencies) = runtime {
+          deps.extend(task.deps.iter().map(|key| task_pool.borrow()[key].clone()));
         }
         deps
       },
@@ -221,14 +214,25 @@ impl Workspace {
         .nodes()
         .filter(|task| task.status() == TaskStatus::Pending);
       for task in pending {
-        let deps_finished = task_graph
-          .immediate_deps_for(task)
+        let imm_deps = task_graph.immediate_deps_for(task).collect::<Vec<_>>();
+        let deps_finished = imm_deps
+          .iter()
           .all(|dep| dep.status() == TaskStatus::Finished);
         if deps_finished {
-          debug!("Starting task for: {}", task.name());
-          task.status.store(TaskStatus::Running, Ordering::SeqCst);
-          running_futures.push(tokio::spawn((task_futures.remove(task).unwrap())()));
+          let can_skip = task.can_skip && imm_deps.iter().all(|dep| dep.can_skip);
+          let task_fut = task_futures.remove(task).unwrap();
+          if can_skip {
+            task.status.store(TaskStatus::Finished, Ordering::SeqCst);
+          } else {
+            debug!("Starting task for: {}", task.key());
+            task.status.store(TaskStatus::Running, Ordering::SeqCst);
+            running_futures.push(tokio::spawn(task_fut()));
+          }
         }
+      }
+
+      if running_futures.is_empty() {
+        continue;
       }
 
       let one_output = futures::future::select_all(&mut running_futures);
@@ -245,10 +249,15 @@ impl Workspace {
         break result;
       }
 
-      debug!("Finishing task for: {}", completed_task.name());
+      debug!("Finishing task for: {}", completed_task.key());
       completed_task
         .status
         .store(TaskStatus::Finished, Ordering::SeqCst);
+      self
+        .fingerprints
+        .write()
+        .unwrap()
+        .update_time(completed_task.key().to_string())
     };
 
     for fut in &mut running_futures {
@@ -262,6 +271,8 @@ impl Workspace {
     log::debug!("All tasks complete, waiting for log thread to exit");
     log_should_exit.notify_one();
     cleanup_logs.await;
+
+    self.fingerprints.read().unwrap().save(&self.root)?;
 
     result
   }

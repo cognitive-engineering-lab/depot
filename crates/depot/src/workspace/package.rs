@@ -1,6 +1,7 @@
 use anyhow::{bail, ensure, Context, Error, Result};
 
 use ignore::Walk;
+use maplit::hashset;
 use package_json_schema::PackageJson;
 use std::{
   fmt::{self, Debug},
@@ -288,7 +289,7 @@ impl PackageInner {
 
   pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> {
     // TODO: make this configurable
-    let asset_extensions = maplit::hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
+    let asset_extensions = hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
 
     self.iter_files("src").filter_map(move |path| {
       let ext = path.extension()?;
@@ -307,6 +308,10 @@ impl PackageInner {
         let is_src_file = ext == "ts" || ext == "tsx";
         is_src_file.then_some(path)
       })
+  }
+
+  pub fn all_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
+    self.iter_files("src")
   }
 }
 
