@@ -75,6 +75,13 @@ pub enum CommandInner {
 }
 
 impl CommandInner {
+  pub fn name(&self) -> String {
+    match self {
+      CommandInner::Package(cmd) => cmd.name(),
+      CommandInner::Workspace(cmd) => cmd.name(),
+    }
+  }
+
   pub fn deps(&self) -> Vec<Command> {
     match self {
       CommandInner::Package(cmd) => cmd.deps(),

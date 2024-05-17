@@ -60,8 +60,12 @@ impl WorkspaceCommand for InitCommand {
   }
 
   fn input_files(&self, ws: &Workspace) -> Option<Vec<PathBuf>> {
-    let mut files = vec![ws.root.join("package.json")];
-    files.extend(ws.packages.iter().map(|pkg| pkg.root.join("package.json")));
-    Some(files)
+    let pkg_roots = ws.packages.iter().map(|pkg| &pkg.root);
+    let roots = pkg_roots.chain([&ws.root]).collect::<Vec<_>>();
+    if roots.iter().any(|root| !root.join("node_modules").exists()) {
+      None
+    } else {
+      Some(roots.iter().map(|root| root.join("package.json")).collect())
+    }
   }
 }

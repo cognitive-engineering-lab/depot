@@ -126,13 +126,14 @@ impl Workspace {
             .borrow_mut()
             .entry($key.clone())
             .or_insert_with(|| {
-              let can_skip = match $files {
-                Some(files) => {
-                  let fingerprints = self.fingerprints.read().unwrap();
-                  fingerprints.can_skip(&$key, files)
-                }
-                None => false,
-              };
+              let can_skip = !self.common.no_incremental
+                && match $files {
+                  Some(files) => {
+                    let fingerprints = self.fingerprints.read().unwrap();
+                    fingerprints.can_skip(&$key, files)
+                  }
+                  None => false,
+                };
 
               let (task, future) = Task::make($key, cmd.clone(), $task, $deps, can_skip);
               futures.borrow_mut().insert(task.clone(), future);
@@ -271,8 +272,10 @@ impl Workspace {
     log::debug!("All tasks complete, waiting for log thread to exit");
     log_should_exit.notify_one();
     cleanup_logs.await;
-
-    self.fingerprints.read().unwrap().save(&self.root)?;
+    
+    if root.name() != "clean" {
+      self.fingerprints.read().unwrap().save(&self.root)?;
+    }
 
     result
   }

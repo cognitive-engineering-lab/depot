@@ -21,10 +21,14 @@ mod utils;
 mod workspace;
 
 #[derive(clap::Parser, Default)]
-pub struct CommonArgs {
+pub struct CommonArgs {  
   /// Only run the command for a given package and its dependencies
   #[clap(short, long)]
   package: Option<PackageName>,
+
+  /// Disable incremental compilation
+  #[clap(long)]
+  no_incremental: bool
 }
 
 #[derive(clap::Parser)]
