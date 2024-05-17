@@ -163,6 +163,7 @@ impl NewCommand {
   }
 
   fn make_tsconfig(&self) -> Result<FileVec> {
+    let mut files: FileVec = Vec::new();
     let mut config = json!({
       "compilerOptions": {
         // Makes tsc respect "exports" directives in package.json
@@ -238,19 +239,16 @@ impl NewCommand {
 
       if self.args.platform.is_browser() {
         // Allows special Vite things like importing files with ?raw
-        json_merge(
-          &mut config,
-          json!({
-            "compilerOptions": {
-              "types": ["vite/client"]
-            }
-          }),
-        );
+        files.push((
+          "src/bindings/vite.d.ts".into(),
+          r#"/// <reference types="vite/client" />"#.into(),
+        ));
       }
     }
 
     let src = serde_json::to_string_pretty(&config)?;
-    Ok(vec![("tsconfig.json".into(), src.into())])
+    files.push(("tsconfig.json".into(), src.into()));
+    Ok(files)
   }
 
   fn make_eslint_config(&self) -> Result<FileVec> {
@@ -748,7 +746,9 @@ export default defineConfig(({{ mode }}) => ({{
     }
 
     for (rel_path, contents) in files {
-      utils::write(root.join(rel_path), contents.as_bytes())?;
+      let abs_path = root.join(rel_path);
+      utils::create_dir_if_missing(abs_path.parent().unwrap())?;
+      utils::write(abs_path, contents.as_bytes())?;
     }
 
     if !peer_dependencies.is_empty() {
