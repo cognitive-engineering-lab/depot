@@ -94,7 +94,7 @@ fn workspace_() {
 
 #[test]
 fn lint_basic() {
-  let p = project().persist();
+  let p = project();
   p.file("src/foo.ts", "export let x      = 1;");
   assert!(p.maybe_depot("build --lint-fail").is_err());
 }
