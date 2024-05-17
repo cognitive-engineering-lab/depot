@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.2.14"
+version = "0.2.15"
 description = "A Javascript devtool orchestrator"
 edition = "2021"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -21,13 +21,11 @@ package_json_schema = "0.2"
 indexmap = "1" # This must match package_json_schema
 
 ## TUI
-ratatui = "0.22"
+ratatui = "0.26.2"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
-# This dep will cause problems on `cargo update` until this issue is resolved:
-# https://github.com/uttarayan21/ansi-to-tui/issues/32
-ansi-to-tui = "3.1" # This must match tui
+ansi-to-tui = "4.0.1" # This must match ratatui
 ansi-diff = "1"
 indicatif = "0.17"
 

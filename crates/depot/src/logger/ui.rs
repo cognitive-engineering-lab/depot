@@ -35,7 +35,6 @@ const TICK_RATE: Duration = Duration::from_millis(33);
 
 pub type TerminalBackend = ratatui::backend::CrosstermBackend<Stdout>;
 pub type Terminal = ratatui::Terminal<TerminalBackend>;
-type Frame<'a> = ratatui::Frame<'a, TerminalBackend>;
 
 impl FullscreenRenderer {
   pub fn new() -> Result<Self> {
@@ -75,7 +74,7 @@ impl FullscreenRenderer {
     })
   }
 
-  fn render_process_pane(f: &mut Frame, process: &Process, slot: Rect) {
+  fn render_process_pane(f: &mut ratatui::Frame, process: &Process, slot: Rect) {
     let mut spans = Vec::new();
     let height = slot.bottom() as usize;
     let stdout = process.stdout();
