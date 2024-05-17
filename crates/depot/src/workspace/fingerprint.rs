@@ -1,11 +1,11 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use log::warn;
 use std::{
   collections::HashMap,
   fs::{self, File},
-  io::{BufReader, BufWriter},
+  io::{self, BufReader, BufWriter},
   path::{Path, PathBuf},
-  time::SystemTime,
 };
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use crate::utils;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct Fingerprints {
-  fingerprints: HashMap<String, SystemTime>,
+  fingerprints: HashMap<String, DateTime<Utc>>,
 }
 
 impl Fingerprints {
@@ -29,7 +29,11 @@ impl Fingerprints {
       None => false,
       Some(stored_time) => files
         .into_iter()
-        .map(|path| fs::metadata(path)?.modified())
+        .map(|path| {
+          let meta = fs::metadata(path)?;
+          let sys_time = meta.modified()?;
+          Ok::<_, io::Error>(DateTime::from(sys_time))
+        })
         .filter_map(|res| match res {
           Ok(time) => Some(time),
           Err(e) => {
@@ -42,7 +46,7 @@ impl Fingerprints {
   }
 
   pub fn update_time(&mut self, key: String) {
-    self.fingerprints.insert(key, SystemTime::now());
+    self.fingerprints.insert(key, Utc::now());
   }
 
   fn file_path(root: &Path) -> PathBuf {
