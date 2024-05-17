@@ -323,14 +323,18 @@ impl Debug for Package {
 
 pub type PackageGraph = DepGraph<Package>;
 
-pub fn build_package_graph(packages: &[Package], roots: &[Package]) -> PackageGraph {
-  DepGraph::build(roots.to_vec(), |pkg| {
-    pkg
-      .all_dependencies()
-      .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
-      .cloned()
-      .collect()
-  })
+pub fn build_package_graph(packages: &[Package], roots: &[Package]) -> Result<PackageGraph> {
+  DepGraph::build(
+    roots.to_vec(),
+    |pkg| pkg.name.to_string(),
+    |pkg| {
+      pkg
+        .all_dependencies()
+        .filter_map(|name| packages.iter().find(|other_pkg| other_pkg.name == name))
+        .cloned()
+        .collect()
+    },
+  )
 }
 
 #[cfg(test)]
@@ -377,7 +381,7 @@ mod test {
 
     let [a, b, c] = &pkgs;
 
-    let dg = build_package_graph(&pkgs, &pkgs);
+    let dg = build_package_graph(&pkgs, &pkgs).unwrap();
     let deps_for = |p| dg.all_deps_for(p).collect::<HashSet<_>>();
     assert_eq!(deps_for(a), hashset! {b, c});
     assert_eq!(deps_for(b), hashset! {c});

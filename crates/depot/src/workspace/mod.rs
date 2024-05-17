@@ -29,8 +29,8 @@ pub mod package;
 pub mod process;
 mod runner;
 
-/// Represents an entire Depot workspace. 
-/// 
+/// Represents an entire Depot workspace.
+///
 /// This is a central data structure that is held by many parts of the application,
 /// wrapped in an [`Arc`] by [`Workspace`].
 pub struct WorkspaceInner {
@@ -245,7 +245,7 @@ impl Workspace {
       None => packages.clone(),
     };
 
-    let pkg_graph = package::build_package_graph(&packages, &roots);
+    let pkg_graph = package::build_package_graph(&packages, &roots)?;
 
     let package_display_order = {
       let mut order = pkg_graph.nodes().map(|pkg| pkg.index).collect::<Vec<_>>();
@@ -353,7 +353,7 @@ impl WorkspaceInner {
 pub type CommandGraph = DepGraph<Command>;
 
 pub fn build_command_graph(root: &Command) -> CommandGraph {
-  DepGraph::build(vec![root.clone()], |cmd| cmd.deps())
+  DepGraph::build(vec![root.clone()], |_| unreachable!(), |cmd| cmd.deps()).unwrap()
 }
 
 #[cfg(test)]

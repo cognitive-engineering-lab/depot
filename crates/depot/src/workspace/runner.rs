@@ -173,7 +173,8 @@ impl Workspace {
 
     let task_graph = DepGraph::build(
       cmd_graph.roots().flat_map(tasks_for).collect(),
-      |task: Task| {
+      |t| t.key.clone(),
+      |task: &Task| {
         let mut deps = cmd_graph
           .immediate_deps_for(&task.command)
           .flat_map(tasks_for)
@@ -184,7 +185,8 @@ impl Workspace {
         }
         deps
       },
-    );
+    )
+    .unwrap();
 
     Ok((task_graph, futures.into_inner()))
   }
@@ -272,7 +274,7 @@ impl Workspace {
     log::debug!("All tasks complete, waiting for log thread to exit");
     log_should_exit.notify_one();
     cleanup_logs.await;
-    
+
     if root.name() != "clean" {
       self.fingerprints.read().unwrap().save(&self.root)?;
     }
