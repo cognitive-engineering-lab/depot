@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils;
 
+/// Data structure for tracking when Depot commands were last executed.
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct Fingerprints {
   fingerprints: HashMap<String, SystemTime>,
@@ -24,6 +25,8 @@ impl Fingerprints {
     }
   }
 
+  /// Returns true if there is a recorded timestamp for `key`, and that timestamp is
+  /// later than the modified time for all `files`.
   pub fn can_skip(&self, key: &str, files: impl IntoIterator<Item = PathBuf>) -> bool {
     match self.fingerprints.get(key) {
       None => false,
@@ -41,6 +44,7 @@ impl Fingerprints {
     }
   }
 
+  /// Sets the timestamp for `key` to the current time.
   pub fn update_time(&mut self, key: String) {
     self.fingerprints.insert(key, SystemTime::now());
   }
