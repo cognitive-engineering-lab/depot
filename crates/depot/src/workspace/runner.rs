@@ -89,7 +89,8 @@ impl Workspace {
     let ws = self.clone();
     let log_should_exit = Arc::clone(log_should_exit);
     let runner_should_exit = Arc::clone(runner_should_exit);
-    let use_fullscreen_renderer = matches!(runtime, Some(CommandRuntime::RunForever));
+    let use_fullscreen_renderer =
+      !ws.common.no_fullscreen && matches!(runtime, Some(CommandRuntime::RunForever));
     tokio::spawn(async move {
       let result = if use_fullscreen_renderer {
         FullscreenRenderer::new()

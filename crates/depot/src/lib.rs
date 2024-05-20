@@ -28,7 +28,11 @@ pub struct CommonArgs {
 
   /// Disable incremental compilation
   #[clap(long)]
-  no_incremental: bool
+  no_incremental: bool,
+
+  /// Disable fullscreen UI
+  #[clap(long)]
+  no_fullscreen: bool
 }
 
 #[derive(clap::Parser)]
