@@ -51,7 +51,7 @@ async-trait = "0.1"
 tokio = { version = "1", default-features = false, features = ["sync", "macros", "time", "rt-multi-thread", "process"] }
 atomic_enum = "0.2"
 # We use rustls to avoid issues linking w/ libssl when cross-compiling
-reqwest = {version = "0.11", default-features = false, features = ["stream", "rustls-tls"]}
+reqwest = {version = "0.11.27", default-features = false, features = ["stream", "rustls-tls"]}
 
 ## Dev
 log = "0.4"
