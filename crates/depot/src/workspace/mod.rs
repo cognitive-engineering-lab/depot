@@ -284,7 +284,7 @@ impl Workspace {
       pkg_graph,
       common,
       roots,
-      processes: Default::default(),
+      processes: RwLock::default(),
       fingerprints,
     });
 

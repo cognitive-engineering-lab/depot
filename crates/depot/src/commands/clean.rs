@@ -36,7 +36,7 @@ impl WorkspaceCommand for CleanCommand {
   async fn run_ws(&self, ws: &Workspace) -> Result<()> {
     let mut to_delete = vec![ws.root.join("node_modules")];
     for pkg in &ws.packages {
-      to_delete.extend([pkg.root.join("node_modules"), pkg.root.join("dist")])
+      to_delete.extend([pkg.root.join("node_modules"), pkg.root.join("dist")]);
     }
 
     for dir in to_delete {

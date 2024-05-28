@@ -16,6 +16,7 @@ use crate::{
 
 /// Check and build packages
 #[derive(clap::Parser, Default, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct BuildArgs {
   /// Build in release mode
   #[arg(short, long)]
@@ -129,7 +130,9 @@ impl BuildCommand {
           if self.args.watch {
             cmd.arg("--watch");
           }
-          if !self.args.release {
+          if self.args.release {
+            // cmd.env("NODE_ENV", "production");
+          } else {
             cmd.args([
               "--sourcemap",
               "true",
@@ -143,8 +146,6 @@ impl BuildCommand {
             // break Vike.
 
             // cmd.env("NODE_ENV", "development");
-          } else {
-            // cmd.env("NODE_ENV", "production");
           }
         }
       })

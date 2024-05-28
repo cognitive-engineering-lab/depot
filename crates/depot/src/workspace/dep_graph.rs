@@ -53,9 +53,9 @@ impl<T: Hash + PartialEq + Eq + Clone> DepGraph<T> {
     let sort = petgraph::algo::toposort(&graph, None);
     match sort {
       Ok(_) => Ok(DepGraph {
-        roots,
         graph,
         nodes,
+        roots,
       }),
       Err(cycle) => {
         bail!(

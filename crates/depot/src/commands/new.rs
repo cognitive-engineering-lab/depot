@@ -39,11 +39,11 @@ root.innerHTML = "<h1>Hello world!</h1>";
 const MAIN: &str = r#"console.log("Hello world!");
 "#;
 
-const LIB: &str = r#"/** Adds two numbers together */
+const LIB: &str = "/** Adds two numbers together */
 export function add(a: number, b: number) {
   return a + b;
 }
-"#;
+";
 
 const TEST: &str = r#"import { expect, test } from "vitest";
 
@@ -61,6 +61,7 @@ const VITEST_SETUP: &str = include_str!("configs/setup.ts");
 
 /// Create a new Depot workspace
 #[derive(clap::Parser)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct NewArgs {
   pub name: PackageName,
 
@@ -150,8 +151,8 @@ impl NewCommand {
     files.extend(self.make_tsconfig()?);
     files.extend(self.make_eslint_config()?);
     files.extend(self.make_typedoc_config()?);
-    files.extend(self.make_prettier_config());
-    files.extend(self.make_gitignore());
+    files.extend(Self::make_prettier_config());
+    files.extend(Self::make_gitignore());
 
     for (rel_path, contents) in files {
       utils::write(root.join(rel_path), contents.as_bytes())?;
@@ -262,16 +263,23 @@ impl NewCommand {
         "ecmaVersion": 13,
         "sourceType": "module",
       },
-      "plugins": ["@typescript-eslint", "prettier"],
+      "plugins": ["@typescript-eslint", "prettier", "eslint-plugin-unused-imports"],
       "ignorePatterns": ["*.d.ts"],
       "rules": {
         "no-empty-pattern": "off",
         "no-undef": "off",
         "no-unused-vars": "off",
         "no-cond-assign": "off",
-        "@typescript-eslint/no-unused-vars": [
-          "error",
-          { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" },
+        "@typescript-eslint/no-unused-vars": "off",
+        "unused-imports/no-unused-imports": "error",
+        "unused-imports/no-unused-vars": [
+          "warn",
+          {
+            "vars": "all",
+            "varsIgnorePattern": "^_",
+            "args": "after-used",
+            "argsIgnorePattern": "^_",
+          },
         ],
         "no-constant-condition": ["error", { "checkLoops": false }],
         "prettier/prettier": "error",
@@ -317,7 +325,8 @@ impl NewCommand {
     Ok(vec![(".eslintrc.cjs".into(), src.into())])
   }
 
-  fn make_vite_config(&self, entry_point: &str) -> Result<FileVec> {
+  #[allow(clippy::too_many_lines)]
+  fn make_vite_config(&self, entry_point: &str) -> FileVec {
     let NewArgs {
       platform, target, ..
     } = self.args;
@@ -443,7 +452,7 @@ export default defineConfig(({{ mode }}) => ({{
       files.push(("vitest.config.ts".into(), src.into()));
     }
 
-    Ok(files)
+    files
   }
 
   fn make_typedoc_config(&self) -> Result<FileVec> {
@@ -502,12 +511,12 @@ export default defineConfig(({{ mode }}) => ({{
     Ok(())
   }
 
-  fn make_gitignore(&self) -> FileVec {
+  fn make_gitignore() -> FileVec {
     let gitignore = ["node_modules", "dist", "docs"].join("\n");
     vec![(".gitignore".into(), gitignore.into())]
   }
 
-  fn make_prettier_config(&self) -> FileVec {
+  fn make_prettier_config() -> FileVec {
     vec![(".prettierrc.cjs".into(), PRETTIER_CONFIG.into())]
   }
 
@@ -543,13 +552,14 @@ export default defineConfig(({{ mode }}) => ({{
 
       // Linting
       "eslint@8",
-      "@typescript-eslint/eslint-plugin",
-      "@typescript-eslint/parser",
-      "eslint-plugin-prettier@^4",
+      "@typescript-eslint/eslint-plugin@7",
+      "@typescript-eslint/parser@7",
+      "eslint-plugin-prettier@4",
+      "eslint-plugin-unused-imports@3",
 
       // Formatting
-      "prettier@^2",
-      "@trivago/prettier-plugin-sort-imports@^4.1",
+      "prettier@2",
+      "@trivago/prettier-plugin-sort-imports@4",
 
       // Documentation generation
       "typedoc"
@@ -738,11 +748,11 @@ export default defineConfig(({{ mode }}) => ({{
     ]);
     files.extend(self.make_tsconfig()?);
     files.extend(self.make_eslint_config()?);
-    files.extend(self.make_vite_config(src_path)?);
+    files.extend(self.make_vite_config(src_path));
 
     if self.ws_opt.is_none() {
-      files.extend(self.make_gitignore());
-      files.extend(self.make_prettier_config());
+      files.extend(Self::make_gitignore());
+      files.extend(Self::make_prettier_config());
     }
 
     for (rel_path, contents) in files {

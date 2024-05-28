@@ -1,4 +1,10 @@
-#![allow(clippy::format_collect)]
+#![warn(clippy::pedantic)]
+#![allow(
+  clippy::format_collect,
+  clippy::similar_names,
+  clippy::module_name_repetitions,
+  clippy::single_match_else
+)]
 
 use self::commands::Command;
 use anyhow::{Context, Result};
@@ -7,6 +13,7 @@ use commands::{
   build::BuildCommand,
   clean::CleanCommand,
   doc::DocCommand,
+  fix::FixCommand,
   fmt::FmtCommand,
   init::InitCommand,
   new::NewCommand,
@@ -21,7 +28,7 @@ mod utils;
 mod workspace;
 
 #[derive(clap::Parser, Default)]
-pub struct CommonArgs {  
+pub struct CommonArgs {
   /// Only run the command for a given package and its dependencies
   #[clap(short, long)]
   package: Option<PackageName>,
@@ -32,7 +39,7 @@ pub struct CommonArgs {
 
   /// Disable fullscreen UI
   #[clap(long)]
-  no_fullscreen: bool
+  no_fullscreen: bool,
 }
 
 #[derive(clap::Parser)]
@@ -45,6 +52,7 @@ struct Args {
   common: CommonArgs,
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
 
@@ -71,6 +79,7 @@ pub async fn run() -> Result<()> {
     Command::Fmt(args) => FmtCommand::new(args).kind(),
     Command::Clean(args) => CleanCommand::new(args).kind(),
     Command::Doc(args) => DocCommand::new(args).kind(),
+    Command::Fix(args) => FixCommand::new(args).kind(),
     Command::Setup(..) | Command::New(..) => unreachable!(),
   };
 

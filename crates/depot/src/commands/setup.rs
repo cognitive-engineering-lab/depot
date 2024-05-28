@@ -34,13 +34,13 @@ const HOME_ENV_VAR: &str = "DEPOT_HOME";
 
 impl GlobalConfig {
   fn find_root() -> Result<PathBuf> {
-    Ok(match env::var(HOME_ENV_VAR) {
-      Ok(val) => PathBuf::from(val),
+    match env::var(HOME_ENV_VAR) {
+      Ok(val) => Ok(PathBuf::from(val)),
       Err(_) => {
         let home_dir = home::home_dir().context("Could not find home directory")?;
-        home_dir.join(".local")
+        Ok(home_dir.join(".local"))
       }
-    })
+    }
   }
 
   pub fn load() -> Result<Self> {

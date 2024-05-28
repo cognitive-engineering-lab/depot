@@ -102,9 +102,9 @@ impl FullscreenRenderer {
 #[async_trait::async_trait]
 impl Renderer for FullscreenRenderer {
   fn render(&self, ws: &Workspace) -> Result<()> {
-    let n = ws.pkg_graph.nodes().count() as isize;
+    let n = isize::try_from(ws.pkg_graph.nodes().count()).unwrap();
     let selected_unbounded = self.selected.load(Ordering::SeqCst);
-    let selected = ((n + selected_unbounded % n) % n) as usize;
+    let selected = usize::try_from((n + selected_unbounded % n) % n).unwrap();
     let pkg = ws.package_display_order().nth(selected).unwrap();
     let processes = pkg.processes();
 
@@ -221,13 +221,13 @@ pub trait Renderer: Sized + Send + Sync {
 
       loop {
         tokio::select! { biased;
-          _ = &mut exit_future => break false,
+          () = &mut exit_future => break false,
           result = &mut input_future => {
             if result? {
               break true;
             }
           },
-          _ = &mut draw_future => {}
+          () = &mut draw_future => {}
         }
       }
     };
@@ -247,7 +247,7 @@ impl InlineRenderer {
   pub fn new() -> Self {
     // TODO: do we need a different rendering strategy if there's no tty?
     let (w, h) = crossterm::terminal::size().unwrap_or((80, 40));
-    let diff = Mutex::new(ansi_diff::Diff::new((w as u32, h as u32)));
+    let diff = Mutex::new(ansi_diff::Diff::new((u32::from(w), u32::from(h))));
     InlineRenderer { diff }
   }
 

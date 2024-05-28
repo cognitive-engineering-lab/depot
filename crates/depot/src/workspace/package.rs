@@ -187,14 +187,14 @@ impl Package {
     let name = PackageName::from_str(name_str)?;
 
     Ok(Package::new(PackageInner {
-      root: root.to_owned(),
+      root,
       manifest,
       target,
       platform,
       name,
       index,
       ws: OnceLock::default(),
-      processes: Default::default(),
+      processes: RwLock::default(),
     }))
   }
 

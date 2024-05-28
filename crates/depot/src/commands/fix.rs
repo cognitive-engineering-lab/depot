@@ -2,27 +2,23 @@ use anyhow::{Context, Result};
 
 use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
 
-/// Format source files with prettier
+/// Fix eslint issues where possible
 #[derive(clap::Parser, Debug)]
-pub struct FmtArgs {
-  /// If true, don't write to files and instead fail if they aren't formatted
-  #[arg(short, long, action)]
-  pub check: bool,
-
+pub struct FixArgs {
   /// Additional arguments to pass to prettier
   #[arg(last = true)]
-  pub prettier_args: Option<String>,
+  pub eslint_args: Option<String>,
 }
 
 #[derive(Debug)]
-pub struct FmtCommand {
+pub struct FixCommand {
   #[allow(unused)]
-  args: FmtArgs,
+  args: FixArgs,
 }
 
-impl FmtCommand {
-  pub fn new(args: FmtArgs) -> Self {
-    FmtCommand { args }
+impl FixCommand {
+  pub fn new(args: FixArgs) -> Self {
+    FixCommand { args }
   }
 
   pub fn kind(self) -> Command {
@@ -30,26 +26,27 @@ impl FmtCommand {
   }
 }
 
-impl CoreCommand for FmtCommand {
+impl CoreCommand for FixCommand {
   fn name(&self) -> String {
     "fmt".into()
   }
 }
 
 #[async_trait::async_trait]
-impl PackageCommand for FmtCommand {
+impl PackageCommand for FixCommand {
   async fn run_pkg(&self, pkg: &Package) -> Result<()> {
-    let extra = match &self.args.prettier_args {
+    let extra = match &self.args.eslint_args {
       Some(args) => shlex::split(args).context("Failed to parse prettier args")?,
       None => Vec::new(),
     };
 
-    pkg
-      .exec("prettier", |cmd| {
-        cmd.arg(if self.args.check { "-c" } else { "-w" });
+    let _ = pkg
+      .exec("eslint", |cmd| {
+        cmd.arg("--fix");
         cmd.args(pkg.source_files());
         cmd.args(extra);
       })
-      .await
+      .await;
+    Ok(())
   }
 }

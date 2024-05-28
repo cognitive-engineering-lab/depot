@@ -51,7 +51,7 @@ impl Process {
 
     let mut child = cmd
       .spawn()
-      .with_context(|| format!("Failed to spawn process: `{}`", script))?;
+      .with_context(|| format!("Failed to spawn process: `{script}`"))?;
 
     let logs: Arc<Mutex<RingBuffer<LogLine>>> = Arc::new(Mutex::new(RingBuffer::new()));
     let pipe_handles = vec![
