@@ -28,7 +28,7 @@ impl FixCommand {
 
 impl CoreCommand for FixCommand {
   fn name(&self) -> String {
-    "fmt".into()
+    "fix".into()
   }
 }
 
