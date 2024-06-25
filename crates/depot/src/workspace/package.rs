@@ -148,6 +148,7 @@ pub struct PackageInner {
   // Metadata
   pub root: PathBuf,
   pub manifest: PackageManifest,
+  #[allow(unused)]
   pub platform: Platform,
   pub target: Target,
   pub name: PackageName,
