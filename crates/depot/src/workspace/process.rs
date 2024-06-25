@@ -24,6 +24,7 @@ pub enum OutputChannel {
 /// A string emitted by a shell command on a given [`OutputChannel`].
 pub struct LogLine {
   pub line: String,
+  #[allow(unused)] // We may eventually want to distinguish stdout/stderr in the logs
   pub channel: OutputChannel,
 }
 

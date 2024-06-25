@@ -148,6 +148,7 @@ pub struct PackageInner {
   // Metadata
   pub root: PathBuf,
   pub manifest: PackageManifest,
+  #[allow(unused)]
   pub platform: Platform,
   pub target: Target,
   pub name: PackageName,
@@ -300,13 +301,17 @@ impl PackageInner {
   }
 
   pub fn source_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
+    // TODO: make this configurable
+    let source_extensions = hashset! { "ts", "tsx", "html" };
+
     ["src", "tests"]
       .into_iter()
       .flat_map(|dir| self.iter_files(dir))
-      .filter_map(|path| {
+      .filter_map(move |path| {
         let ext = path.extension()?;
-        let is_src_file = ext == "ts" || ext == "tsx";
-        is_src_file.then_some(path)
+        source_extensions
+          .contains(ext.to_str().unwrap())
+          .then_some(path)
       })
   }
 
