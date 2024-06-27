@@ -2,10 +2,8 @@ use anyhow::{bail, ensure, Context, Error, Result};
 
 use ignore::Walk;
 use maplit::hashset;
-use package_json_schema::PackageJson;
 use std::{
   fmt::{self, Debug},
-  fs,
   hash::Hash,
   path::{Path, PathBuf},
   str::FromStr,
@@ -14,7 +12,7 @@ use std::{
 
 use crate::{shareable, workspace::process::Process};
 
-use super::{dep_graph::DepGraph, Workspace};
+use super::{dep_graph::DepGraph, manifest::DepotManifest, Workspace};
 
 #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum Platform {
@@ -120,27 +118,7 @@ pub struct PackageDepotConfig {
   pub no_server: Option<bool>,
 }
 
-pub struct PackageManifest {
-  pub manifest: PackageJson,
-  pub config: PackageDepotConfig,
-}
-
-impl PackageManifest {
-  pub fn load(path: &Path) -> Result<Self> {
-    let contents = fs::read_to_string(path)
-      .with_context(|| format!("Package does not have manifest at: `{}`", path.display()))?;
-    let manifest = PackageJson::try_from(contents)?;
-    Self::from_json(manifest, path)
-  }
-
-  pub fn from_json(mut manifest: PackageJson, path: &Path) -> Result<Self> {
-    let error_msg = || format!("Missing \"depot\" key from manifest: `{}`", path.display());
-    let other = manifest.other.as_mut().with_context(error_msg)?;
-    let config_value = other.remove("depot").with_context(error_msg)?;
-    let config: PackageDepotConfig = serde_json::from_value(config_value)?;
-    Ok(PackageManifest { manifest, config })
-  }
-}
+pub type PackageManifest = DepotManifest<PackageDepotConfig>;
 
 pub type PackageIndex = usize;
 
