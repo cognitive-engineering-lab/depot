@@ -325,6 +325,7 @@ impl WorkspaceInner {
 
     let mut cmd = tokio::process::Command::new(script_path);
     cmd.current_dir(&self.root);
+    cmd.env("NODE_PATH", self.root.join("node_modules"));
 
     configure(&mut cmd);
 

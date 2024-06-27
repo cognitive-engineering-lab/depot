@@ -30,7 +30,7 @@ pub struct BuildArgs {
   #[clap(short, long, action)]
   pub watch: bool,
 
-  /// Fail if eslint finds a lint issue
+  /// Fail if biome finds a lint issue
   #[clap(short, long, action)]
   pub lint_fail: bool,
 }
@@ -62,7 +62,7 @@ impl PackageCommand for BuildCommand {
       Target::Lib => processes.push(self.copy_assets(pkg).boxed()),
     }
 
-    processes.extend([self.tsc(pkg).boxed(), self.eslint(pkg).boxed()]);
+    processes.extend([self.tsc(pkg).boxed(), self.biome(pkg).boxed()]);
 
     try_join_all(processes).await?;
 
@@ -105,15 +105,16 @@ impl BuildCommand {
       .await
   }
 
-  async fn eslint(&self, pkg: &Package) -> Result<()> {
-    let process = pkg.start_process("eslint", |cmd| {
+  async fn biome(&self, pkg: &Package) -> Result<()> {
+    let process = pkg.start_process("biome", |cmd| {
+      cmd.arg("check");
       cmd.args(pkg.source_files());
-      cmd.arg("--color");
+      cmd.arg("--colors=force");
       // TODO: watch mode
     })?;
 
     let status = process.wait().await?;
-    ensure!(!self.args.lint_fail || status.success(), "eslint failed");
+    ensure!(!self.args.lint_fail || status.success(), "biome failed");
 
     Ok(())
   }

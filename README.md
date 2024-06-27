@@ -15,7 +15,7 @@ Depot works on Javascript workspaces that have been created by Depot, specifical
   * For libraries, transpiles with [Typescript]
   * For scripts and websites, bundles with [Vite]
 * `depot test` - runs tests with [Vitest]
-* `depot fmt` - formats source files with [Prettier]
+* `depot fmt` - formats source files with [Biome]
 * `depot doc` - generates documentation with [Typedoc]
 
 A few benefits of using Depot:
@@ -93,6 +93,6 @@ Depot is used in a few of our projects:
 [Typescript]: https://www.typescriptlang.org/
 [Vite]: https://vitejs.dev/
 [Vitest]: https://vitest.dev/
-[Prettier]: https://prettier.io/
+[Biome]: https://biomejs.dev/
 [Typedoc]: https://typedoc.org/
 [pnpm]: https://pnpm.io/

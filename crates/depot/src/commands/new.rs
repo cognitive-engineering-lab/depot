@@ -149,7 +149,7 @@ impl NewCommand {
       ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
     ];
     files.extend(self.make_tsconfig()?);
-    files.extend(self.make_eslint_config()?);
+    files.extend(Self::make_biome_config()?);
     files.extend(self.make_typedoc_config()?);
     files.extend(Self::make_prettier_config());
     files.extend(Self::make_gitignore());
@@ -242,7 +242,9 @@ impl NewCommand {
         // Allows special Vite things like importing files with ?raw
         files.push((
           "src/bindings/vite.d.ts".into(),
-          r#"/// <reference types="vite/client" />"#.into(),
+          r#"/// <reference types="vite/client" />
+"#
+          .into(),
         ));
       }
     }
@@ -252,77 +254,28 @@ impl NewCommand {
     Ok(files)
   }
 
-  fn make_eslint_config(&self) -> Result<FileVec> {
-    let mut config = json!({
-      "env": {
-        "es2021": true,
+  fn make_biome_config() -> Result<FileVec> {
+    let config = json!({
+      "$schema": "https://biomejs.dev/schemas/1.8.2/schema.json",
+      "organizeImports": {
+        "enabled": true
       },
-      "extends": ["eslint:recommended"],
-      "parser": "@typescript-eslint/parser",
-      "parserOptions": {
-        "ecmaVersion": 13,
-        "sourceType": "module",
+      "formatter": {
+        "enabled": true,
+        "indentStyle": "space"
       },
-      "plugins": ["@typescript-eslint", "prettier", "eslint-plugin-unused-imports"],
-      "ignorePatterns": ["*.d.ts"],
-      "rules": {
-        "no-empty-pattern": "off",
-        "no-undef": "off",
-        "no-unused-vars": "off",
-        "no-cond-assign": "off",
-        "@typescript-eslint/no-unused-vars": "off",
-        "unused-imports/no-unused-imports": "error",
-        "unused-imports/no-unused-vars": [
-          "warn",
-          {
-            "vars": "all",
-            "varsIgnorePattern": "^_",
-            "args": "after-used",
-            "argsIgnorePattern": "^_",
-          },
-        ],
-        "no-constant-condition": ["error", { "checkLoops": false }],
-        "prettier/prettier": "error",
-      },
+      "linter": {
+        "enabled": true,
+        "rules": {
+          "recommended": true,
+          "correctness": {"noUnusedImports": "warn"},
+          "style": {"noNonNullAssertion": "off", "useConst": "off"}
+        }
+      }
     });
 
-    if !self.args.workspace && self.ws_opt.is_some() {
-      config = json!({
-        "extends": "../../.eslintrc.cjs"
-      });
-
-      let platform_config = match self.args.platform {
-        Platform::Browser => json!({
-          "env": {"browser": true},
-        }),
-        Platform::Node => json!({
-          "env": {"node": true},
-        }),
-      };
-
-      json_merge(&mut config, platform_config);
-    }
-
-    if self.args.react {
-      let react_config = json!({
-        "plugins": ["react"],
-        "rules": {
-          "react/prop-types": "off",
-          "react/no-unescaped-entities": "off",
-        },
-        "settings": {
-          "react": {
-            "version": "detect",
-          },
-        }
-      });
-
-      json_merge(&mut config, react_config);
-    }
-
     let config_str = serde_json::to_string_pretty(&config)?;
-    let src = format!("module.exports = {config_str}");
-    Ok(vec![(".eslintrc.cjs".into(), src.into())])
+    Ok(vec![("biome.json".into(), config_str.into())])
   }
 
   #[allow(clippy::too_many_lines)]
@@ -539,7 +492,7 @@ export default defineConfig(({{ mode }}) => ({{
 
   fn install_ws_dependencies(&self, root: &Path, is_workspace: bool) -> Result<()> {
     #[rustfmt::skip]
-    let mut ws_dependencies: Vec<&str> = vec![
+    let ws_dependencies: Vec<&str> = vec![
       // Building
       "vite",
 
@@ -550,24 +503,12 @@ export default defineConfig(({{ mode }}) => ({{
       "typescript",
       "@types/node",
 
-      // Linting
-      "eslint@8",
-      "@typescript-eslint/eslint-plugin@7",
-      "@typescript-eslint/parser@7",
-      "eslint-plugin-prettier@4",
-      "eslint-plugin-unused-imports@3",
-
-      // Formatting
-      "prettier@2",
-      "@trivago/prettier-plugin-sort-imports@4",
+      // Linting and formatting
+      "@biomejs/biome",
 
       // Documentation generation
       "typedoc"
     ];
-
-    if self.args.react {
-      ws_dependencies.extend(["eslint-plugin-react", "eslint-plugin-react-hooks"]);
-    }
 
     self.run_pnpm(|pnpm| {
       pnpm.args(["add", "--save-dev"]).args(&ws_dependencies);
@@ -575,7 +516,16 @@ export default defineConfig(({{ mode }}) => ({{
         pnpm.arg("--workspace-root");
       }
       pnpm.current_dir(root);
-    })
+    })?;
+
+    // Temporary fix for installing native modules on M-series Macs.
+    // --force ensures that the arm64 package is installed for Biome.
+    self.run_pnpm(|pnpm| {
+      pnpm.args(["install", "--force"]);
+      pnpm.current_dir(root);
+    })?;
+
+    Ok(())
   }
 
   fn make_index_html(js_entry_point: &str, css_entry_point: &str) -> String {
@@ -747,7 +697,7 @@ export default defineConfig(({{ mode }}) => ({{
       ),
     ]);
     files.extend(self.make_tsconfig()?);
-    files.extend(self.make_eslint_config()?);
+    files.extend(Self::make_biome_config()?);
     files.extend(self.make_vite_config(src_path));
 
     if self.ws_opt.is_none() {

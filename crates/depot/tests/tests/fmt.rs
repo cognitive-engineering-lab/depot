@@ -2,7 +2,7 @@ use depot_test_utils::{project, workspace_single_lib};
 
 #[test]
 fn basic() {
-  let p = project();
+  let p = project().persist();
   p.file("src/lib.ts", "let x = 1 +    2;");
   p.depot("fmt");
   assert_eq!(p.read("src/lib.ts"), "let x = 1 + 2;\n");

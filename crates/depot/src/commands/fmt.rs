@@ -45,8 +45,11 @@ impl PackageCommand for FmtCommand {
     };
 
     pkg
-      .exec("prettier", |cmd| {
-        cmd.arg(if self.args.check { "-c" } else { "-w" });
+      .exec("biome", |cmd| {
+        cmd.arg("format");
+        if !self.args.check {
+          cmd.arg("--write");
+        }
         cmd.args(pkg.source_files());
         cmd.args(extra);
       })
