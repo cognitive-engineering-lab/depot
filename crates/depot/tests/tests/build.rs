@@ -15,7 +15,7 @@ fn basic_lib_browser() {
 
 #[test]
 fn basic_lib_browser_react() {
-  let p = custom_project_for("lib", "browser", "--react");
+  let p = custom_project_for("lib", "browser", "--react").persist();
   p.depot("build --lint-fail");
   assert!(p.exists("dist/lib.js"));
   assert!(p.exists("dist/lib.d.ts"));
@@ -128,4 +128,10 @@ fn react_import() {
   let p = custom_project_for("lib", "browser", "--react");
   p.file("src/lib.tsx", r#"import ReactDOM from "react-dom/client";"#);
   p.depot("build");
+}
+
+#[test]
+fn vike() {
+  let p = custom_project_for("site", "browser", "--react --vike");
+  p.depot("build --lint-fail");
 }
