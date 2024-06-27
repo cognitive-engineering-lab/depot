@@ -11,7 +11,7 @@ Depot works on Javascript workspaces that have been created by Depot, specifical
 
 * `depot new` - creates a new workspace or package with devtools preinstalled
 * `depot init` - installs workspace dependencies with [pnpm]
-* `depot build` - type-checks with [Typescript], and:
+* `depot build` - type-checks with [Typescript], lints with [Biome], and:
   * For libraries, transpiles with [Typescript]
   * For scripts and websites, bundles with [Vite]
 * `depot test` - runs tests with [Vitest]
