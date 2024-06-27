@@ -2,12 +2,12 @@ use anyhow::{Context, Result};
 
 use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
 
-/// Fix eslint issues where possible
+/// Fix biome issues where possible
 #[derive(clap::Parser, Debug)]
 pub struct FixArgs {
   /// Additional arguments to pass to prettier
   #[arg(last = true)]
-  pub eslint_args: Option<String>,
+  pub biome_args: Option<String>,
 }
 
 #[derive(Debug)]
@@ -35,13 +35,14 @@ impl CoreCommand for FixCommand {
 #[async_trait::async_trait]
 impl PackageCommand for FixCommand {
   async fn run_pkg(&self, pkg: &Package) -> Result<()> {
-    let extra = match &self.args.eslint_args {
+    let extra = match &self.args.biome_args {
       Some(args) => shlex::split(args).context("Failed to parse prettier args")?,
       None => Vec::new(),
     };
 
     let _ = pkg
-      .exec("eslint", |cmd| {
+      .exec("biome", |cmd| {
+        cmd.arg("check");
         cmd.arg("--fix");
         cmd.args(pkg.source_files());
         cmd.args(extra);
