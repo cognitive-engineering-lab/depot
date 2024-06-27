@@ -2,16 +2,16 @@ use anyhow::{Context, Result};
 
 use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
 
-/// Format source files with prettier
+/// Format source files with biome
 #[derive(clap::Parser, Debug)]
 pub struct FmtArgs {
   /// If true, don't write to files and instead fail if they aren't formatted
   #[arg(short, long, action)]
   pub check: bool,
 
-  /// Additional arguments to pass to prettier
+  /// Additional arguments to pass to biome
   #[arg(last = true)]
-  pub prettier_args: Option<String>,
+  pub biome_args: Option<String>,
 }
 
 #[derive(Debug)]
@@ -39,8 +39,8 @@ impl CoreCommand for FmtCommand {
 #[async_trait::async_trait]
 impl PackageCommand for FmtCommand {
   async fn run_pkg(&self, pkg: &Package) -> Result<()> {
-    let extra = match &self.args.prettier_args {
-      Some(args) => shlex::split(args).context("Failed to parse prettier args")?,
+    let extra = match &self.args.biome_args {
+      Some(args) => shlex::split(args).context("Failed to parse biome args")?,
       None => Vec::new(),
     };
 

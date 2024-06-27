@@ -43,7 +43,7 @@ pub struct CommonArgs {
 }
 
 #[derive(clap::Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "depot", author, version, about, long_about = None)]
 struct Args {
   #[command(subcommand)]
   command: Command,
