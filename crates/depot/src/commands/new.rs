@@ -721,23 +721,12 @@ export default defineConfig(({{ mode }}) => ({{
           const CONFIG_SRC: &str = r#"import vikeReact from "vike-react/config";
 import type { Config } from "vike/types";
 
-import { Layout } from "./Layout";
-
 export let config: Config = {
-  Layout,
   extends: vikeReact,
   lang: "en-US"
 };
 "#;
           files.push(("src/+config.ts".into(), CONFIG_SRC.into()));
-
-          const LAYOUT_SRC: &str = r#"import React from "react";
-
-export let Layout: React.FC<React.PropsWithChildren> = ({ children }) => (
-  <div id="root">{children}</div>
-);
-"#;
-          files.push(("src/Layout.tsx".into(), LAYOUT_SRC.into()));
 
           let head_src = format!(
             r#"import React from "react";
