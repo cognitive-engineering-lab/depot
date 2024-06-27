@@ -285,7 +285,20 @@ impl PackageInner {
     ["src", "tests"]
       .into_iter()
       .flat_map(|dir| self.iter_files(dir))
+      .chain(
+        [
+          "vite.config.ts",
+          "vite.config.mts",
+          "vitest.config.ts",
+          "vitest.config.mts",
+        ]
+        .iter()
+        .map(PathBuf::from),
+      )
       .filter_map(move |path| {
+        if !path.exists() {
+          return None;
+        }
         let ext = path.extension()?;
         source_extensions
           .contains(ext.to_str().unwrap())

@@ -11,6 +11,7 @@ use std::{
   io::{BufReader, Seek, Write},
   path::{Path, PathBuf},
   process::Command,
+  str::FromStr,
 };
 
 use crate::{
@@ -297,24 +298,21 @@ impl NewCommand {
   fn make_biome_config(&self) -> Result<FileVec> {
     let mut config = json!({
       "$schema": "https://biomejs.dev/schemas/1.8.2/schema.json",
-      "organizeImports": {
-        "enabled": true
-      },
       "javascript": {
         "formatter": {
-          "arrowParentheses": "asNeeded"
+          "arrowParentheses": "asNeeded",
+          "trailingCommas": "none"
         }
       },
       "formatter": {
-        "enabled": true,
         "indentStyle": "space"
       },
       "linter": {
-        "enabled": true,
         "rules": {
           "recommended": true,
           "correctness": {"noUnusedImports": "warn"},
-          "style": {"noNonNullAssertion": "off", "useConst": "off"}
+          "style": {"noNonNullAssertion": "off", "useConst": "off", "noUselessElse": "off"},
+          "complexity": { "noBannedTypes": "off", "noForEach": "off" },
         }
       }
     });
@@ -328,7 +326,7 @@ impl NewCommand {
           },
           "linter": {
             "rules": {
-              "correctness": {"useExhaustiveDependencies": "off"},
+              "correctness": {"useExhaustiveDependencies": "off", "useJsxKeyInIterable": "off"},
               "suspicious": {"noArrayIndexKey": "off"}
             }
           }
@@ -358,7 +356,7 @@ impl NewCommand {
       ""
     };
 
-    let mut imports = vec![("fs", "fs")];
+    let mut imports = vec![("fs", "node:fs")];
     if self.args.react {
       imports.push(("react", "@vitejs/plugin-react"));
     }
@@ -366,10 +364,6 @@ impl NewCommand {
       imports.push(("vike", "vike/plugin"));
     }
     imports.push(("{ defineConfig }", "vite"));
-
-    if platform.is_node() {
-      imports.push(("{ builtinModules }", "module"));
-    }
 
     let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
 
@@ -380,7 +374,7 @@ impl NewCommand {
         }
       }
       Target::Script => {
-        imports.push(("{ resolve }", "path"));
+        imports.push(("{ resolve }", "node:path"));
         let build_config = match platform {
           Platform::Browser => {
             let name = self.args.name.as_global_var();
@@ -388,15 +382,15 @@ impl NewCommand {
               r#"lib: {{
   entry: resolve(__dirname, "src/{}"),
   name: "{name}",
-  formats: ["iife"],
+  formats: ["iife"]
 }},"#,
               entry_point.unwrap()
             )
           }
           Platform::Node => format!(
             r#"lib: {{
-  entry: resolve(__dirname, "src/{}"),  
-  formats: ["cjs"],
+  entry: resolve(__dirname, "src/{}"),
+  formats: ["cjs"]
 }},
 minify: false,"#,
             entry_point.unwrap()
@@ -405,6 +399,7 @@ minify: false,"#,
 
         let mut external = "Object.keys(manifest.dependencies || {})".to_string();
         if platform.is_node() {
+          imports.push(("{ builtinModules }", "node:module"));
           external.push_str(".concat(builtinModules)");
         }
 
@@ -427,7 +422,7 @@ minify: false,"#,
     config.push((
       "define",
       r#"{
-  "process.env.NODE_ENV": JSON.stringify(mode),
+  "process.env.NODE_ENV": JSON.stringify(mode)
 }"#
         .into(),
     ));
@@ -449,29 +444,32 @@ minify: false,"#,
       r#"{{
   environment: "{environment}",{setup_files}
   deps: {{
-    inline: [/^(?!.*vitest).*$/],
-  }},
+    inline: [/^(?!.*vitest).*$/]
+  }}
 }}"#
     );
     config.push(("test", test_config.into()));
 
     if platform.is_node() {
-      config.push(("resolve", "{conditions: [\"node\"]}".into()));
+      config.push(("resolve", "{ conditions: [\"node\"] }".into()));
     }
 
+    imports.sort_by_cached_key(|(_, path)| PackageName::from_str(path).unwrap());
     let imports_str = imports
       .into_iter()
       .map(|(l, r)| format!("import {l} from \"{r}\";\n"))
       .collect::<String>();
     let config_str = config
       .into_iter()
-      .map(|(k, v)| textwrap::indent(&format!("{k}: {v},\n"), "  "))
-      .collect::<String>();
+      .map(|(k, v)| textwrap::indent(&format!("{k}: {v}"), "  "))
+      .collect::<Vec<String>>()
+      .join(",\n");
     let mut src = format!(
       r#"{imports_str}
 let manifest = JSON.parse(fs.readFileSync("package.json", "utf-8"));
 export default defineConfig(({{ mode }}) => ({{
-{config_str}}}));
+{config_str}
+}}));
 "#
     );
 
@@ -728,7 +726,7 @@ import { Layout } from "./Layout";
 export let config: Config = {
   Layout,
   extends: vikeReact,
-  lang: "en-US",
+  lang: "en-US"
 };
 "#;
           files.push(("src/+config.ts".into(), CONFIG_SRC.into()));
