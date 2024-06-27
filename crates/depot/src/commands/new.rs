@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_statements, clippy::too_many_lines)]
+
 use anyhow::{ensure, Result};
 use indexmap::{indexmap, IndexMap};
 use package_json_schema as pj;
@@ -55,7 +57,6 @@ test("add", () => expect(add(2, 2)).toBe(4));
 const CSS: &str = r#"@import "normalize.css/normalize.css";
 "#;
 
-const PRETTIER_CONFIG: &str = include_str!("configs/.prettierrc.cjs");
 const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 const VITEST_SETUP: &str = include_str!("configs/setup.ts");
 
@@ -80,6 +81,10 @@ pub struct NewArgs {
   /// Add React as a project dependency
   #[arg(long, action)]
   pub react: bool,
+
+  /// Add Vike as a project dependency
+  #[arg(long, action)]
+  pub vike: bool,
 
   /// Add Sass as a project dependency
   #[arg(long, action)]
@@ -113,6 +118,39 @@ fn json_merge(a: &mut Value, b: Value) {
     }
     (a, b) => *a = b,
   };
+}
+
+#[test]
+fn test_json_merge() {
+  let mut a = json!({
+    "a": 0,
+    "b": {
+      "c": [1],
+      "d": 2
+    }
+  });
+  json_merge(
+    &mut a,
+    json!({
+      "e": 3,
+      "b": {
+        "c": [4],
+        "f": 5
+      }
+    }),
+  );
+  assert_eq!(
+    a,
+    json!({
+      "a": 0,
+      "b": {
+        "c": [1, 4],
+        "d": 2,
+        "f": 5
+      },
+      "e": 3
+    })
+  );
 }
 
 type FileVec = Vec<(PathBuf, Cow<'static, str>)>;
@@ -149,9 +187,8 @@ impl NewCommand {
       ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
     ];
     files.extend(self.make_tsconfig()?);
-    files.extend(Self::make_biome_config()?);
+    files.extend(self.make_biome_config()?);
     files.extend(self.make_typedoc_config()?);
-    files.extend(Self::make_prettier_config());
     files.extend(Self::make_gitignore());
 
     for (rel_path, contents) in files {
@@ -254,11 +291,16 @@ impl NewCommand {
     Ok(files)
   }
 
-  fn make_biome_config() -> Result<FileVec> {
-    let config = json!({
+  fn make_biome_config(&self) -> Result<FileVec> {
+    let mut config = json!({
       "$schema": "https://biomejs.dev/schemas/1.8.2/schema.json",
       "organizeImports": {
         "enabled": true
+      },
+      "javascript": {
+        "formatter": {
+          "arrowParentheses": "asNeeded"
+        }
       },
       "formatter": {
         "enabled": true,
@@ -274,12 +316,28 @@ impl NewCommand {
       }
     });
 
+    if self.args.react {
+      json_merge(
+        &mut config,
+        json!({
+          "javascript": {
+            "jsxRuntime": "reactClassic",
+          },
+          "linter": {
+            "rules": {
+              "correctness": {"useExhaustiveDependencies": "off"},
+              "suspicious": {"noArrayIndexKey": "off"}
+            }
+          }
+        }),
+      );
+    }
+
     let config_str = serde_json::to_string_pretty(&config)?;
     Ok(vec![("biome.json".into(), config_str.into())])
   }
 
-  #[allow(clippy::too_many_lines)]
-  fn make_vite_config(&self, entry_point: &str) -> FileVec {
+  fn make_vite_config(&self, entry_point: Option<&str>) -> FileVec {
     let NewArgs {
       platform, target, ..
     } = self.args;
@@ -301,6 +359,9 @@ impl NewCommand {
     if self.args.react {
       imports.push(("react", "@vitejs/plugin-react"));
     }
+    if self.args.vike {
+      imports.push(("vike", "vike/plugin"));
+    }
     imports.push(("{ defineConfig }", "vite"));
 
     if platform.is_node() {
@@ -310,7 +371,11 @@ impl NewCommand {
     let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
 
     match target {
-      Target::Site => config.push(("base", "\"./\"".into())),
+      Target::Site => {
+        if !self.args.vike {
+          config.push(("base", "\"./\"".into()));
+        }
+      }
       Target::Script => {
         imports.push(("{ resolve }", "path"));
         let build_config = match platform {
@@ -318,18 +383,20 @@ impl NewCommand {
             let name = self.args.name.as_global_var();
             format!(
               r#"lib: {{
-  entry: resolve(__dirname, "src/{entry_point}"),
+  entry: resolve(__dirname, "src/{}"),
   name: "{name}",
   formats: ["iife"],
-}},"#
+}},"#,
+              entry_point.unwrap()
             )
           }
           Platform::Node => format!(
             r#"lib: {{
-  entry: resolve(__dirname, "src/{entry_point}"),  
+  entry: resolve(__dirname, "src/{}"),  
   formats: ["cjs"],
 }},
-minify: false,"#
+minify: false,"#,
+            entry_point.unwrap()
           ),
         };
 
@@ -362,8 +429,15 @@ minify: false,"#
         .into(),
     ));
 
+    let mut plugins = Vec::new();
     if self.args.react {
-      config.push(("plugins", "[react()]".into()));
+      plugins.push("react()");
+    }
+    if self.args.vike {
+      plugins.push("vike({ prerender: true })");
+    }
+    if !plugins.is_empty() {
+      config.push(("plugins", format!("[{}]", plugins.join(", ")).into()));
     }
 
     // TODO: Revisit deps.inline once this issue is closed:
@@ -467,10 +541,6 @@ export default defineConfig(({{ mode }}) => ({{
   fn make_gitignore() -> FileVec {
     let gitignore = ["node_modules", "dist", "docs"].join("\n");
     vec![(".gitignore".into(), gitignore.into())]
-  }
-
-  fn make_prettier_config() -> FileVec {
-    vec![(".prettierrc.cjs".into(), PRETTIER_CONFIG.into())]
   }
 
   fn run_pnpm(&self, f: impl Fn(&mut Command)) -> Result<()> {
@@ -608,22 +678,29 @@ export default defineConfig(({{ mode }}) => ({{
       ]);
     }
 
+    if self.args.vike {
+      ensure!(
+        target.is_site(),
+        "--vike can only be used with --target site"
+      );
+
+      dev_dependencies.push("vike");
+
+      if self.args.react {
+        dev_dependencies.push("vike-react");
+      }
+    }
+
     if self.args.sass {
       dev_dependencies.push("sass");
     }
 
-    let (src_path, src_contents) = match target {
+    let entry_point = match target {
       Target::Site => {
         ensure!(
           platform.is_browser(),
           "Must have platform=browser when target=site"
         );
-
-        let (js_path, js_contents) = if self.args.react {
-          ("index.tsx", REACT_INDEX)
-        } else {
-          ("index.ts", BASIC_INDEX)
-        };
 
         dev_dependencies.push("normalize.css");
 
@@ -633,15 +710,72 @@ export default defineConfig(({{ mode }}) => ({{
           "index.css"
         };
 
-        files.push((
-          "index.html".into(),
-          Self::make_index_html(js_path, css_path).into(),
-        ));
+        if self.args.vike {
+          ensure!(self.args.react, "Currently must use --react with --vike");
+          const CONFIG_SRC: &str = r#"import vikeReact from "vike-react/config";
+import type { Config } from "vike/types";
 
-        utils::create_dir(root.join("styles"))?;
-        files.push((format!("styles/{css_path}").into(), CSS.into()));
+import { Layout } from "./Layout";
 
-        (js_path, js_contents)
+export let config: Config = {
+  Layout,
+  extends: vikeReact,
+  lang: "en-US",
+};
+"#;
+          files.push(("src/+config.ts".into(), CONFIG_SRC.into()));
+
+          const LAYOUT_SRC: &str = r#"import React from "react";
+
+export let Layout: React.FC<React.PropsWithChildren> = ({ children }) => (
+  <div id="root">{children}</div>
+);
+"#;
+          files.push(("src/Layout.tsx".into(), LAYOUT_SRC.into()));
+
+          let head_src = format!(
+            r#"import React from "react";
+import "./{css_path}";
+
+export let Head = () => (
+  <>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </>
+);
+"#
+          );
+          files.push(("src/+Head.tsx".into(), head_src.into()));
+          files.push((format!("src/{css_path}").into(), CSS.into()));
+
+          const INDEX_SRC: &str = r#"import React from "react";
+
+export default () => {
+  return <h1>Hello, world!</h1>;
+};
+"#;
+          files.push(("src/index/+Page.tsx".into(), INDEX_SRC.into()));
+
+          const TITLE_SRC: &str = r#"export let title = "Example Site";
+"#;
+          files.push(("src/index/+title.tsx".into(), TITLE_SRC.into()));
+        } else {
+          let (js_path, js_contents) = if self.args.react {
+            ("index.tsx", REACT_INDEX)
+          } else {
+            ("index.ts", BASIC_INDEX)
+          };
+
+          files.push((
+            "index.html".into(),
+            Self::make_index_html(js_path, css_path).into(),
+          ));
+
+          utils::create_dir(root.join("styles"))?;
+          files.push((format!("styles/{css_path}").into(), CSS.into()));
+          files.push((format!("src/{js_path}").into(), js_contents.into()));
+        }
+
+        None
       }
       Target::Script => {
         if platform.is_node() {
@@ -655,7 +789,9 @@ export default defineConfig(({{ mode }}) => ({{
         } else {
           "main.ts"
         };
-        (filename, MAIN)
+        files.push((format!("src/{filename}").into(), MAIN.into()));
+
+        Some(filename)
       }
       Target::Lib => {
         manifest.main = Some(String::from("dist/lib.js"));
@@ -682,27 +818,24 @@ export default defineConfig(({{ mode }}) => ({{
         }
 
         let filename = if self.args.react { "lib.tsx" } else { "lib.ts" };
+        files.push((format!("src/{filename}").into(), LIB.into()));
 
-        (filename, LIB)
+        Some(filename)
       }
     };
 
     manifest.other = Some(other);
 
-    files.extend([
-      (Path::new("src").join(src_path), src_contents.into()),
-      (
-        "package.json".into(),
-        serde_json::to_string_pretty(&manifest)?.into(),
-      ),
-    ]);
+    files.push((
+      "package.json".into(),
+      serde_json::to_string_pretty(&manifest)?.into(),
+    ));
     files.extend(self.make_tsconfig()?);
-    files.extend(Self::make_biome_config()?);
-    files.extend(self.make_vite_config(src_path));
+    files.extend(self.make_biome_config()?);
+    files.extend(self.make_vite_config(entry_point));
 
     if self.ws_opt.is_none() {
       files.extend(Self::make_gitignore());
-      files.extend(Self::make_prettier_config());
     }
 
     for (rel_path, contents) in files {

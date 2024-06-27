@@ -21,7 +21,7 @@ package_json_schema = "0.2"
 indexmap = "1" # This must match package_json_schema
 
 ## TUI
-ratatui = "0.26.2"
+ratatui = "0.27.0"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
