@@ -17,7 +17,7 @@ use crate::{
   utils,
   workspace::{
     package::{PackageDepotConfig, PackageName, Platform, Target},
-    Workspace,
+    Workspace, WorkspaceDepotConfig, DEPOT_VERSION,
   },
   CommonArgs,
 };
@@ -172,6 +172,9 @@ impl NewCommand {
 
     let manifest = json!({
       "private": true,
+      "depot": {
+        "depot-version": DEPOT_VERSION
+      },
       // STUPID HACK: see note on same code in new_package
       "pnpm": {
         "overrides": {
@@ -640,7 +643,12 @@ export default defineConfig(({{ mode }}) => ({{
       target: Some(*target),
       no_server: None,
     };
-    other.insert("depot".into(), serde_json::to_value(pkg_config)?);
+    let ws_config = WorkspaceDepotConfig {
+      depot_version: DEPOT_VERSION.to_string(),
+    };
+    let mut config = serde_json::to_value(pkg_config)?;
+    json_merge(&mut config, serde_json::to_value(ws_config)?);
+    other.insert("depot".into(), config);
 
     // STUPID HACK:
     // - This npm bug (and I guess pnpm bug) causes platform-specific rollup packages to not be installed:

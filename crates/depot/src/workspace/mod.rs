@@ -12,7 +12,8 @@ use futures::{
   stream::{self, TryStreamExt},
   StreamExt,
 };
-use log::debug;
+use log::{debug, warn};
+use manifest::DepotManifest;
 use package::Package;
 use std::{
   cmp::Ordering,
@@ -25,9 +26,18 @@ use std::{
 
 mod dep_graph;
 mod fingerprint;
+mod manifest;
 pub mod package;
 pub mod process;
 mod runner;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct WorkspaceDepotConfig {
+  pub depot_version: String,
+}
+
+pub type WorkspaceManifest = DepotManifest<WorkspaceDepotConfig>;
 
 /// Represents an entire Depot workspace.
 ///
@@ -189,6 +199,8 @@ pub trait WorkspaceCommand: CoreCommand + Debug + Send + Sync + 'static {
   }
 }
 
+pub const DEPOT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 impl Workspace {
   pub async fn load(
     global_config: GlobalConfig,
@@ -218,6 +230,16 @@ impl Workspace {
     let pkg_dir = root.join("packages");
     let monorepo = pkg_dir.exists();
     debug!("Workspace is monorepo: {monorepo}");
+
+    let manifest = WorkspaceManifest::load(&root.join("package.json"))?;
+    let created_version = &manifest.config.depot_version;
+    if DEPOT_VERSION != created_version {
+      warn!(
+        r#"Depot binary is v{DEPOT_VERSION} but workspace was created with v{created_version}.
+
+Double-check that this workspace is compatible and update depot.depot_version in package.json."#
+      );
+    }
 
     let pkg_roots = if monorepo {
       pkg_dir
