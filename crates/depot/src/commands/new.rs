@@ -149,7 +149,7 @@ impl NewCommand {
       ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
     ];
     files.extend(self.make_tsconfig()?);
-    files.extend(Self::make_biome_config()?);
+    files.extend(self.make_biome_config()?);
     files.extend(self.make_typedoc_config()?);
     files.extend(Self::make_prettier_config());
     files.extend(Self::make_gitignore());
@@ -254,11 +254,16 @@ impl NewCommand {
     Ok(files)
   }
 
-  fn make_biome_config() -> Result<FileVec> {
-    let config = json!({
+  fn make_biome_config(&self) -> Result<FileVec> {
+    let mut config = json!({
       "$schema": "https://biomejs.dev/schemas/1.8.2/schema.json",
       "organizeImports": {
         "enabled": true
+      },
+      "javascript": {
+        "formatter": {
+          "arrowParentheses": "asNeeded"
+        }
       },
       "formatter": {
         "enabled": true,
@@ -273,6 +278,23 @@ impl NewCommand {
         }
       }
     });
+
+    if self.args.react {
+      json_merge(
+        &mut config,
+        json!({
+          "javascript": {
+            "jsxRuntime": "reactClassic",
+          },
+          "linter": {
+            "rules": {
+              "correctness": {"useExhaustiveDependencies": "off"},
+              "suspicious": {"noArrayIndexKey": "off"}
+            }
+          }
+        }),
+      );
+    }
 
     let config_str = serde_json::to_string_pretty(&config)?;
     Ok(vec![("biome.json".into(), config_str.into())])
@@ -697,7 +719,7 @@ export default defineConfig(({{ mode }}) => ({{
       ),
     ]);
     files.extend(self.make_tsconfig()?);
-    files.extend(Self::make_biome_config()?);
+    files.extend(self.make_biome_config()?);
     files.extend(self.make_vite_config(src_path));
 
     if self.ws_opt.is_none() {
