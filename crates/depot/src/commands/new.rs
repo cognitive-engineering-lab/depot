@@ -1,6 +1,6 @@
 #![allow(clippy::items_after_statements, clippy::too_many_lines)]
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use indexmap::{indexmap, IndexMap};
 use package_json_schema as pj;
 use serde_json::{json, Value};
@@ -514,10 +514,12 @@ export default defineConfig(({{ mode }}) => ({{
   }
 
   fn update_typedoc_config(&self, ws: &Workspace) -> Result<()> {
+    let path = ws.root.join("typedoc.json");
     let mut f = OpenOptions::new()
       .read(true)
       .write(true)
-      .open(ws.root.join("typedoc.json"))?;
+      .open(&path)
+      .with_context(|| format!("Failed to open file: {}", path.display()))?;
     let mut config: Value = {
       let reader = BufReader::new(&mut f);
       serde_json::from_reader(reader)?
@@ -710,11 +712,8 @@ export default defineConfig(({{ mode }}) => ({{
 
         dev_dependencies.push("normalize.css");
 
-        let css_path = if self.args.sass {
-          "index.scss"
-        } else {
-          "index.css"
-        };
+        let css_name = if self.args.vike { "base" } else { "index" };
+        let css_path = format!("{css_name}.{}", if self.args.sass { "scss" } else { "css" });
 
         if self.args.vike {
           ensure!(self.args.react, "Currently must use --react with --vike");
@@ -762,7 +761,7 @@ export default () => {
 
           files.push((
             "index.html".into(),
-            Self::make_index_html(js_path, css_path).into(),
+            Self::make_index_html(js_path, &css_path).into(),
           ));
 
           utils::create_dir(root.join("styles"))?;
