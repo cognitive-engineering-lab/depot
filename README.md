@@ -38,6 +38,7 @@ Alternatively, you can follow one of these installation methods:
 
 ```
 cargo install depot-js --locked
+depot setup
 ```
 
 ### From source
@@ -46,6 +47,7 @@ cargo install depot-js --locked
 git clone https://github.com/cognitive-engineering-lab/depot
 cd depot
 cargo install --path crates/depot --locked
+depot setup
 ```
 
 ## Usage
