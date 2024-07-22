@@ -3,6 +3,7 @@ use anyhow::{bail, ensure, Context, Error, Result};
 use ignore::Walk;
 use maplit::hashset;
 use std::{
+  collections::HashSet,
   fmt::{self, Debug},
   hash::Hash,
   path::{Path, PathBuf},
@@ -112,10 +113,30 @@ impl FromStr for PackageName {
 #[serde(rename_all = "kebab-case")]
 pub struct PackageDepotConfig {
   pub platform: Platform,
+
   #[serde(skip_serializing_if = "Option::is_none")]
   pub target: Option<Target>,
+
   #[serde(skip_serializing_if = "Option::is_none")]
   pub no_server: Option<bool>,
+
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub asset_extensions: Option<Vec<String>>,
+
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub source_extensions: Option<Vec<String>>,
+}
+
+impl Default for PackageDepotConfig {
+  fn default() -> Self {
+    PackageDepotConfig {
+      platform: Platform::Browser,
+      target: None,
+      no_server: None,
+      asset_extensions: None,
+      source_extensions: None,
+    }
+  }
 }
 
 pub type PackageManifest = DepotManifest<PackageDepotConfig>;
@@ -266,35 +287,43 @@ impl PackageInner {
     })
   }
 
-  pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> {
-    // TODO: make this configurable
-    let asset_extensions = hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
+  pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
+    let mut asset_extensions: HashSet<&str> =
+      hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
+    if let Some(exts) = &self.manifest.config.asset_extensions {
+      asset_extensions.extend(exts.iter().map(String::as_str));
+    }
 
-    self.iter_files("src").filter_map(move |path| {
-      let ext = path.extension()?;
-      asset_extensions
-        .contains(ext.to_str().unwrap())
-        .then_some(path)
-    })
+    self
+      .iter_files("src")
+      .filter_map(move |path| {
+        let ext = path.extension()?;
+        asset_extensions
+          .contains(ext.to_str().unwrap())
+          .then_some(path)
+      })
+      .chain(self.iter_files("src/assets"))
+      .collect::<HashSet<_>>() // dedup
+      .into_iter()
   }
 
   pub fn source_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
-    // TODO: make this configurable
-    let source_extensions = hashset! { "ts", "tsx", "html" };
+    let mut source_extensions = hashset! { "ts", "tsx", "html" };
+    if let Some(exts) = &self.manifest.config.source_extensions {
+      source_extensions.extend(exts.iter().map(String::as_str));
+    }
+
+    const CONFIG_FILES: &[&str] = &[
+      "vite.config.ts",
+      "vite.config.mts",
+      "vitest.config.ts",
+      "vitest.config.mts",
+    ];
 
     ["src", "tests"]
       .into_iter()
       .flat_map(|dir| self.iter_files(dir))
-      .chain(
-        [
-          "vite.config.ts",
-          "vite.config.mts",
-          "vitest.config.ts",
-          "vitest.config.mts",
-        ]
-        .iter()
-        .map(PathBuf::from),
-      )
+      .chain(CONFIG_FILES.iter().map(PathBuf::from))
       .filter_map(move |path| {
         if !path.exists() {
           return None;

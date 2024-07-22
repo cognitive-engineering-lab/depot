@@ -21,29 +21,19 @@ package_json_schema = "0.2"
 indexmap = "1" # This must match package_json_schema
 
 ## TUI
-ratatui = "0.27.0"
+ratatui = "=0.27.0"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
-ansi-to-tui = "4.0.1" # This must match ratatui
+ansi-to-tui = "=4.0.1" # This must match ratatui
 ansi-diff = "1"
 indicatif = "0.17"
 
-## Utils
-anyhow = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-home = "0.5"
-petgraph = { version = "0.6", default-features = false }
-cfg-if = "1"
-textwrap = "0.16"
-bimap = "0.6"
-maplit = "1"
+## OS
 notify = { version = "6.0.1", default-features = false, features = ["macos_kqueue"] }
 notify-debouncer-mini = { version = "0.3.0", default-features = false }
-ignore = "0.4.22"
 pathsearch = "0.2.0"
-chrono = { version = "0.4.38", features = ["serde", "std", "now"], default-features = false }
+home = "0.5"
 
 ## Async
 futures = { version = "0.3", default-features = false, features = ["std"] }
@@ -52,6 +42,18 @@ tokio = { version = "1", default-features = false, features = ["sync", "macros",
 atomic_enum = "0.2"
 # We use rustls to avoid issues linking w/ libssl when cross-compiling
 reqwest = {version = "0.11.27", default-features = false, features = ["stream", "rustls-tls"]}
+
+## Utils
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+petgraph = { version = "0.6", default-features = false }
+cfg-if = "1"
+textwrap = "0.16"
+bimap = "0.6"
+maplit = "1"
+ignore = "0.4.22"
+chrono = { version = "0.4.38", features = ["serde", "std", "now"], default-features = false }
 
 ## Dev
 log = "0.4"

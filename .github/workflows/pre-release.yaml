@@ -31,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Add target
         run: rustup target add ${{ matrix.target }}
       - name: Cross-compile
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Login to crates.io
         run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
       - name: Dry run of crate publish

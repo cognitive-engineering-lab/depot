@@ -3,7 +3,8 @@
   clippy::format_collect,
   clippy::similar_names,
   clippy::module_name_repetitions,
-  clippy::single_match_else
+  clippy::single_match_else,
+  clippy::items_after_statements
 )]
 
 use self::commands::Command;
