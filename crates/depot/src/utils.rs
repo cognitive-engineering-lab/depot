@@ -54,8 +54,7 @@ macro_rules! test_packages {
       if !other.contains_key("depot") {
         other.insert(String::from("depot"), serde_json::to_value(PackageDepotConfig {
           platform: Platform::Browser,
-          target: None,
-          no_server: None
+          ..Default::default()
         }).unwrap());
       }
       let manifest = PackageManifest::from_json(manifest, std::path::Path::new("dummy.rs")).expect("Manifest failed to convert to Depot format");

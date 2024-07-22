@@ -641,7 +641,7 @@ export default defineConfig(({{ mode }}) => ({{
     let pkg_config = PackageDepotConfig {
       platform: *platform,
       target: Some(*target),
-      no_server: None,
+      ..Default::default()
     };
     let ws_config = WorkspaceDepotConfig {
       depot_version: DEPOT_VERSION.to_string(),

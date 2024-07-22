@@ -61,6 +61,16 @@ fn basic_site_browser_sass() {
 }
 
 #[test]
+fn copy_assets() {
+  let p = project();
+  p.file("src/assets/foo.txt", "");
+  p.file("src/styles/bar.css", "");
+  p.depot("build");
+  assert!(p.exists("dist/assets/foo.txt"));
+  assert!(p.exists("dist/styles/bar.css"));
+}
+
+#[test]
 fn release() {
   let p = project();
   p.depot("build --release");
