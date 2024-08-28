@@ -111,7 +111,7 @@ async fn download_pnpm(dst: &Path) -> Result<()> {
     _ => "linuxstatic",
   };
   let arch = match env::consts::ARCH {
-    "arm" => "arm64",
+    "arm" | "aarch64" => "arm64",
     _ => "x64",
   };
 
