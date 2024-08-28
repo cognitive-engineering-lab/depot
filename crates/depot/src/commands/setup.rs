@@ -70,7 +70,7 @@ impl GlobalConfig {
   }
 }
 
-const PNPM_VERSION: &str = "9.1.1";
+const PNPM_VERSION: &str = "9.9.0";
 
 async fn download_file(url: &str, mut dst: impl Write) -> Result<()> {
   let res = reqwest::get(url).await?;
@@ -111,7 +111,7 @@ async fn download_pnpm(dst: &Path) -> Result<()> {
     _ => "linuxstatic",
   };
   let arch = match env::consts::ARCH {
-    "arm" => "arm64",
+    "arm" | "aarch64" => "arm64",
     _ => "x64",
   };
 

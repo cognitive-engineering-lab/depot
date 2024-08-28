@@ -591,13 +591,6 @@ export default defineConfig(({{ mode }}) => ({{
       pnpm.current_dir(root);
     })?;
 
-    // Temporary fix for installing native modules on M-series Macs.
-    // --force ensures that the arm64 package is installed for Biome.
-    self.run_pnpm(|pnpm| {
-      pnpm.args(["install", "--force"]);
-      pnpm.current_dir(root);
-    })?;
-
     Ok(())
   }
 
