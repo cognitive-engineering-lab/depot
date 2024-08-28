@@ -23,10 +23,10 @@ jobs:
               command: test
             - target: x86_64-apple-darwin
               os: macos-latest
-              command: test
+              command: build
             - target: aarch64-apple-darwin
               os: macos-latest
-              command: build
+              command: test
     
     runs-on: ${{ matrix.os }}
     steps:
