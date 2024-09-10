@@ -7,7 +7,6 @@ use self::{
 use crate::{commands::setup::GlobalConfig, shareable, utils, CommonArgs};
 
 use anyhow::{ensure, Context, Result};
-use cfg_if::cfg_if;
 use futures::{
   stream::{self, TryStreamExt},
   StreamExt,
