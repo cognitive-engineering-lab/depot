@@ -211,19 +211,9 @@ impl Workspace {
       Some(cwd) => cwd,
       None => env::current_dir()?,
     };
-
-    let fs_root = {
-      cfg_if! {
-        if #[cfg(unix)] {
-          Path::new("/")
-        } else {
-          todo!()
-        }
-      }
-    };
-
+    let fs_root = cwd.ancestors().next().unwrap().to_path_buf();
     let git_root = utils::get_git_root(&cwd);
-    let max_ancestor: &Path = git_root.as_deref().unwrap_or(fs_root);
+    let max_ancestor: &Path = git_root.as_deref().unwrap_or(&fs_root);
     let root = find_workspace_root(max_ancestor, &cwd)?;
     debug!("Workspace root: `{}`", root.display());
 
