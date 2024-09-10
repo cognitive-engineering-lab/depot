@@ -1,14 +1,14 @@
 use crate::utils;
-#[cfg(unix)]
-use std::os::unix::prelude::PermissionsExt;
 use std::{
   env,
-  fs::{File, Permissions},
+  fs::File,
   io::{BufWriter, Write},
   path::{Path, PathBuf},
 };
+#[cfg(unix)]
+use std::{fs::Permissions, os::unix::prelude::PermissionsExt};
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use cfg_if::cfg_if;
 use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -43,6 +43,15 @@ fn pnpm_bin() -> &'static str {
   }
 }
 
+fn find_pnpm(root: &Path) -> Option<PathBuf> {
+  let pnpm_in_root = root.join("bin").join(pnpm_bin());
+  if pnpm_in_root.exists() {
+    Some(pnpm_in_root)
+  } else {
+    pathsearch::find_executable_in_path(pnpm_bin())
+  }
+}
+
 impl GlobalConfig {
   fn find_root() -> Result<PathBuf> {
     match env::var(HOME_ENV_VAR) {
@@ -62,17 +71,7 @@ impl GlobalConfig {
       root.display()
     );
 
-    let pnpm_in_root = root.join("bin").join(pnpm_bin());
-    let pnpm_path = if pnpm_in_root.exists() {
-      pnpm_in_root
-    } else {
-      let pnpm_fs_opt = pathsearch::find_executable_in_path(pnpm_bin());
-      match pnpm_fs_opt {
-        Some(path) => path,
-        None => bail!("pnpm is not installed"),
-      }
-    };
-
+    let pnpm_path = find_pnpm(&root).ok_or(anyhow!("pnpm is not installed"))?;
     Ok(GlobalConfig { root, pnpm_path })
   }
 
@@ -157,10 +156,11 @@ impl SetupCommand {
     let bindir = config.root.join("bin");
     utils::create_dir_if_missing(&bindir)?;
 
-    let pnpm_path = bindir.join(pnpm_bin());
-    if !pnpm_path.exists() {
+    let pnpm_path = find_pnpm(&config.root);
+    if pnpm_path.is_none() {
       println!("Downloading pnpm from Github...");
-      download_pnpm(&pnpm_path).await?;
+      let pnpm_dst = bindir.join(pnpm_bin());
+      download_pnpm(&pnpm_dst).await?;
     }
 
     println!("Setup complete!");
