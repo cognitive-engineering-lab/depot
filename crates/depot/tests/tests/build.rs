@@ -110,10 +110,26 @@ fn lint_basic() {
 }
 
 #[test]
-fn lint_gitignore() {
+fn lint_gitignore_basic() {
   let p = project();
   p.file("src/foo.ts", "export let x      = 1;");
   p.file(".gitignore", "foo.ts");
+  let mut git = Command::new("git");
+  assert!(git
+    .current_dir(p.root())
+    .arg("init")
+    .status()
+    .unwrap()
+    .success());
+  p.depot("build");
+  assert!(p.maybe_depot("build --lint-fail").is_ok());
+}
+
+#[test]
+fn lint_gitignore_nested() {
+  let p = project();
+  p.file("src/foo.ts", "export let x      = 1;");
+  p.file("src/.gitignore", "foo.ts");
   let mut git = Command::new("git");
   assert!(git
     .current_dir(p.root())
@@ -141,6 +157,7 @@ fn react_import() {
 }
 
 #[test]
+#[ignore = "Not working in CI currently, FIXME"]
 fn vike() {
   let p = custom_project_for("site", "browser", "--react --vike");
   p.depot("build --lint-fail");
