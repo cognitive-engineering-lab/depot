@@ -69,6 +69,7 @@ impl ProjectBuilder {
     dir: impl AsRef<Path>,
   ) -> Result<CommandOutput> {
     let mut process = Command::new(depot_exe());
+    process.arg("--no-incremental");
     process.current_dir(dir);
     process.args(shlex::split(cmd.as_ref()).unwrap());
 
