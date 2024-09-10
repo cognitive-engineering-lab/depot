@@ -9,7 +9,6 @@ use std::{
 use std::{fs::Permissions, os::unix::prelude::PermissionsExt};
 
 use anyhow::{anyhow, ensure, Context, Result};
-use cfg_if::cfg_if;
 use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -33,22 +32,12 @@ pub struct GlobalConfig {
 
 const HOME_ENV_VAR: &str = "DEPOT_HOME";
 
-fn pnpm_bin() -> &'static str {
-  cfg_if! {
-    if #[cfg(unix)] {
-      "pnpm"
-    } else {
-      "pnpm.exe"
-    }
-  }
-}
-
 fn find_pnpm(root: &Path) -> Option<PathBuf> {
-  let pnpm_in_root = root.join("bin").join(pnpm_bin());
+  let pnpm_in_root = root.join("bin").join("pnpm");
   if pnpm_in_root.exists() {
     Some(pnpm_in_root)
   } else {
-    pathsearch::find_executable_in_path(pnpm_bin())
+    pathsearch::find_executable_in_path("pnpm")
   }
 }
 
@@ -159,7 +148,13 @@ impl SetupCommand {
     let pnpm_path = find_pnpm(&config.root);
     if pnpm_path.is_none() {
       println!("Downloading pnpm from Github...");
-      let pnpm_dst = bindir.join(pnpm_bin());
+
+      #[cfg(unix)]
+      let pnpm_bin = "pnpm";
+      #[cfg(not(unix))]
+      let pnpm_bin = "pnpm.exe";
+
+      let pnpm_dst = bindir.join(pnpm_bin);
       download_pnpm(&pnpm_dst).await?;
     }
 
