@@ -10,7 +10,7 @@
   let
     manifest = (pkgs.lib.importTOML ./crates/depot/Cargo.toml).package;
     pkgs = import nixpkgs { inherit system; };
-    depotjs = pkgs.rustPlatform.buildRustPackage rec {
+    depot-js = pkgs.rustPlatform.buildRustPackage rec {
       pname = manifest.name;
       version = manifest.version;
       cargoLock.lockFile = ./Cargo.lock;
@@ -22,7 +22,7 @@
     };
   in {
     packages = {
-      default = depotjs;
+      default = depot-js;
     };
   });
 }
