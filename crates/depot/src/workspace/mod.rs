@@ -4,9 +4,9 @@ use self::{
   package::{PackageGraph, PackageIndex},
   process::Process,
 };
-use crate::{commands::setup::GlobalConfig, shareable, utils, CommonArgs};
+use crate::{shareable, utils, CommonArgs};
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use futures::{
   stream::{self, TryStreamExt},
   StreamExt,
@@ -54,9 +54,6 @@ pub struct WorkspaceInner {
 
   /// True if this workspace is structured as a monorepo with a `packages/` directory.
   pub monorepo: bool,
-
-  /// Depot configuration read from disk.
-  pub global_config: GlobalConfig,
 
   /// CLI arguments that apply to the whole workspace.
   pub common: CommonArgs,
@@ -201,11 +198,7 @@ pub trait WorkspaceCommand: CoreCommand + Debug + Send + Sync + 'static {
 pub const DEPOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 impl Workspace {
-  pub async fn load(
-    global_config: GlobalConfig,
-    cwd: Option<PathBuf>,
-    common: CommonArgs,
-  ) -> Result<Self> {
+  pub async fn load(cwd: Option<PathBuf>, common: CommonArgs) -> Result<Self> {
     let cwd = match cwd {
       Some(cwd) => cwd,
       None => env::current_dir()?,
@@ -291,7 +284,6 @@ Double-check that this workspace is compatible and update depot.depot_version in
       packages,
       package_display_order,
       monorepo,
-      global_config,
       pkg_graph,
       common,
       roots,
@@ -304,6 +296,15 @@ Double-check that this workspace is compatible and update depot.depot_version in
     }
 
     Ok(ws)
+  }
+}
+
+fn find_pnpm(root: &Path) -> Option<PathBuf> {
+  let pnpm_in_root = root.join("bin").join("pnpm");
+  if pnpm_in_root.exists() {
+    Some(pnpm_in_root)
+  } else {
+    pathsearch::find_executable_in_path("pnpm")
   }
 }
 
@@ -324,15 +325,12 @@ impl WorkspaceInner {
 
     let ws_bindir = self.root.join("node_modules").join(".bin");
     let script_path = if script == "pnpm" {
-      self.global_config.pnpm_path().to_owned()
+      find_pnpm(&self.root).ok_or(anyhow!("could not find pnpm on your system"))?
     } else {
-      ws_bindir.join(script)
+      let path = ws_bindir.join(script);
+      ensure!(path.exists(), "Executable is missing: {}", path.display());
+      path
     };
-    ensure!(
-      script_path.exists(),
-      "Executable is missing: {}",
-      script_path.display()
-    );
 
     let mut cmd = tokio::process::Command::new(script_path);
     cmd.current_dir(&self.root);

@@ -5,7 +5,7 @@
 Depot (formerly Graco) is a tool for orchestrating other Javascript devtools. As an analogy:
 * Depot is like [Cargo], but for Javascript.
 * Depot is like [create-react-app], but for people who like software engineering.
-* Depot is like the [`"scripts"` field of package.json](https://docs.npmjs.com/cli/v9/using-npm/scripts), but with more power and flexibility.
+* Depot is like the [`"scripts"` field of package.json][package.json], but with more power and flexibility.
 
 Depot works on Javascript workspaces that have been created by Depot, specifically those using the [model JS workspace] format. Depot supports the following commands:
 
@@ -26,7 +26,9 @@ A few benefits of using Depot:
 
 ## Installation
 
-The [install script](https://github.com/cognitive-engineering-lab/depot/blob/main/scripts/install.sh) will download a prebuilt binary if possible. Run the script as follows:
+As prerequisites, you must have [NodeJS][node-install] (≥20) and [pnpm][pnpm-install] (≥9.9) installed on your computer.
+
+The [install script] will download a prebuilt binary if possible. Run the script as follows:
 
 ```
 curl https://raw.githubusercontent.com/cognitive-engineering-lab/depot/main/scripts/install.sh | sh
@@ -98,3 +100,7 @@ Depot is used in a few of our projects:
 [Biome]: https://biomejs.dev/
 [Typedoc]: https://typedoc.org/
 [pnpm]: https://pnpm.io/
+[node-install]: https://nodejs.org/en/download/package-manager
+[pnpm-install]: https://pnpm.io/installation
+[install script]: https://github.com/cognitive-engineering-lab/depot/blob/main/scripts/install.sh
+[package.json]: https://docs.npmjs.com/cli/v9/using-npm/scripts

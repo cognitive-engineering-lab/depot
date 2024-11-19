@@ -5,7 +5,6 @@ pub mod fix;
 pub mod fmt;
 pub mod init;
 pub mod new;
-pub mod setup;
 pub mod test;
 
 #[derive(clap::Subcommand)]
@@ -30,6 +29,4 @@ pub enum Command {
   Fix(fix::FixArgs),
 
   Init(init::InitArgs),
-
-  Setup(setup::SetupArgs),
 }

@@ -8,18 +8,11 @@
 )]
 
 use self::commands::Command;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
 use commands::{
-  build::BuildCommand,
-  clean::CleanCommand,
-  doc::DocCommand,
-  fix::FixCommand,
-  fmt::FmtCommand,
-  init::InitCommand,
-  new::NewCommand,
-  setup::{GlobalConfig, SetupCommand},
-  test::TestCommand,
+  build::BuildCommand, clean::CleanCommand, doc::DocCommand, fix::FixCommand, fmt::FmtCommand,
+  init::InitCommand, new::NewCommand, test::TestCommand,
 };
 use workspace::{package::PackageName, Workspace};
 
@@ -58,19 +51,11 @@ pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
 
   let command = match command {
-    Command::Setup(args) => return SetupCommand::new(args).run().await,
+    Command::New(args) => return NewCommand::new(args).await.run(),
     command => command,
   };
 
-  let global_config =
-    GlobalConfig::load().context("Depot has not been setup yet. Run `depot setup` to proceed.")?;
-
-  let command = match command {
-    Command::New(args) => return NewCommand::new(args, global_config).await.run(),
-    command => command,
-  };
-
-  let ws = Workspace::load(global_config, None, common).await?;
+  let ws = Workspace::load(None, common).await?;
 
   // TODO: merge all tasks into a single task graph like Cargo
   let command = match command {
@@ -81,7 +66,7 @@ pub async fn run() -> Result<()> {
     Command::Clean(args) => CleanCommand::new(args).kind(),
     Command::Doc(args) => DocCommand::new(args).kind(),
     Command::Fix(args) => FixCommand::new(args).kind(),
-    Command::Setup(..) | Command::New(..) => unreachable!(),
+    Command::New(..) => unreachable!(),
   };
 
   ws.run(command).await?;
