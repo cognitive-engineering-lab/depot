@@ -20,7 +20,7 @@ impl<Config: DeserializeOwned> DepotManifest<Config> {
   pub fn from_json(mut manifest: PackageJson, path: &Path) -> Result<Self> {
     let error_msg = || format!("Missing \"depot\" key from manifest: `{}`", path.display());
     let other = manifest.other.as_mut().with_context(error_msg)?;
-    let config_value = other.remove("depot").with_context(error_msg)?;
+    let config_value = other.shift_remove("depot").with_context(error_msg)?;
     let config: Config = serde_json::from_value(config_value)?;
     Ok(DepotManifest { manifest, config })
   }

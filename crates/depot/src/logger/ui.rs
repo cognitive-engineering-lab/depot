@@ -112,7 +112,7 @@ impl Renderer for FullscreenRenderer {
 
     let mut terminal = self.terminal.lock().unwrap();
     terminal.draw(|f| {
-      let size = f.size();
+      let size = f.area();
       let constraints = if tabs.is_some() {
         vec![Constraint::Min(0), Constraint::Length(2)]
       } else {
