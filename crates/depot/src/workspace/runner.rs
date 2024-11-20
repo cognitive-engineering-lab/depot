@@ -128,7 +128,7 @@ impl Workspace {
             .borrow_mut()
             .entry($key.clone())
             .or_insert_with(|| {
-              let can_skip = !self.common.no_incremental
+              let can_skip = self.common.incremental
                 && !matches!(runtime, Some(CommandRuntime::RunForever))
                 && match $files {
                   Some(files) => {

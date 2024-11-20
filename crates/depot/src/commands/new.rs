@@ -23,8 +23,6 @@ use crate::{
   CommonArgs,
 };
 
-use super::setup::GlobalConfig;
-
 const REACT_INDEX: &str = r#"import React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -103,7 +101,6 @@ pub struct NewArgs {
 pub struct NewCommand {
   args: NewArgs,
   ws_opt: Option<Workspace>,
-  global_config: GlobalConfig,
 }
 
 fn json_merge(a: &mut Value, b: Value) {
@@ -157,15 +154,9 @@ fn test_json_merge() {
 type FileVec = Vec<(PathBuf, Cow<'static, str>)>;
 
 impl NewCommand {
-  pub async fn new(args: NewArgs, global_config: GlobalConfig) -> Self {
-    let ws_opt = Workspace::load(global_config.clone(), None, CommonArgs::default())
-      .await
-      .ok();
-    Self {
-      args,
-      ws_opt,
-      global_config,
-    }
+  pub async fn new(args: NewArgs) -> Self {
+    let ws_opt = Workspace::load(None, CommonArgs::default()).await.ok();
+    Self { args, ws_opt }
   }
 
   fn new_workspace(self, root: &Path) -> Result<()> {
@@ -547,7 +538,8 @@ export default defineConfig(({{ mode }}) => ({{
   }
 
   fn run_pnpm(&self, f: impl Fn(&mut Command)) -> Result<()> {
-    let mut cmd = Command::new(self.global_config.pnpm_path());
+    let pnpm_bin = utils::find_pnpm(None).context("Could not find pnpm")?;
+    let mut cmd = Command::new(pnpm_bin);
     f(&mut cmd);
 
     if self.args.offline {

@@ -44,9 +44,5 @@ pick_target() {
 }
 
 pick_target $1
-echo 'The depot binary is installed. Running `depot setup`...'
-
-PATH=$PATH:$INSTALL_DIR
-depot setup
 
 echo 'Depot installation is complete.'

@@ -8,18 +8,11 @@
 )]
 
 use self::commands::Command;
-use anyhow::{Context, Result};
+use anyhow::{bail, Result};
 use clap::Parser;
 use commands::{
-  build::BuildCommand,
-  clean::CleanCommand,
-  doc::DocCommand,
-  fix::FixCommand,
-  fmt::FmtCommand,
-  init::InitCommand,
-  new::NewCommand,
-  setup::{GlobalConfig, SetupCommand},
-  test::TestCommand,
+  build::BuildCommand, clean::CleanCommand, doc::DocCommand, fix::FixCommand, fmt::FmtCommand,
+  init::InitCommand, new::NewCommand, test::TestCommand,
 };
 use workspace::{package::PackageName, Workspace};
 
@@ -34,9 +27,9 @@ pub struct CommonArgs {
   #[clap(short, long)]
   package: Option<PackageName>,
 
-  /// Disable incremental compilation
+  /// Enable incremental compilation
   #[clap(long)]
-  no_incremental: bool,
+  incremental: bool,
 
   /// Disable fullscreen UI
   #[clap(long)]
@@ -57,20 +50,20 @@ struct Args {
 pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
 
+  if utils::find_node().is_none() {
+    bail!("Failed to find `node` installed on your path. Depot requires NodeJS to be installed. See: https://nodejs.org/en/download/package-manager");
+  }
+
+  if utils::find_pnpm(None).is_none() {
+    bail!("Failed to find `pnpm` installed on your path. Depot requires pnpm to be installed. See: https://pnpm.io/installation")
+  }
+
   let command = match command {
-    Command::Setup(args) => return SetupCommand::new(args).run().await,
+    Command::New(args) => return NewCommand::new(args).await.run(),
     command => command,
   };
 
-  let global_config =
-    GlobalConfig::load().context("Depot has not been setup yet. Run `depot setup` to proceed.")?;
-
-  let command = match command {
-    Command::New(args) => return NewCommand::new(args, global_config).await.run(),
-    command => command,
-  };
-
-  let ws = Workspace::load(global_config, None, common).await?;
+  let ws = Workspace::load(None, common).await?;
 
   // TODO: merge all tasks into a single task graph like Cargo
   let command = match command {
@@ -81,7 +74,7 @@ pub async fn run() -> Result<()> {
     Command::Clean(args) => CleanCommand::new(args).kind(),
     Command::Doc(args) => DocCommand::new(args).kind(),
     Command::Fix(args) => FixCommand::new(args).kind(),
-    Command::Setup(..) | Command::New(..) => unreachable!(),
+    Command::New(..) => unreachable!(),
   };
 
   ws.run(command).await?;

@@ -5,7 +5,6 @@ use std::{
   fs,
   path::{Path, PathBuf},
   process::Command,
-  sync::Once,
 };
 
 use either::Either;
@@ -25,17 +24,8 @@ fn new_cmd(s: impl AsRef<str>) -> String {
   format!("{} --prefer-offline", s.as_ref())
 }
 
-static SETUP: Once = Once::new();
-
 impl ProjectBuilder {
   pub fn new() -> Self {
-    SETUP.call_once(|| {
-      let status = Command::new(depot_exe()).arg("setup").status().unwrap();
-      if !status.success() {
-        panic!("depot setup failed");
-      }
-    });
-
     let tmpdir = TempDir::new().unwrap();
     ProjectBuilder {
       tmpdir: Either::Left(tmpdir),
@@ -69,7 +59,6 @@ impl ProjectBuilder {
     dir: impl AsRef<Path>,
   ) -> Result<CommandOutput> {
     let mut process = Command::new(depot_exe());
-    process.arg("--no-incremental");
     process.current_dir(dir);
     process.args(shlex::split(cmd.as_ref()).unwrap());
 
