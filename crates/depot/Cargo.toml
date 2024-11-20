@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.2.18"
+version = "0.3.0"
 description = "A Javascript devtool orchestrator"
 edition = "2021"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -18,14 +18,14 @@ shlex = "1"
 
 ## Javascript
 package_json_schema = "0.2"
-indexmap = "1" # This must match package_json_schema
+indexmap = "2" # This must match package_json_schema
 
 ## TUI
-ratatui = "=0.27.0"
+ratatui = "=0.29.0"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
 crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
-ansi-to-tui = "=4.0.1" # This must match ratatui
+ansi-to-tui = "7.0.0" # This must match ratatui
 ansi-diff = "1"
 indicatif = "0.17"
 
