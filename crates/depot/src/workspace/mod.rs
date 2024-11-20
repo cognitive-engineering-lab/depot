@@ -299,15 +299,6 @@ Double-check that this workspace is compatible and update depot.depot_version in
   }
 }
 
-fn find_pnpm(root: &Path) -> Option<PathBuf> {
-  let pnpm_in_root = root.join("bin").join("pnpm");
-  if pnpm_in_root.exists() {
-    Some(pnpm_in_root)
-  } else {
-    pathsearch::find_executable_in_path("pnpm")
-  }
-}
-
 impl WorkspaceInner {
   pub fn package_display_order(&self) -> impl Iterator<Item = &Package> {
     self
@@ -325,7 +316,7 @@ impl WorkspaceInner {
 
     let ws_bindir = self.root.join("node_modules").join(".bin");
     let script_path = if script == "pnpm" {
-      find_pnpm(&self.root).ok_or(anyhow!("could not find pnpm on your system"))?
+      utils::find_pnpm(Some(&self.root)).ok_or(anyhow!("could not find pnpm on your system"))?
     } else {
       let path = ws_bindir.join(script);
       ensure!(path.exists(), "Executable is missing: {}", path.display());

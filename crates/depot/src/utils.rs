@@ -100,3 +100,14 @@ macro_rules! shareable {
     }
   };
 }
+
+pub fn find_node() -> Option<PathBuf> {
+  pathsearch::find_executable_in_path("node")
+}
+
+pub fn find_pnpm(root: Option<&Path>) -> Option<PathBuf> {
+  let pnpm_in_root = root
+    .map(|root| root.join("bin").join("pnpm"))
+    .filter(|root| root.exists());
+  pnpm_in_root.or_else(|| pathsearch::find_executable_in_path("pnpm"))
+}

@@ -8,7 +8,7 @@
 )]
 
 use self::commands::Command;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use commands::{
   build::BuildCommand, clean::CleanCommand, doc::DocCommand, fix::FixCommand, fmt::FmtCommand,
@@ -27,9 +27,9 @@ pub struct CommonArgs {
   #[clap(short, long)]
   package: Option<PackageName>,
 
-  /// Disable incremental compilation
+  /// Enable incremental compilation
   #[clap(long)]
-  no_incremental: bool,
+  incremental: bool,
 
   /// Disable fullscreen UI
   #[clap(long)]
@@ -49,6 +49,14 @@ struct Args {
 #[allow(clippy::missing_errors_doc)]
 pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
+
+  if utils::find_node().is_none() {
+    bail!("Failed to find `node` installed on your path. Depot requires NodeJS to be installed. See: https://nodejs.org/en/download/package-manager");
+  }
+
+  if utils::find_pnpm(None).is_none() {
+    bail!("Failed to find `pnpm` installed on your path. Depot requires pnpm to be installed. See: https://pnpm.io/installation")
+  }
 
   let command = match command {
     Command::New(args) => return NewCommand::new(args).await.run(),

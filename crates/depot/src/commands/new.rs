@@ -538,7 +538,8 @@ export default defineConfig(({{ mode }}) => ({{
   }
 
   fn run_pnpm(&self, f: impl Fn(&mut Command)) -> Result<()> {
-    let mut cmd = Command::new("pnpm");
+    let pnpm_bin = utils::find_pnpm(None).context("Could not find pnpm")?;
+    let mut cmd = Command::new(pnpm_bin);
     f(&mut cmd);
 
     if self.args.offline {
