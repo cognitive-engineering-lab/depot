@@ -395,9 +395,9 @@ minify: false,"#,
         }
 
         let rollup_config = format!(
-          r#"rollupOptions: {{
+          "rollupOptions: {{
   external: {external}
-}}"#
+}}"
         );
         let full_obj = format!(
           "{{\n{}\n{}\n}}",

@@ -84,7 +84,7 @@ impl Workspace {
     &self,
     log_should_exit: &Arc<Notify>,
     runner_should_exit: &Arc<Notify>,
-    runtime: &Option<CommandRuntime>,
+    runtime: Option<CommandRuntime>,
   ) -> impl Future {
     let ws = self.clone();
     let log_should_exit = Arc::clone(log_should_exit);
@@ -116,7 +116,7 @@ impl Workspace {
   fn build_task_graph(
     &self,
     cmd_graph: &CommandGraph,
-    runtime: &Option<CommandRuntime>,
+    runtime: Option<CommandRuntime>,
   ) -> (TaskGraph, HashMap<Task, TaskFuture>) {
     let futures = RefCell::new(HashMap::new());
     let task_pool = RefCell::new(HashMap::new());
@@ -197,7 +197,7 @@ impl Workspace {
   pub async fn run(&self, root: Command) -> Result<()> {
     let runtime = root.runtime();
     let cmd_graph = build_command_graph(&root);
-    let (task_graph, mut task_futures) = self.build_task_graph(&cmd_graph, &runtime);
+    let (task_graph, mut task_futures) = self.build_task_graph(&cmd_graph, runtime);
 
     let log_should_exit: Arc<Notify> = Arc::new(Notify::new());
     let runner_should_exit: Arc<Notify> = Arc::new(Notify::new());
@@ -205,7 +205,7 @@ impl Workspace {
     let runner_should_exit_fut = runner_should_exit.notified();
     tokio::pin!(runner_should_exit_fut);
 
-    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit, &runtime);
+    let cleanup_logs = self.spawn_log_thread(&log_should_exit, &runner_should_exit, runtime);
 
     let mut running_futures = Vec::new();
     let result = loop {

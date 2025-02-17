@@ -159,6 +159,7 @@ pub trait CoreCommand {
   fn name(&self) -> String;
 }
 
+#[derive(Clone, Copy)]
 pub enum CommandRuntime {
   WaitForDependencies,
   RunImmediately,
@@ -217,9 +218,9 @@ impl Workspace {
     let created_version = &manifest.config.depot_version;
     if DEPOT_VERSION != created_version {
       warn!(
-        r#"Depot binary is v{DEPOT_VERSION} but workspace was created with v{created_version}.
+        "Depot binary is v{DEPOT_VERSION} but workspace was created with v{created_version}.
 
-Double-check that this workspace is compatible and update depot.depot_version in package.json."#
+Double-check that this workspace is compatible and update depot.depot_version in package.json."
       );
     }
 
