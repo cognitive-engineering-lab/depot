@@ -1,4 +1,4 @@
-use std::collections::{vec_deque, VecDeque};
+use std::collections::{VecDeque, vec_deque};
 
 pub struct RingBuffer<T> {
   data: VecDeque<T>,

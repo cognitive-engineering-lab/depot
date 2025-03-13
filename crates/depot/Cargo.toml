@@ -2,7 +2,7 @@
 name = "depot-js"
 version = "0.3.0"
 description = "A Javascript devtool orchestrator"
-edition = "2021"
+edition = "2024"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
 repository = "https://github.com/cognitive-engineering-lab/depot"
 license = "MIT"

@@ -17,14 +17,14 @@ use ratatui::{
 use std::{
   io::{Stdout, Write},
   sync::{
-    atomic::{AtomicIsize, Ordering},
     Arc, Mutex,
+    atomic::{AtomicIsize, Ordering},
   },
   time::Duration,
 };
 use tokio::sync::Notify;
 
-use crate::workspace::{process::Process, Workspace};
+use crate::workspace::{Workspace, process::Process};
 
 pub struct FullscreenRenderer {
   terminal: Mutex<Terminal>,
@@ -306,11 +306,7 @@ impl InlineRenderer {
         writeln!(&mut output, "{}", process.script())?;
 
         let monorepo_prefix = if ws.monorepo {
-          if last_process {
-            "   "
-          } else {
-            "│  "
-          }
+          if last_process { "   " } else { "│  " }
         } else {
           ""
         };
