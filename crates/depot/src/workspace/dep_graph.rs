@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use bimap::BiHashMap;
 use petgraph::{
   graph::DiGraph,

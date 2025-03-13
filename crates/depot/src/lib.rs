@@ -8,13 +8,13 @@
 )]
 
 use self::commands::Command;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::Parser;
 use commands::{
   build::BuildCommand, clean::CleanCommand, doc::DocCommand, fix::FixCommand, fmt::FmtCommand,
   init::InitCommand, new::NewCommand, test::TestCommand,
 };
-use workspace::{package::PackageName, Workspace};
+use workspace::{Workspace, package::PackageName};
 
 mod commands;
 mod logger;
@@ -51,11 +51,15 @@ pub async fn run() -> Result<()> {
   let Args { command, common } = Args::parse();
 
   if utils::find_node().is_none() {
-    bail!("Failed to find `node` installed on your path. Depot requires NodeJS to be installed. See: https://nodejs.org/en/download/package-manager");
+    bail!(
+      "Failed to find `node` installed on your path. Depot requires NodeJS to be installed. See: https://nodejs.org/en/download/package-manager"
+    );
   }
 
   if utils::find_pnpm(None).is_none() {
-    bail!("Failed to find `pnpm` installed on your path. Depot requires pnpm to be installed. See: https://pnpm.io/installation")
+    bail!(
+      "Failed to find `pnpm` installed on your path. Depot requires pnpm to be installed. See: https://pnpm.io/installation"
+    )
   }
 
   let command = match command {

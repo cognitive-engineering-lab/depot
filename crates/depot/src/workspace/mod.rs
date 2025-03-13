@@ -4,12 +4,12 @@ use self::{
   package::{PackageGraph, PackageIndex},
   process::Process,
 };
-use crate::{shareable, utils, CommonArgs};
+use crate::{CommonArgs, shareable, utils};
 
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use futures::{
-  stream::{self, TryStreamExt},
   StreamExt,
+  stream::{self, TryStreamExt},
 };
 use log::{debug, warn};
 use manifest::DepotManifest;
@@ -315,18 +315,16 @@ impl WorkspaceInner {
   ) -> Result<Arc<Process>> {
     log::trace!("Starting process: {script}");
 
-    let ws_bindir = self.root.join("node_modules").join(".bin");
-    let script_path = if script == "pnpm" {
-      utils::find_pnpm(Some(&self.root)).ok_or(anyhow!("could not find pnpm on your system"))?
-    } else {
-      let path = ws_bindir.join(script);
-      ensure!(path.exists(), "Executable is missing: {}", path.display());
-      path
-    };
+    let pnpm =
+      utils::find_pnpm(Some(&self.root)).ok_or(anyhow!("could not find pnpm on your system"))?;
 
-    let mut cmd = tokio::process::Command::new(script_path);
+    let mut cmd = tokio::process::Command::new(pnpm);
     cmd.current_dir(&self.root);
     cmd.env("NODE_PATH", self.root.join("node_modules"));
+
+    if script != "pnpm" {
+      cmd.args(["exec", script]);
+    }
 
     configure(&mut cmd);
 

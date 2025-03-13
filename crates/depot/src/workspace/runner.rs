@@ -1,12 +1,12 @@
 use anyhow::Result;
 
-use futures::{future::BoxFuture, FutureExt};
+use futures::{FutureExt, future::BoxFuture};
 use log::debug;
 use std::{
   cell::RefCell,
   collections::HashMap,
   future::Future,
-  sync::{atomic::Ordering, Arc},
+  sync::{Arc, atomic::Ordering},
 };
 use tokio::sync::Notify;
 
@@ -16,8 +16,8 @@ use crate::{
 };
 
 use super::{
-  build_command_graph, dep_graph::DepGraph, Command, CommandGraph, CommandInner, CommandRuntime,
-  Workspace,
+  Command, CommandGraph, CommandInner, CommandRuntime, Workspace, build_command_graph,
+  dep_graph::DepGraph,
 };
 
 #[atomic_enum::atomic_enum]

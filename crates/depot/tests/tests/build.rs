@@ -115,12 +115,14 @@ fn lint_gitignore_basic() {
   p.file("src/foo.ts", "export let x      = 1;");
   p.file(".gitignore", "foo.ts");
   let mut git = Command::new("git");
-  assert!(git
-    .current_dir(p.root())
-    .arg("init")
-    .status()
-    .unwrap()
-    .success());
+  assert!(
+    git
+      .current_dir(p.root())
+      .arg("init")
+      .status()
+      .unwrap()
+      .success()
+  );
   p.depot("build");
   assert!(p.maybe_depot("build --lint-fail").is_ok());
 }
@@ -131,12 +133,14 @@ fn lint_gitignore_nested() {
   p.file("src/foo.ts", "export let x      = 1;");
   p.file("src/.gitignore", "foo.ts");
   let mut git = Command::new("git");
-  assert!(git
-    .current_dir(p.root())
-    .arg("init")
-    .status()
-    .unwrap()
-    .success());
+  assert!(
+    git
+      .current_dir(p.root())
+      .arg("init")
+      .status()
+      .unwrap()
+      .success()
+  );
   p.depot("build");
   assert!(p.maybe_depot("build --lint-fail").is_ok());
 }

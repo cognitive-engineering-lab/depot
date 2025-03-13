@@ -1,4 +1,4 @@
-use anyhow::{bail, ensure, Context, Error, Result};
+use anyhow::{Context, Error, Result, bail, ensure};
 
 use ignore::Walk;
 use maplit::hashset;
@@ -13,7 +13,7 @@ use std::{
 
 use crate::{shareable, workspace::process::Process};
 
-use super::{dep_graph::DepGraph, manifest::DepotManifest, Workspace};
+use super::{Workspace, dep_graph::DepGraph, manifest::DepotManifest};
 
 #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
 pub enum Platform {
