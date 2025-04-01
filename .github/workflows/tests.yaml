@@ -5,23 +5,14 @@ on: [push]
 jobs:
   tests:
     runs-on: ubuntu-latest
-    env:
-      RUST_BACKTRACE: 1
-      RUST_LIB_BACKTRACE: 1
-      TOKIO_WORKER_THREADS: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.15.0
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.13.2
-      - name: Run tests
-        run: cargo test --features dev -- --test-threads=1
-      - name: Run lints
-        run: cargo clippy -- -D warnings
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: DeterminateSystems/flake-checker-action@main
+
+      - name: Run check
+        run: nix develop .#ci --command ci-check
       
