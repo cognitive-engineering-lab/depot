@@ -31,9 +31,10 @@
 
         devShells = with pkgs; rec {
           ci = mkShell {
-            packages = [ 
+            buildInputs = [ 
               ci-check 
               cargo 
+              rustc
               clippy 
               nodejs_22 
               pnpm_9 
@@ -46,7 +47,7 @@
 
           default = mkShell {
             inherit ci;
-            packages = ci.packages ++ [ rust-analyzer ];
+            buildInputs = ci.buildInputs ++ [ rust-analyzer ];
           };
         };
       });
