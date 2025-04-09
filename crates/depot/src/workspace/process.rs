@@ -1,8 +1,8 @@
 use std::{
     process::{ExitStatus, Stdio},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex, MutexGuard,
+        atomic::{AtomicBool, Ordering},
     },
 };
 use tokio::{
@@ -10,7 +10,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 
 use crate::logger::ringbuffer::RingBuffer;
 

@@ -4,12 +4,12 @@ use self::{
     package::{PackageGraph, PackageIndex},
     process::Process,
 };
-use crate::{shareable, utils, CommonArgs};
+use crate::{CommonArgs, shareable, utils};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use futures::{
-    stream::{self, TryStreamExt},
     StreamExt,
+    stream::{self, TryStreamExt},
 };
 use log::{debug, warn};
 use manifest::DepotManifest;

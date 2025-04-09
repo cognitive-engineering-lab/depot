@@ -1,5 +1,5 @@
 use super::build::{BuildArgs, BuildCommand};
-use crate::workspace::{package::Package, Command, CommandRuntime, CoreCommand, PackageCommand};
+use crate::workspace::{Command, CommandRuntime, CoreCommand, PackageCommand, package::Package};
 use anyhow::{Context, Result};
 
 /// Run tests via vitest

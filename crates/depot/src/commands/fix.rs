@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 
-use crate::workspace::{package::Package, Command, CoreCommand, PackageCommand};
+use crate::workspace::{Command, CoreCommand, PackageCommand, package::Package};
 
 /// Fix biome issues where possible
 #[derive(clap::Parser, Debug)]

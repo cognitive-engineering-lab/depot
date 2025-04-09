@@ -1,6 +1,6 @@
 #![allow(clippy::new_without_default)]
 
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use std::{
     fs,
     path::{Path, PathBuf},

@@ -1,7 +1,7 @@
 use std::{fs, path::Path, time::Duration};
 
-use anyhow::{anyhow, ensure, Result};
-use futures::{future::try_join_all, FutureExt};
+use anyhow::{Result, anyhow, ensure};
+use futures::{FutureExt, future::try_join_all};
 use log::debug;
 use notify::RecursiveMode;
 
@@ -9,8 +9,8 @@ use super::init::{InitArgs, InitCommand};
 use crate::{
     utils,
     workspace::{
-        package::{Package, Target},
         Command, CommandRuntime, CoreCommand, PackageCommand,
+        package::{Package, Target},
     },
 };
 

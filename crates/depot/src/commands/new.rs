@@ -1,9 +1,9 @@
 #![allow(clippy::items_after_statements, clippy::too_many_lines)]
 
-use anyhow::{ensure, Context, Result};
-use indexmap::{indexmap, IndexMap};
+use anyhow::{Context, Result, ensure};
+use indexmap::{IndexMap, indexmap};
 use package_json_schema as pj;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     borrow::Cow,
     env,
@@ -15,12 +15,11 @@ use std::{
 };
 
 use crate::{
-    utils,
+    CommonArgs, utils,
     workspace::{
+        DEPOT_VERSION, Workspace, WorkspaceDepotConfig,
         package::{PackageDepotConfig, PackageName, Platform, Target},
-        Workspace, WorkspaceDepotConfig, DEPOT_VERSION,
     },
-    CommonArgs,
 };
 
 const REACT_INDEX: &str = r#"import React from "react";

@@ -17,14 +17,14 @@ use ratatui::{
 use std::{
     io::{Stdout, Write},
     sync::{
-        atomic::{AtomicIsize, Ordering},
         Arc, Mutex,
+        atomic::{AtomicIsize, Ordering},
     },
     time::Duration,
 };
 use tokio::sync::Notify;
 
-use crate::workspace::{process::Process, Workspace};
+use crate::workspace::{Workspace, process::Process};
 
 pub struct FullscreenRenderer {
     terminal: Mutex<Terminal>,
@@ -160,7 +160,7 @@ impl Renderer for FullscreenRenderer {
             if let Event::Key(key) = event? {
                 match key.code {
                     KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        return Ok(true)
+                        return Ok(true);
                     }
                     KeyCode::Left => {
                         self.selected.fetch_sub(1, Ordering::SeqCst);
@@ -309,11 +309,7 @@ impl InlineRenderer {
                 writeln!(&mut output, "{}", process.script())?;
 
                 let monorepo_prefix = if ws.monorepo {
-                    if last_process {
-                        "   "
-                    } else {
-                        "│  "
-                    }
+                    if last_process { "   " } else { "│  " }
                 } else {
                     ""
                 };
