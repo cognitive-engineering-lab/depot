@@ -54,10 +54,17 @@ fn basic_site_browser() {
 }
 
 #[test]
-fn basic_site_browser_sass() {
+fn basic_site_sass() {
   let project = custom_project_for("site", "browser", "--sass");
   project.depot("build --lint-fail");
   assert!(project.exists("dist/index.html"));
+}
+
+#[test]
+fn basic_site_vike() {
+  let project = custom_project_for("site", "browser", "--vike --react");
+  project.depot("build");
+  assert!(project.exists("dist/client/index.html"));
 }
 
 #[test]
@@ -158,11 +165,4 @@ fn react_import() {
   let p = custom_project_for("lib", "browser", "--react");
   p.file("src/lib.tsx", r#"import ReactDOM from "react-dom/client";"#);
   p.depot("build");
-}
-
-#[test]
-#[ignore = "Not working in CI currently, FIXME"]
-fn vike() {
-  let p = custom_project_for("site", "browser", "--react --vike");
-  p.depot("build --lint-fail");
 }

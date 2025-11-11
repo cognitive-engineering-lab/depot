@@ -56,7 +56,7 @@ impl FullscreenRenderer {
     })
   }
 
-  fn build_tabs(ws: &Workspace, selected: usize) -> Option<Tabs> {
+  fn build_tabs(ws: &Workspace, selected: usize) -> Option<Tabs<'_>> {
     ws.monorepo.then(|| {
       let titles = ws
         .package_display_order()
