@@ -466,11 +466,11 @@ minify: false,"#,
       ""
     };
     let mut src = format!(
-      r#"{imports_str}
+      "{imports_str}
 {manifest_str}export default defineConfig(({{ mode }}) => ({{
 {config_str}
 }}));
-"#
+"
     );
 
     if target.is_site() || target.is_script() {
