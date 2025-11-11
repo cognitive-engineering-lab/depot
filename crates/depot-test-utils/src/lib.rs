@@ -34,7 +34,7 @@ impl ProjectBuilder {
 
   pub fn persist(mut self) -> Self {
     eprintln!("Persisted: {}", self.root().display());
-    self.tmpdir = Either::Right(self.tmpdir.unwrap_left().into_path());
+    self.tmpdir = Either::Right(self.tmpdir.unwrap_left().keep());
     self
   }
 

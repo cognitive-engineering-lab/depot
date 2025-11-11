@@ -26,7 +26,7 @@ A few benefits of using Depot:
 
 ## Installation
 
-As prerequisites, you must have [NodeJS][node-install] (≥20) and [pnpm][pnpm-install] (≥9.9) installed on your computer.
+As prerequisites, you must have [NodeJS][node-install] (≥24) and [pnpm][pnpm-install] (≥10) installed on your computer.
 
 The [install script] will download a prebuilt binary if possible. Run the script as follows:
 

@@ -57,10 +57,17 @@ impl PackageCommand for BuildCommand {
 
     let mut processes = Vec::new();
 
-    match pkg.target {
-      Target::Script | Target::Site => processes.push(self.vite(pkg).boxed()),
-      Target::Lib => processes.push(self.copy_assets(pkg).boxed()),
-    }
+    processes.push(match pkg.target {
+      Target::Site => {
+        if pkg.uses_vike() {
+          self.vike(pkg).boxed()
+        } else {
+          self.vite(pkg).boxed()
+        }
+      }
+      Target::Script => self.vite(pkg).boxed(),
+      Target::Lib => self.copy_assets(pkg).boxed(),
+    });
 
     processes.extend([self.tsc(pkg).boxed(), self.biome(pkg).boxed()]);
 
@@ -117,6 +124,20 @@ impl BuildCommand {
     ensure!(!self.args.lint_fail || status.success(), "biome failed");
 
     Ok(())
+  }
+
+  async fn vike(&self, pkg: &Package) -> Result<()> {
+    pkg
+      .exec("vike", |cmd| {
+        cmd.env("FORCE_COLOR", "1");
+        let no_server = pkg.manifest.config.no_server.unwrap_or(false);
+        if self.args.watch && !no_server {
+          cmd.arg("dev");
+        } else {
+          cmd.arg("build");
+        }
+      })
+      .await
   }
 
   async fn vite(&self, pkg: &Package) -> Result<()> {

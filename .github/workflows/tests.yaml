@@ -15,11 +15,11 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20.15.0
+          node-version: 24.11.0
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.13.2
+          version: 10.21.0
       - name: Run tests
         run: cargo test --features dev -- --test-threads=1
       - name: Run lints

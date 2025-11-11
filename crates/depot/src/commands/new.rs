@@ -114,7 +114,7 @@ fn json_merge(a: &mut Value, b: Value) {
       a.extend(b);
     }
     (a, b) => *a = b,
-  };
+  }
 }
 
 #[test]
@@ -346,7 +346,7 @@ impl NewCommand {
       ""
     };
 
-    let mut imports = vec![("fs", "node:fs")];
+    let mut imports = vec![];
     if self.args.react {
       imports.push(("react", "@vitejs/plugin-react"));
     }
@@ -357,6 +357,7 @@ impl NewCommand {
 
     let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
 
+    let mut uses_manifest = false;
     match target {
       Target::Site => {
         if !self.args.vike {
@@ -388,6 +389,7 @@ minify: false,"#,
         };
 
         let mut external = "Object.keys(manifest.dependencies || {})".to_string();
+        uses_manifest = true;
         if platform.is_node() {
           imports.push(("{ builtinModules }", "node:module"));
           external.push_str(".concat(builtinModules)");
@@ -444,6 +446,10 @@ minify: false,"#,
       config.push(("resolve", "{ conditions: [\"node\"] }".into()));
     }
 
+    if uses_manifest {
+      imports.push(("fs", "node:fs"));
+    }
+
     imports.sort_by_cached_key(|(_, path)| PackageName::from_str(path).unwrap());
     let imports_str = imports
       .into_iter()
@@ -454,13 +460,17 @@ minify: false,"#,
       .map(|(k, v)| textwrap::indent(&format!("{k}: {v}"), "  "))
       .collect::<Vec<String>>()
       .join(",\n");
+    let manifest_str = if uses_manifest {
+      "let manifest = JSON.parse(fs.readFileSync(\"package.json\", \"utf-8\"));\n"
+    } else {
+      ""
+    };
     let mut src = format!(
-      r#"{imports_str}
-let manifest = JSON.parse(fs.readFileSync("package.json", "utf-8"));
-export default defineConfig(({{ mode }}) => ({{
+      "{imports_str}
+{manifest_str}export default defineConfig(({{ mode }}) => ({{
 {config_str}
 }}));
-"#
+"
     );
 
     if target.is_site() || target.is_script() {
