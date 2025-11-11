@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.3.0"
+version = "0.3.1"
 description = "A Javascript devtool orchestrator"
 edition = "2024"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
