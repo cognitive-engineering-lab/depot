@@ -27,9 +27,12 @@ jobs:
             - target: aarch64-apple-darwin
               os: macos-latest
               command: test
-            # - target: x86_64-pc-windows-msvc
-            #   os: windows-latest
-            #   command: test
+            - target: x86_64-pc-windows-msvc
+              os: windows-latest
+              command: test
+            - target: aarch64-pc-windows-msvc
+              os: windows-latest
+              command: build
 
     runs-on: ${{ matrix.os }}
     steps:
