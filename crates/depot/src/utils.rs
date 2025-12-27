@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
+use pathsearch::PathSearcher;
 
 use std::{
+  env,
+  ffi::OsStr,
   fs,
   path::{Path, PathBuf},
   process::Command,
@@ -109,5 +112,13 @@ pub fn find_pnpm(root: Option<&Path>) -> Option<PathBuf> {
   let pnpm_in_root = root
     .map(|root| root.join("bin").join("pnpm"))
     .filter(|root| root.exists());
-  pnpm_in_root.or_else(|| pathsearch::find_executable_in_path("pnpm"))
+
+  pnpm_in_root.or_else(|| {
+    PathSearcher::new(
+      "pnpm",
+      env::var_os("PATH").as_deref(),
+      cfg!(windows).then(|| OsStr::new("cmd")),
+    )
+    .next()
+  })
 }

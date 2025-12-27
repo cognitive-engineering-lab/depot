@@ -18,26 +18,30 @@ jobs:
     strategy:
       matrix:
         include:
-            - target: x86_64-unknown-linux-gnu
-              os: ubuntu-latest
-              command: test
-            - target: x86_64-apple-darwin
-              os: macos-latest
-              command: build
-            - target: aarch64-apple-darwin
-              os: macos-latest
-              command: test
-            - target: x86_64-pc-windows-msvc
-              os: windows-latest
-              command: test
-            - target: aarch64-pc-windows-msvc
-              os: windows-latest
-              command: build
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            command: test
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            command: build
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            command: test
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            command: test
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            command: build
 
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Install Node
         uses: actions/setup-node@v4
         with:
@@ -46,8 +50,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10.21.0
-      - name: Add target
-        run: rustup target add ${{ matrix.target }}
       - name: Cross-compile
         run: cargo ${{ matrix.command }} --locked --target ${{ matrix.target }}
 
