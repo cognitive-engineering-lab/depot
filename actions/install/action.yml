@@ -17,3 +17,6 @@ runs:
     - name: Add Depot to PATH
       run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       shell: bash
+    - name: Confirm Depot is installed
+      run: depot --version
+      shell: bash
