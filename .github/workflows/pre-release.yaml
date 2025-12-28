@@ -54,8 +54,18 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10.21.0
-      - name: Cross-compile
+      - name: Compile binary
         run: cargo ${{ matrix.command }} --locked --target ${{ matrix.target }}
+      - name: Compress artifacts (Non-Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path depot -Destination ${{ matrix.target }}.zip
+      - name: Compress artifacts (Non-Windows)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          zip -9 ${{ matrix.target }}.zip depot
 
   publish-dry-run:
     if: contains(github.event.pull_request.labels.*.name, 'release')

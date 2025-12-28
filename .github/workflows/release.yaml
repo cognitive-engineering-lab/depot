@@ -35,7 +35,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Compile binary
         run: cargo build --locked --release --target ${{ matrix.target }}
-      - name: Tar artifacts
+      - name: Compress artifacts (Non-Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path depot -Destination ${{ matrix.target }}.zip
+      - name: Compress artifacts (Non-Windows)
+        if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
           zip -9 ${{ matrix.target }}.zip depot
