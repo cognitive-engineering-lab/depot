@@ -55,16 +55,12 @@ jobs:
     needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
-      - name: Install cargo-workspaces
-        uses: baptiste0928/cargo-install@v2
-        with:
-          crate: cargo-workspaces
       - name: Checkout
         uses: actions/checkout@v4
       - name: Login to crates.io
         run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
       - name: Publish crates
-        run: cargo ws publish --from-git --yes
+        run: cargo publish --workspace
       - name: Add a tag for the merged commit
         uses: christophebedard/tag-version-commit@v1
         with:
