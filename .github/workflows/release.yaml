@@ -35,11 +35,11 @@ jobs:
         uses: ./.github/workflows/setup
       - name: Compile binary
         run: cargo build --locked --release --target ${{ matrix.target }}
-      - name: Compress artifacts (Non-Windows)
+      - name: Compress artifacts (Windows)
         if: runner.os == 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          Compress-Archive -Path depot -Destination ${{ matrix.target }}.zip
+          Compress-Archive -Path depot.exe -Destination ${{ matrix.target }}.zip
       - name: Compress artifacts (Non-Windows)
         if: runner.os != 'Windows'
         run: |
