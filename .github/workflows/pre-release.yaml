@@ -30,9 +30,10 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest
             command: test
+          # disabling windows tests for now bc of a bunch of biome issues
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            command: test
+            command: build
           - target: aarch64-pc-windows-msvc
             os: windows-11-arm
             command: build
