@@ -8,7 +8,7 @@ download() {
   cd $(mktemp -d)
   
   echo 'Downloading prebuilt binary from Github...'
-  wget "${BASE_URL}/$1.tar.gz"
+  wget --quiet "${BASE_URL}/$1.tar.gz"
   tar -xf $1.tar.gz
 
   mkdir -p $INSTALL_DIR
