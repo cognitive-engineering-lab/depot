@@ -6,17 +6,17 @@ INSTALL_DIR=$HOME/.local/bin
 
 download() {
   cd $(mktemp -d)
-  
+
   echo 'Downloading prebuilt binary from Github...'
-  wget --quiet "${BASE_URL}/$1.tar.gz"
-  tar -xf $1.tar.gz
+  curl --silent --location "${BASE_URL}/$1.zip" --output $1.zip
+  unzip $1.zip
 
   mkdir -p $INSTALL_DIR
   mv depot $INSTALL_DIR/depot
 }
 
 ARCH=$(uname -m)
-OS=$(uname)
+OS=$(uname -o)
 
 pick_target() {
   echo "Selecting target for $ARCH / $OS..."
@@ -35,6 +35,14 @@ pick_target() {
       return
     elif [ "$ARCH" = "x86_64" ]; then
       download "x86_64-apple-darwin"
+      return
+    fi
+  elif [ "$OS" = "Msys" ]; then
+    if [ "$ARCH" = "arm64" ]; then
+      download "aarch64-pc-windows-msvc"
+      return
+    elif [ "$ARCH" = "x86_64" ]; then
+      download "x86_64-pc-windows-msvc"
       return
     fi
   fi
