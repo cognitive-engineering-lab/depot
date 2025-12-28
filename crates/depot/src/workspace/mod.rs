@@ -318,7 +318,14 @@ impl WorkspaceInner {
     let pnpm =
       utils::find_pnpm(Some(&self.root)).ok_or(anyhow!("could not find pnpm on your system"))?;
 
-    let mut cmd = tokio::process::Command::new(pnpm);
+    cfg_if::cfg_if! {
+      if #[cfg(windows)] {
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.arg(pnpm);
+      } else {
+        let mut cmd = tokio::process::Command::new(pnpm);
+      }
+    }
     cmd.current_dir(&self.root);
     cmd.env("NODE_PATH", self.root.join("node_modules"));
 

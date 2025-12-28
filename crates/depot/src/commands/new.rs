@@ -548,7 +548,14 @@ minify: false,"#,
 
   fn run_pnpm(&self, f: impl Fn(&mut Command)) -> Result<()> {
     let pnpm_bin = utils::find_pnpm(None).context("Could not find pnpm")?;
-    let mut cmd = Command::new(pnpm_bin);
+    cfg_if::cfg_if! {
+      if #[cfg(windows)] {
+        let mut cmd = Command::new("sh");
+        cmd.arg(pnpm_bin);
+      } else {
+        let mut cmd = Command::new(pnpm_bin);
+      }
+    }
     f(&mut cmd);
 
     if self.args.offline {
