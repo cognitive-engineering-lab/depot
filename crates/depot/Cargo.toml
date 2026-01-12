@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.3.2"
+version = "0.3.3"
 description = "A Javascript devtool orchestrator"
 edition = "2024"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -24,15 +24,16 @@ indexmap = "2" # This must match package_json_schema
 ratatui = "=0.29.0"
 # Note: use-dev-tty seems to be important to avoid a slowdown of handling user input
 # when combined w/ async-process... not sure why
-crossterm = { version = "0.26", features = ["event-stream", "use-dev-tty"] }
+# Note: libc feature is a temporary hack for 0.28
+#   see: https://github.com/crossterm-rs/crossterm/issues/935
+crossterm = { version = "0.28", features = ["event-stream", "use-dev-tty", "libc"] }
 ansi-to-tui = "7.0.0" # This must match ratatui
 ansi-diff = "1"
 
 ## OS
-notify = { version = "6.0.1", default-features = false, features = ["macos_kqueue"] }
-notify-debouncer-mini = { version = "0.3.0", default-features = false }
+notify = { version = "8.2.0", default-features = false, features = ["macos_kqueue"] }
+notify-debouncer-mini = { version = "0.7.0", default-features = false }
 pathsearch = "0.2.0"
-home = "0.5"
 
 ## Async
 futures = { version = "0.3", default-features = false, features = ["std"] }
@@ -58,4 +59,4 @@ env_logger = { version = "0.10", default-features = false }
 
 [dev-dependencies]
 depot-test-utils = { path = "../depot-test-utils" }
-tempfile = "3.4"
+tempfile = "3.24"

@@ -208,7 +208,7 @@ impl BuildCommand {
     if self.args.watch {
       let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
       let timeout = Duration::from_secs(1);
-      let mut debouncer = notify_debouncer_mini::new_debouncer(timeout, None, move |events| {
+      let mut debouncer = notify_debouncer_mini::new_debouncer(timeout, move |events| {
         let _ = tx.send(events);
       })?;
 
