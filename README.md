@@ -87,7 +87,8 @@ Additional documentation about each command will be created soon once the Depot 
 
 Depot is used in a few of our projects:
 * [mdbook-quiz](https://github.com/cognitive-engineering-lab/mdbook-quiz/tree/main/js)
-* [aquascope](https://github.com/cognitive-engineering-lab/aquascope/tree/main/frontend)
+* [Aquascope](https://github.com/cognitive-engineering-lab/aquascope/tree/main/frontend)
+* [Bene](https://github.com/nota-lang/bene/tree/main/js)
 
 [model JS workspace]: https://github.com/willcrichton/model-js-workspace/
 [Cargo]: https://doc.rust-lang.org/cargo/
