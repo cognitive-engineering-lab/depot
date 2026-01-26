@@ -17,7 +17,7 @@
           cleanSource = prev.lib.cleanSource;
         };
 
-        mkDepotWebsite = final.callPackage ./nix/mk-depot-website.nix {
+        mkDepotPackage = final.callPackage ./nix/mk-depot-package.nix {
           depot = final.depot;
         };
       };
