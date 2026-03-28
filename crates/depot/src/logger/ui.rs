@@ -246,7 +246,10 @@ pub struct InlineRenderer {
 impl InlineRenderer {
   pub fn new() -> Self {
     // TODO: do we need a different rendering strategy if there's no tty?
-    let (w, h) = crossterm::terminal::size().unwrap_or((80, 40));
+    let (w, h) = match crossterm::terminal::size() {
+      Ok((w, h)) if w > 0 && h > 0 => (w, h),
+      _ => (80, 40),
+    };
     let diff = Mutex::new(ansi_diff::Diff::new((u32::from(w), u32::from(h))));
     InlineRenderer { diff }
   }

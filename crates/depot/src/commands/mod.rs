@@ -9,24 +9,24 @@ pub mod test;
 
 #[derive(clap::Subcommand)]
 pub enum Command {
-  #[clap(visible_alias = "n")]
-  New(new::NewArgs),
+    #[clap(visible_alias = "n")]
+    New(new::NewArgs),
 
-  #[clap(visible_alias = "b")]
-  Build(build::BuildArgs),
+    #[clap(visible_alias = "b")]
+    Build(build::BuildArgs),
 
-  #[clap(visible_alias = "t")]
-  Test(test::TestArgs),
+    #[clap(visible_alias = "t")]
+    Test(test::TestArgs),
 
-  #[clap(visible_alias = "c")]
-  Clean(clean::CleanArgs),
+    #[clap(visible_alias = "c")]
+    Clean(clean::CleanArgs),
 
-  #[clap(visible_alias = "d")]
-  Doc(doc::DocArgs),
+    #[clap(visible_alias = "d")]
+    Doc(doc::DocArgs),
 
-  Fmt(fmt::FmtArgs),
+    Fmt(fmt::FmtArgs),
 
-  Fix(fix::FixArgs),
+    Fix(fix::FixArgs),
 
-  Init(init::InitArgs),
+    Init(init::InitArgs),
 }
