@@ -50,7 +50,7 @@ stdenv.mkDerivation (
       export npm_config_store_dir=$PNPM_WRITABLE_STORE
 
       # 2. Run Depot Build
-      depot b --release
+      depot --no-fullscreen b --release
     '';
 
     installPhase = ''
