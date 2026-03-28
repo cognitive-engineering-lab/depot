@@ -3,7 +3,7 @@
   stdenv,
   cacert,
   nodejs_22,
-  pnpm_9,
+  pnpm,
   fetchPnpmDeps,
   pnpmConfigHook,
   depot,
@@ -35,7 +35,7 @@ stdenv.mkDerivation (
 
     nativeBuildInputs = [
       cacert
-      pnpm_9
+      pnpm
       nodejs_22
       pnpmConfigHook
       depot
