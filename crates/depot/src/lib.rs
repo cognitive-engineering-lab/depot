@@ -34,6 +34,10 @@ pub struct CommonArgs {
   /// Disable fullscreen UI
   #[clap(long)]
   no_fullscreen: bool,
+
+  /// Don't attempt to interact with the web
+  #[arg(long, action)]
+  pub offline: bool,
 }
 
 #[derive(clap::Parser)]
