@@ -3,7 +3,9 @@
   stdenv,
   cacert,
   nodejs_22,
-  pnpm_9,
+  pnpm,
+  fetchPnpmDeps,
+  pnpmConfigHook,
   depot,
 }:
 
@@ -11,8 +13,8 @@
   pname,
   version,
   src,
-  pnpmHash, # The checksum for pnpm-lock.yaml
-  distDir ? "dist", # Where the build output lands (relative to root)
+  pnpmHash,
+  distDir ? "dist",
   extraNativeBuildInputs ? [ ],
   ...
 }@args:
@@ -25,37 +27,37 @@ stdenv.mkDerivation (
     "extraNativeBuildInputs"
   ])
   // {
+    pnpmDeps = fetchPnpmDeps {
+      inherit (finalAttrs) pname version src;
+      hash = pnpmHash;
+      fetcherVersion = 3;
+    };
+
     nativeBuildInputs = [
       cacert
-      pnpm_9
+      pnpm
       nodejs_22
+      pnpmConfigHook
       depot
     ]
     ++ extraNativeBuildInputs;
 
-    pnpmDeps = pnpm_9.fetchDeps {
-      inherit (finalAttrs) pname version src;
-      fetcherVersion = 2;
-      hash = pnpmHash;
-    };
-
     buildPhase = ''
-      set -euo pipefail
+      runHook preBuild
 
-      # 1. Setup PNPM Store
-      export NPM_CONFIG_OFFLINE=true
-      export PNPM_WRITABLE_STORE=$(mktemp -d)
-      cp -LR ${finalAttrs.pnpmDeps}/* $PNPM_WRITABLE_STORE/ || true
-      chmod -R +w $PNPM_WRITABLE_STORE
-      export npm_config_store_dir=$PNPM_WRITABLE_STORE
+      # Run Depot Build
+      depot --no-fullscreen b --release
 
-      # 2. Run Depot Build
-      depot b --release
+      runHook postBuild
     '';
 
     installPhase = ''
+      runHook preInstall
+
       mkdir -p $out
       cp -r ${distDir}/* $out/ 
+
+      runHook postInstall
     '';
   }
 )
