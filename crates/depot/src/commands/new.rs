@@ -249,6 +249,7 @@ impl NewCommand {
             &mut config,
             json!({
               "compilerOptions": {
+                "rootDir": "src",
                 "outDir": "dist"
               },
               "typedocOptions": {

@@ -6,10 +6,6 @@ use anyhow::{Context, Result};
 /// Initialize a workspace
 #[derive(clap::Parser, Default, Debug)]
 pub struct InitArgs {
-  /// If true, then don't attempt to download packages from the web
-  #[arg(long, action)]
-  pub offline: bool,
-
   /// Additional arguments to pass to vitest
   #[arg(last = true)]
   pub pnpm_args: Option<String>,
@@ -48,7 +44,7 @@ impl WorkspaceCommand for InitCommand {
     ws.exec("pnpm", |cmd| {
       cmd.arg("install");
 
-      if self.args.offline {
+      if ws.common.offline {
         cmd.arg("--offline");
       }
 

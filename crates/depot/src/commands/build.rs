@@ -22,10 +22,6 @@ pub struct BuildArgs {
   #[arg(short, long)]
   pub release: bool,
 
-  /// Don't attempt to download packages from the web
-  #[arg(long, action)]
-  pub offline: bool,
-
   /// Rebuild when files change
   #[clap(short, long, action)]
   pub watch: bool,
