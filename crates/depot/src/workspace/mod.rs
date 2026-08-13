@@ -76,6 +76,7 @@ fn find_workspace_root(max_ancestor: &Path, cwd: &Path) -> Result<PathBuf> {
   });
   let components = rel_path_to_cwd.iter().collect::<Vec<_>>();
   (0..=components.len())
+    .rev()
     .map(|i| {
       iter::once(max_ancestor.as_os_str())
         .chain(components[..i].iter().copied())

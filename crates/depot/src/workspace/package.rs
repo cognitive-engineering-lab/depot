@@ -293,7 +293,7 @@ impl PackageInner {
 
   pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
     let mut asset_extensions: HashSet<&str> =
-      hashset! { "scss", "css", "jpeg", "jpg", "png", "svg" };
+      hashset! { "scss", "css", "jpeg", "jpg", "png", "svg", "wasm" };
     if let Some(exts) = &self.manifest.config.asset_extensions {
       asset_extensions.extend(exts.iter().map(String::as_str));
     }
