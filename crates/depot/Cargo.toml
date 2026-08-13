@@ -1,6 +1,6 @@
 [package]
 name = "depot-js"
-version = "0.3.4"
+version = "0.3.5"
 description = "A Javascript devtool orchestrator"
 edition = "2024"
 authors = ["Will Crichton <crichton.will@gmail.com>"]
@@ -55,7 +55,6 @@ ignore = "0.4.22"
 ## Dev
 log = "0.4"
 env_logger = { version = "0.10", default-features = false }
-
 
 [dev-dependencies]
 depot-test-utils = { path = "../depot-test-utils" }

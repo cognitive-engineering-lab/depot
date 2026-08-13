@@ -55,7 +55,6 @@ test("add", () => expect(add(2, 2)).toBe(4));
 const CSS: &str = r#"@import "normalize.css/normalize.css";
 "#;
 
-const PNPM_WORKSPACE: &str = include_str!("configs/pnpm-workspace.yaml");
 const VITEST_SETUP: &str = include_str!("configs/setup.ts");
 
 /// Create a new Depot workspace
@@ -83,10 +82,6 @@ pub struct NewArgs {
   /// Add Vike as a project dependency
   #[arg(long, action)]
   pub vike: bool,
-
-  /// Add Sass as a project dependency
-  #[arg(long, action)]
-  pub sass: bool,
 
   /// Don't attempt to download packages from the web
   #[arg(long, action)]
@@ -165,21 +160,13 @@ impl NewCommand {
       "private": true,
       "depot": {
         "depot-version": DEPOT_VERSION
-      },
-      // STUPID HACK: see note on same code in new_package
-      "pnpm": {
-        "overrides": {
-          "rollup": "npm:@rollup/wasm-node"
-        }
       }
     });
-    let mut files: FileVec = vec![
-      (
-        "package.json".into(),
-        serde_json::to_string_pretty(&manifest)?.into(),
-      ),
-      ("pnpm-workspace.yaml".into(), PNPM_WORKSPACE.into()),
-    ];
+    let mut files: FileVec = vec![(
+      "package.json".into(),
+      serde_json::to_string_pretty(&manifest)?.into(),
+    )];
+    files.extend(Self::make_pnpm_workspace(true));
     files.extend(self.make_tsconfig()?);
     files.extend(self.make_biome_config()?);
     files.extend(self.make_typedoc_config()?);
@@ -192,6 +179,26 @@ impl NewCommand {
     self.install_ws_dependencies(root, true)?;
 
     Ok(())
+  }
+
+  fn make_pnpm_workspace(workspace: bool) -> FileVec {
+    let mut config = String::from(
+      r"
+allowBuilds:
+  esbuild: true
+",
+    );
+
+    if workspace {
+      config.push_str(
+        r"
+packages:
+  - 'packages/*'
+",
+      );
+    }
+
+    vec![("pnpm-workspace.yaml".into(), config.into())]
   }
 
   fn make_tsconfig(&self) -> Result<FileVec> {
@@ -582,7 +589,7 @@ minify: false,"#,
       "vitest",
 
       // Types
-      "typescript",
+      "typescript@^6",
       "@types/node",
 
       // Linting and formatting
@@ -652,21 +659,21 @@ minify: false,"#,
     json_merge(&mut config, serde_json::to_value(ws_config)?);
     other.insert("depot".into(), config);
 
-    // STUPID HACK:
-    // - This npm bug (and I guess pnpm bug) causes platform-specific rollup packages to not be installed:
-    //   https://github.com/npm/cli/issues/4828
-    // - A stupid patch is to use the Wasm build of Rollup:
-    //   https://github.com/vitejs/vite/issues/15167
-    if self.ws_opt.is_none() {
-      other.insert(
-        "pnpm".into(),
-        json!({
-          "overrides": {
-            "rollup": "npm:@rollup/wasm-node"
-          }
-        }),
-      );
-    }
+    // // STUPID HACK:
+    // // - This npm bug (and I guess pnpm bug) causes platform-specific rollup packages to not be installed:
+    // //   https://github.com/npm/cli/issues/4828
+    // // - A stupid patch is to use the Wasm build of Rollup:
+    // //   https://github.com/vitejs/vite/issues/15167
+    // if self.ws_opt.is_none() {
+    //   other.insert(
+    //     "pnpm".into(),
+    //     json!({
+    //       "overrides": {
+    //         "rollup": "npm:@rollup/wasm-node"
+    //       }
+    //     }),
+    //   );
+    // }
 
     let mut files: FileVec = Vec::new();
 
@@ -701,10 +708,6 @@ minify: false,"#,
       }
     }
 
-    if self.args.sass {
-      dev_dependencies.push("sass");
-    }
-
     let entry_point = match target {
       Target::Site => {
         ensure!(
@@ -715,7 +718,7 @@ minify: false,"#,
         dev_dependencies.push("normalize.css");
 
         let css_name = if self.args.vike { "base" } else { "index" };
-        let css_path = format!("{css_name}.{}", if self.args.sass { "scss" } else { "css" });
+        let css_path = format!("{css_name}.css");
 
         if self.args.vike {
           ensure!(self.args.react, "Currently must use --react with --vike");
@@ -831,6 +834,7 @@ export default () => {
     files.extend(self.make_vite_config(entry_point));
 
     if self.ws_opt.is_none() {
+      files.extend(Self::make_pnpm_workspace(false));
       files.extend(Self::make_gitignore());
     }
 
