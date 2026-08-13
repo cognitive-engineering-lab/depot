@@ -1,3 +1,4 @@
+use futures::future::join_all;
 use std::{
   process::{ExitStatus, Stdio},
   sync::{
@@ -115,6 +116,14 @@ impl Process {
       .wait()
       .await
       .with_context(|| format!("Process `{}` failed", self.script));
+
+    let pipe_handles = self
+      .pipe_handles
+      .lock()
+      .unwrap()
+      .drain(..)
+      .collect::<Vec<_>>();
+    join_all(pipe_handles).await;
 
     self.finished.store(true, Ordering::SeqCst);
 
