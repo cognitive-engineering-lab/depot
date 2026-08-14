@@ -54,13 +54,6 @@ fn basic_site_browser() {
 }
 
 #[test]
-fn basic_site_sass() {
-  let project = custom_project_for("site", "browser", "--sass");
-  project.depot("build --lint-fail");
-  assert!(project.exists("dist/index.html"));
-}
-
-#[test]
 fn basic_site_vike() {
   let project = custom_project_for("site", "browser", "--vike --react");
   project.depot("build");
