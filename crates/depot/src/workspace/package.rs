@@ -1,6 +1,6 @@
 use anyhow::{Context, Error, Result, bail, ensure};
 
-use ignore::Walk;
+use ignore::WalkBuilder;
 use maplit::hashset;
 use std::{
   collections::HashSet,
@@ -280,15 +280,22 @@ impl PackageInner {
       .unwrap_or_else(|_| panic!("Called set_workspace twice!"));
   }
 
-  fn iter_files(&self, rel_path: impl AsRef<Path>) -> impl Iterator<Item = PathBuf> {
-    Walk::new(self.root.join(rel_path)).filter_map(|entry| {
-      let entry = entry.ok()?;
-      let is_file = match entry.file_type() {
-        Some(file_type) => file_type.is_file(),
-        None => false,
-      };
-      is_file.then(|| entry.into_path())
-    })
+  fn iter_files(
+    &self,
+    rel_path: impl AsRef<Path>,
+    git_only: bool,
+  ) -> impl Iterator<Item = PathBuf> {
+    WalkBuilder::new(self.root.join(rel_path))
+      .git_ignore(git_only)
+      .build()
+      .filter_map(|entry| {
+        let entry = entry.ok()?;
+        let is_file = match entry.file_type() {
+          Some(file_type) => file_type.is_file(),
+          None => false,
+        };
+        is_file.then(|| entry.into_path())
+      })
   }
 
   pub fn asset_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
@@ -299,14 +306,14 @@ impl PackageInner {
     }
 
     self
-      .iter_files("src")
+      .iter_files("src", false)
       .filter_map(move |path| {
         let ext = path.extension()?;
         asset_extensions
           .contains(ext.to_str().unwrap())
           .then_some(path)
       })
-      .chain(self.iter_files("src/assets"))
+      .chain(self.iter_files("src/assets", false))
       .collect::<HashSet<_>>() // dedup
       .into_iter()
   }
@@ -326,7 +333,7 @@ impl PackageInner {
 
     ["src", "tests"]
       .into_iter()
-      .flat_map(|dir| self.iter_files(dir))
+      .flat_map(|dir| self.iter_files(dir, true))
       .chain(CONFIG_FILES.iter().map(PathBuf::from))
       .filter_map(move |path| {
         if !path.exists() {
@@ -340,7 +347,7 @@ impl PackageInner {
   }
 
   pub fn all_files(&self) -> impl Iterator<Item = PathBuf> + '_ {
-    self.iter_files("src")
+    self.iter_files("src", false)
   }
 }
 
