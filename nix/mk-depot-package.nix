@@ -30,7 +30,7 @@ stdenv.mkDerivation (
     pnpmDeps = fetchPnpmDeps {
       inherit (finalAttrs) pname version src;
       hash = pnpmHash;
-      fetcherVersion = 3;
+      fetcherVersion = 4;
     };
 
     nativeBuildInputs = [
