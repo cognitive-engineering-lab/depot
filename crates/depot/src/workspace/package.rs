@@ -248,10 +248,6 @@ impl Package {
       .wait_for_success()
       .await
   }
-
-  pub fn uses_vike(&self) -> bool {
-    self.root.join("src/+config.ts").exists()
-  }
 }
 
 impl PackageInner {

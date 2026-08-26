@@ -2,7 +2,7 @@
   lib,
   stdenv,
   cacert,
-  nodejs_22,
+  nodejs_24,
   pnpm,
   fetchPnpmDeps,
   pnpmConfigHook,
@@ -36,7 +36,7 @@ stdenv.mkDerivation (
     nativeBuildInputs = [
       cacert
       pnpm
-      nodejs_22
+      nodejs_24
       pnpmConfigHook
       depot
     ]
@@ -55,7 +55,7 @@ stdenv.mkDerivation (
       runHook preInstall
 
       mkdir -p $out
-      cp -r ${distDir}/* $out/ 
+      cp -r ${distDir}/* $out/
 
       runHook postInstall
     '';

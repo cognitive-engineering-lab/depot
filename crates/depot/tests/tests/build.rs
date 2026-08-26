@@ -54,13 +54,6 @@ fn basic_site_browser() {
 }
 
 #[test]
-fn basic_site_vike() {
-  let project = custom_project_for("site", "browser", "--vike --react");
-  project.depot("build");
-  assert!(project.exists("dist/client/index.html"));
-}
-
-#[test]
 fn copy_assets() {
   let p = project();
   p.file("src/assets/foo.txt", "");
