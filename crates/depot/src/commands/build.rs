@@ -54,14 +54,7 @@ impl PackageCommand for BuildCommand {
     let mut processes = Vec::new();
 
     processes.push(match pkg.target {
-      Target::Site => {
-        if pkg.uses_vike() {
-          self.vike(pkg).boxed()
-        } else {
-          self.vite(pkg).boxed()
-        }
-      }
-      Target::Script => self.vite(pkg).boxed(),
+      Target::Site | Target::Script => self.vite(pkg).boxed(),
       Target::Lib => self.copy_assets(pkg).boxed(),
     });
 
@@ -122,20 +115,6 @@ impl BuildCommand {
     Ok(())
   }
 
-  async fn vike(&self, pkg: &Package) -> Result<()> {
-    pkg
-      .exec("vike", |cmd| {
-        cmd.env("FORCE_COLOR", "1");
-        let no_server = pkg.manifest.config.no_server.unwrap_or(false);
-        if self.args.watch && !no_server {
-          cmd.arg("dev");
-        } else {
-          cmd.arg("build");
-        }
-      })
-      .await
-  }
-
   async fn vite(&self, pkg: &Package) -> Result<()> {
     pkg
       .exec("vite", |cmd| {
@@ -149,7 +128,7 @@ impl BuildCommand {
             cmd.arg("--watch");
           }
           if self.args.release {
-            // cmd.env("NODE_ENV", "production");
+            cmd.env("NODE_ENV", "production");
           } else {
             cmd.args([
               "--sourcemap",
@@ -160,9 +139,8 @@ impl BuildCommand {
               "development",
             ]);
 
-            // TODO: running `NODE_ENV=development vite build` seems to
-            // break Vike.
-
+            // TODO(wc): figure out when this env var is actually needed.
+            // Seems to cause lots of unexpected problems on bundling & imports.
             // cmd.env("NODE_ENV", "development");
           }
         }

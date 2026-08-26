@@ -79,10 +79,6 @@ pub struct NewArgs {
   #[arg(long, action)]
   pub react: bool,
 
-  /// Add Vike as a project dependency
-  #[arg(long, action)]
-  pub vike: bool,
-
   /// Don't attempt to download packages from the web
   #[arg(long, action)]
   pub offline: bool,
@@ -358,9 +354,6 @@ packages:
     if self.args.react {
       imports.push(("react", "@vitejs/plugin-react"));
     }
-    if self.args.vike {
-      imports.push(("vike", "vike/plugin"));
-    }
     imports.push(("{ defineConfig }", "vite"));
 
     let mut config: Vec<(&str, Cow<'static, str>)> = Vec::new();
@@ -368,9 +361,7 @@ packages:
     let mut uses_manifest = false;
     match target {
       Target::Site => {
-        if !self.args.vike {
-          config.push(("base", "\"./\"".into()));
-        }
+        config.push(("base", "\"./\"".into()));
       }
       Target::Script => {
         imports.push(("{ resolve }", "node:path"));
@@ -430,9 +421,6 @@ minify: false,"#,
     let mut plugins = Vec::new();
     if self.args.react {
       plugins.push("react()");
-    }
-    if self.args.vike {
-      plugins.push("vike({ prerender: true })");
     }
     if !plugins.is_empty() {
       config.push(("plugins", format!("[{}]", plugins.join(", ")).into()));
@@ -695,19 +683,6 @@ minify: false,"#,
       ]);
     }
 
-    if self.args.vike {
-      ensure!(
-        target.is_site(),
-        "--vike can only be used with --target site"
-      );
-
-      dev_dependencies.push("vike");
-
-      if self.args.react {
-        dev_dependencies.push("vike-react");
-      }
-    }
-
     let entry_point = match target {
       Target::Site => {
         ensure!(
@@ -717,62 +692,23 @@ minify: false,"#,
 
         dev_dependencies.push("normalize.css");
 
-        let css_name = if self.args.vike { "base" } else { "index" };
+        let css_name = "index";
         let css_path = format!("{css_name}.css");
 
-        if self.args.vike {
-          ensure!(self.args.react, "Currently must use --react with --vike");
-          const CONFIG_SRC: &str = r#"import vikeReact from "vike-react/config";
-import type { Config } from "vike/types";
-
-export let config: Config = {
-  extends: vikeReact,
-  lang: "en-US"
-};
-"#;
-          files.push(("src/+config.ts".into(), CONFIG_SRC.into()));
-
-          let head_src = format!(
-            r#"import React from "react";
-import "./{css_path}";
-
-export let Head = () => (
-  <>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </>
-);
-"#
-          );
-          files.push(("src/+Head.tsx".into(), head_src.into()));
-          files.push((format!("src/{css_path}").into(), CSS.into()));
-
-          const INDEX_SRC: &str = r#"import React from "react";
-
-export default () => {
-  return <h1>Hello, world!</h1>;
-};
-"#;
-          files.push(("src/index/+Page.tsx".into(), INDEX_SRC.into()));
-
-          const TITLE_SRC: &str = r#"export let title = "Example Site";
-"#;
-          files.push(("src/index/+title.tsx".into(), TITLE_SRC.into()));
+        let (js_path, js_contents) = if self.args.react {
+          ("index.tsx", REACT_INDEX)
         } else {
-          let (js_path, js_contents) = if self.args.react {
-            ("index.tsx", REACT_INDEX)
-          } else {
-            ("index.ts", BASIC_INDEX)
-          };
+          ("index.ts", BASIC_INDEX)
+        };
 
-          files.push((
-            "index.html".into(),
-            Self::make_index_html(js_path, &css_path).into(),
-          ));
+        files.push((
+          "index.html".into(),
+          Self::make_index_html(js_path, &css_path).into(),
+        ));
 
-          utils::create_dir(root.join("styles"))?;
-          files.push((format!("styles/{css_path}").into(), CSS.into()));
-          files.push((format!("src/{js_path}").into(), js_contents.into()));
-        }
+        utils::create_dir(root.join("styles"))?;
+        files.push((format!("styles/{css_path}").into(), CSS.into()));
+        files.push((format!("src/{js_path}").into(), js_contents.into()));
 
         None
       }
